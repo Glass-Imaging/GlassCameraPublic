@@ -1,30 +1,57 @@
+// Copyright (c) 2021-2022 Glass Imaging Inc.
+// Author: Fabio Riccardi <fabio@glass-imaging.com>
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import CoreImage
 import Combine
 import UniformTypeIdentifiers
+import Photos
+import UIKit
 
 class PhotoManager {
-    private static var cancellable: AnyCancellable?
-    static func take() {
-        debugPrint("Clicked PhotoManager.take()")
-        cancellable = FrameManager.shared.$current.first().sink { receiveValue in
-            guard receiveValue != nil else {
-                debugPrint("[W] PhotoManager.take: buffer returned nil")
+    private static let ciContext = CIContext(options: nil)
+
+    private static var publisher: AnyCancellable?
+
+    static func capturePhoto() {
+        publisher = FrameManager.frameManager.$imageBuffer.first().sink { imageBuffer in
+            guard imageBuffer != nil else {
+                debugPrint("[W] PhotoManager.capturePhoto: empty imageBuffer")
                 return
             }
             
-            let inputImage = CIImage(cvPixelBuffer: receiveValue!)
-            let context = CIContext(options: nil)
-            let cgImage = context.createCGImage(inputImage, from: inputImage.extent)
-            guard cgImage != nil else {
-                debugPrint("[W] PhotoManager.take: CGImage is nil")
+            let inputImage = CIImage(cvPixelBuffer: imageBuffer!)
+            guard let cgImage = ciContext.createCGImage(inputImage, from: inputImage.extent) else {
+                debugPrint("[W] PhotoManager.capturePhoto: CGImage is nil")
                 return
             }
-            self.save(image: cgImage!, filename: "my-image-test.png")
+
+            // Save image to the Photo Library
+            PHPhotoLibrary.shared().performChanges {
+                _ = PHAssetChangeRequest.creationRequestForAsset(from: UIImage(cgImage: cgImage))
+            } completionHandler: { (success, error) in
+                if (success) {
+                    debugPrint("[I] Successfully Added image to Photo Library")
+                } else {
+                    debugPrint("[W] Failed to Add image to Photo Library", error.debugDescription)
+                }
+            }
         }
         
     }
     
-    static func save(image: CGImage, filename: String) {
+    static func saveToFile(image: CGImage, filename: String) {
         let cfdata: CFMutableData = CFDataCreateMutable(nil, 0)
         if let destination = CGImageDestinationCreateWithData(cfdata, String(describing: UTType.png) as CFString, 1, nil) {
             CGImageDestinationAddImage(destination, image, nil)

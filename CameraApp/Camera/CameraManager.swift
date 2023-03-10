@@ -1,8 +1,22 @@
+// Copyright (c) 2021-2022 Glass Imaging Inc.
+// Author: Fabio Riccardi <fabio@glass-imaging.com>
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import AVFoundation
 
 class CameraManager: ObservableObject {
 
-    /** enums to represent the CameraManager statuses */
     enum Status {
         case unconfigured
         case configured
@@ -10,7 +24,6 @@ class CameraManager: ObservableObject {
         case failed
     }
 
-    /** enums to represent errors related to using, acessing, IO etc of the camera device */
     enum CameraError: Error {
         case cameraUnavailable
         case cannotAddInput
@@ -21,15 +34,12 @@ class CameraManager: ObservableObject {
         case thrownError(message: Error)
     }
 
-    /** ``error`` stores the current error related to camera */
-    @Published var error: CameraError?
+    @Published var cameraError: CameraError?
 
-    /** ``session`` stores camera capture session */
-    let session = AVCaptureSession()
+    let captureSession = AVCaptureSession()
 
-    /** ``shared`` a single reference to instance of CameraManager
-     All the other codes in the app must use this single instance */
-    static let shared = CameraManager()
+    // singleton shared object
+    static let cameraManager = CameraManager()
 
     private let sessionQueue = DispatchQueue(label: "com.glass-imaging.CameraApp.SessionQ")
 
@@ -37,9 +47,7 @@ class CameraManager: ObservableObject {
 
     private var status = Status.unconfigured
 
-    /** ``set(_:queue:)`` configures `delegate` and `queue`
-     this should be configured before using the camera output */
-    func set(
+    func setCaptureDelegate(
         _ delegate: AVCaptureVideoDataOutputSampleBufferDelegate,
         queue: DispatchQueue
     ) {
@@ -50,19 +58,15 @@ class CameraManager: ObservableObject {
 
     private func setError(_ error: CameraError?) {
         DispatchQueue.main.async {
-            self.error = error
+            self.cameraError = error
         }
     }
 
     private init() {
-        configure()
-    }
-
-    private func configure() {
         checkPermissions()
         sessionQueue.async {
             self.configureCaptureSession()
-            self.session.startRunning()
+            self.captureSession.startRunning()
         }
     }
 
@@ -70,26 +74,34 @@ class CameraManager: ObservableObject {
         guard status == .unconfigured else {
             return
         }
-        session.beginConfiguration()
+
+        captureSession.beginConfiguration()
         defer {
-            session.commitConfiguration()
+            captureSession.commitConfiguration()
         }
-        let device = AVCaptureDevice.default(
-            .builtInWideAngleCamera,
-            for: .video,
-            position: .back)
-        guard let camera = device else {
-            setError( .cameraUnavailable)
+
+        var defaultVideoDevice: AVCaptureDevice?
+
+        // Find an available camera
+        if let backCameraDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) {
+            defaultVideoDevice = backCameraDevice
+        } else if let frontCameraDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .front) {
+            defaultVideoDevice = frontCameraDevice
+        }
+
+        guard let camera = defaultVideoDevice else {
+            setError(.cameraUnavailable)
             status = .failed
             return
         }
+
         do {
             let cameraInput = try AVCaptureDeviceInput(device: camera)
 
-            if session.canAddInput(cameraInput) {
-                session.addInput(cameraInput)
+            if captureSession.canAddInput(cameraInput) {
+                captureSession.addInput(cameraInput)
             } else {
-                setError( .cannotAddInput)
+                setError(.cannotAddInput)
                 status = .failed
                 return
             }
@@ -100,8 +112,8 @@ class CameraManager: ObservableObject {
             return
         }
 
-        if session.canAddOutput(videoOutput) {
-            session.addOutput(videoOutput)
+        if captureSession.canAddOutput(videoOutput) {
+            captureSession.addOutput(videoOutput)
 
             videoOutput.videoSettings =
             [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
@@ -109,7 +121,7 @@ class CameraManager: ObservableObject {
             let videoConnection = videoOutput.connection(with: .video)
             videoConnection?.videoOrientation = .portrait
         } else {
-            setError( .cannotAddOutput)
+            setError(.cannotAddOutput)
             status = .failed
             return
         }
@@ -134,7 +146,7 @@ class CameraManager: ObservableObject {
             status = .unauthorized
             setError(.deniedAuthorization)
         case .authorized:
-            /** ``Status.authorized-enum.case`` represents all success to get the camera access */
+            // We got this...
             break
         @unknown default:
             status = .unauthorized
