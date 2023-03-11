@@ -1,9 +1,17 @@
+// Copyright (c) 2021-2022 Glass Imaging Inc.
+// Author: Fabio Riccardi <fabio@glass-imaging.com>
 //
-//  CameraService.swift
-//  SwiftCamera
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-//  Created by Rolando Rodriguez on 12/20/19.
+//    http://www.apache.org/licenses/LICENSE-2.0
 //
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import Foundation
 import Combine
@@ -234,6 +242,8 @@ public class CameraService: NSObject, Identifiable {
             photoOutput.isHighResolutionCaptureEnabled = true
             photoOutput.maxPhotoQualityPrioritization = .quality
 
+            // Use the Apple ProRAW format when the environment supports it.
+            photoOutput.isAppleProRAWEnabled = photoOutput.isAppleProRAWSupported
         } else {
             print("Could not add photo output to the session")
             setupResult = .configurationFailed
@@ -490,23 +500,56 @@ public class CameraService: NSObject, Identifiable {
                 if let photoOutputConnection = self.photoOutput.connection(with: .video) {
                     photoOutputConnection.videoOrientation = videoPreviewLayerOrientation
                 }
-                var photoSettings = AVCapturePhotoSettings()
 
-                // Capture HEIF photos when supported. Enable according to user settings and high-resolution photos.
-                if  self.photoOutput.availablePhotoCodecTypes.contains(.hevc) {
-                    photoSettings = AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.hevc])
+                let query = self.photoOutput.isAppleProRAWEnabled ?
+                    { AVCapturePhotoOutput.isAppleProRAWPixelFormat($0) } :
+                    { AVCapturePhotoOutput.isBayerRAWPixelFormat($0) }
+
+                var photoSettings: AVCapturePhotoSettings
+
+                // Retrieve the RAW format, favoring the Apple ProRAW format when it's in an enabled state.
+                if let rawFormat = self.photoOutput.availableRawPhotoPixelFormatTypes.first(where: query) {
+                    // Capture a RAW format photo, along with a processed format photo.
+                    let processedFormat = [AVVideoCodecKey: AVVideoCodecType.hevc]
+                    photoSettings = AVCapturePhotoSettings(rawPixelFormatType: rawFormat,
+                                                           processedFormat: processedFormat)
+
+                    // Select the first available codec type, which is JPEG.
+                    guard let thumbnailPhotoCodecType =
+                        photoSettings.availableRawEmbeddedThumbnailPhotoCodecTypes.first else {
+                        // Handle the failure to find an available thumbnail photo codec type.
+                        fatalError("Failed configuring RAW tumbnail.")
+                    }
+
+                    // Select the maximum photo dimensions as thumbnail dimensions if a full-size thumbnail is desired.
+                    // The system clamps these dimensions to the photo dimensions if the capture produces a photo with smaller than maximum dimensions.
+                    let dimensions = photoSettings.maxPhotoDimensions
+                    photoSettings.rawEmbeddedThumbnailPhotoFormat = [
+                        AVVideoCodecKey: thumbnailPhotoCodecType,
+                        AVVideoWidthKey: dimensions.width,
+                        AVVideoHeightKey: dimensions.height
+                    ]
+                } else {
+                    print("RAW Not available, defaulting to compressed images.")
+
+                    photoSettings = AVCapturePhotoSettings()
+
+                    // Capture HEIF photos when supported. Enable according to user settings and high-resolution photos.
+                    if self.photoOutput.availablePhotoCodecTypes.contains(.hevc) {
+                        photoSettings = AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.hevc])
+                    }
+
+                    if self.videoDeviceInput.device.isFlashAvailable {
+                        photoSettings.flashMode = self.flashMode
+                    }
+
+                    photoSettings.isHighResolutionPhotoEnabled = true
+                    if !photoSettings.__availablePreviewPhotoPixelFormatTypes.isEmpty {
+                        photoSettings.previewPhotoFormat = [kCVPixelBufferPixelFormatTypeKey as String: photoSettings.__availablePreviewPhotoPixelFormatTypes.first!]
+                    }
+
+                    photoSettings.photoQualityPrioritization = .quality
                 }
-
-                if self.videoDeviceInput.device.isFlashAvailable {
-                    photoSettings.flashMode = self.flashMode
-                }
-
-                photoSettings.isHighResolutionPhotoEnabled = true
-                if !photoSettings.__availablePreviewPhotoPixelFormatTypes.isEmpty {
-                    photoSettings.previewPhotoFormat = [kCVPixelBufferPixelFormatTypeKey as String: photoSettings.__availablePreviewPhotoPixelFormatTypes.first!]
-                }
-
-                photoSettings.photoQualityPrioritization = .speed
 
                 let photoCaptureProcessor = PhotoCaptureProcessor(with: photoSettings, willCapturePhotoAnimation: {
                     // Flash the screen to signal that AVCam took a photo.

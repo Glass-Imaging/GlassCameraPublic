@@ -1,9 +1,17 @@
+// Copyright (c) 2021-2022 Glass Imaging Inc.
+// Author: Fabio Riccardi <fabio@glass-imaging.com>
 //
-//  PhotoCaptureProcessor.swift
-//  SwiftCamera
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-//  Created by Rolando Rodriguez on 1/11/20.
+//    http://www.apache.org/licenses/LICENSE-2.0
 //
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 import Foundation
 import Photos
@@ -11,6 +19,9 @@ import Photos
 class PhotoCaptureProcessor: NSObject {
     private(set) var captureData: Data?
     private(set) var requestedPhotoSettings: AVCapturePhotoSettings
+
+    private(set) var rawFileURL: URL?
+    private(set) var compressedData: Data?
 
     private let willCapturePhotoAnimation: () -> Void
     private let completionHandler: (PhotoCaptureProcessor) -> Void
@@ -63,6 +74,26 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
         } else {
             captureData = photo.fileDataRepresentation()
         }
+
+        if photo.isRawPhoto {
+            // Generate a unique URL to write the RAW file.
+            rawFileURL = makeUniqueDNGFileURL()
+            do {
+                // Write the RAW (DNG) file data to a URL.
+                try captureData!.write(to: rawFileURL!)
+            } catch {
+                fatalError("Couldn't write DNG file to the URL.")
+            }
+        } else {
+            // Store compressed bitmap data.
+            compressedData = captureData
+        }
+    }
+
+    private func makeUniqueDNGFileURL() -> URL {
+        let tempDir = FileManager.default.temporaryDirectory
+        let fileName = ProcessInfo.processInfo.globallyUniqueString
+        return tempDir.appendingPathComponent(fileName).appendingPathExtension("dng")
     }
 
     // MARK: Saves capture to photo library
@@ -70,10 +101,19 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
         PHPhotoLibrary.requestAuthorization { status in
             if status == .authorized {
                 PHPhotoLibrary.shared().performChanges({
-                    let options = PHAssetResourceCreationOptions()
+                    // Add the compressed (HEIF) data as the main resource for the Photos asset.
                     let creationRequest = PHAssetCreationRequest.forAsset()
-                    options.uniformTypeIdentifier = self.requestedPhotoSettings.processedFileType.map { $0.rawValue }
-                    creationRequest.addResource(with: .photo, data: captureData, options: options)
+
+                    if let compressedData = self.compressedData {
+                        creationRequest.addResource(with: .photo, data: compressedData, options: nil)
+                    }
+
+                    // Add the RAW (DNG) file as an altenate resource.
+                    if let rawFileURL = self.rawFileURL {
+                        let options = PHAssetResourceCreationOptions()
+                        options.shouldMoveFile = true
+                        creationRequest.addResource(with: .alternatePhoto, fileURL: rawFileURL, options: options)
+                    }
                 }, completionHandler: { _, error in
                     if let error = error {
                         print("Error occurred while saving photo to photo library: \(error)")
@@ -82,8 +122,7 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
                     DispatchQueue.main.async {
                         self.completionHandler(self)
                     }
-                }
-                )
+                })
             } else {
                 DispatchQueue.main.async {
                     self.completionHandler(self)
