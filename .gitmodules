@@ -1,0 +1,3 @@
+[submodule "GlassImage"]
+	path = GlassImage
+	url = git@github.com:Glass-Imaging/GlassImage.git
