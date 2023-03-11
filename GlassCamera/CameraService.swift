@@ -131,8 +131,10 @@ public class CameraService: NSObject, Identifiable {
          take a long time. Dispatch session setup to the sessionQueue, so
          that the main queue isn't blocked, which keeps the UI responsive.
          */
-        sessionQueue.async {
-            self.configureSession()
+        if !self.isSessionRunning && !self.isConfigured {
+            sessionQueue.async {
+                self.configureSession()
+            }
         }
     }
 
