@@ -143,6 +143,12 @@ public class CameraService: NSObject, Identifiable {
         print(instanceOfCustomObject.someProperty!)
         let value = instanceOfCustomObject.someMethod()
         print("value: ", value)
+
+        let tmpDirPath = FileManager.default.temporaryDirectory.path();
+        print("temporaryDirectory: ", tmpDirPath)
+
+        // Try out Metal-C++ test.
+        runRenderer(tmpDirPath.cString(using: .utf8));
     }
 
     // MARK: Checks for permisions, setup obeservers and starts running session
@@ -178,7 +184,9 @@ public class CameraService: NSObject, Identifiable {
             setupResult = .notAuthorized
 
             DispatchQueue.main.async {
-                self.alertError = AlertError(title: "Camera Access", message: "Campus no tiene permiso para usar la cámara, por favor cambia la configruación de privacidad", primaryButtonTitle: "Configuración", secondaryButtonTitle: nil, primaryAction: {
+                self.alertError = AlertError(title: "Camera Access",
+                                             message: "No Camera Access Permission, please update configuration.",
+                                             primaryButtonTitle: "Configuration", secondaryButtonTitle: nil, primaryAction: {
                         UIApplication.shared.open(URL(string: UIApplication.openSettingsURLString)!,
                                                   options: [:], completionHandler: nil)
 
