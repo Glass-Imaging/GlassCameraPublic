@@ -15,6 +15,7 @@
 #include <Metal/Metal.hpp>
 
 #include "gls_image.hpp"
+#include "gls_mtl_image.hpp"
 
 static constexpr uint32_t kTextureWidth = 128;
 static constexpr uint32_t kTextureHeight = 128;
@@ -32,8 +33,8 @@ class Renderer {
     NS::SharedPtr<MTL::Device> _device;
     NS::SharedPtr<MTL::CommandQueue> _commandQueue;
     NS::SharedPtr<MTL::ComputePipelineState> _computePSO;
-    NS::SharedPtr<MTL::Buffer> _textureBuffer;
-    NS::SharedPtr<MTL::Texture> _texture;
+
+    gls::mtl_image_2d<gls::rgba_pixel>::unique_ptr _image;
 };
 
 Renderer::Renderer(NS::SharedPtr<MTL::Device> device, const std::string& path) : _device(device), _path(path) {
@@ -62,21 +63,7 @@ void Renderer::buildComputePipeline() {
 }
 
 void Renderer::buildTextures() {
-    const uint32_t mlta = (uint32_t)_device->minimumLinearTextureAlignmentForPixelFormat(MTL::PixelFormatRGBA8Unorm);
-    uint32_t bytesPerRow = mlta * ((4 * kTextureWidth + mlta - 1) / mlta);
-
-    _textureBuffer =
-        NS::TransferPtr(_device->newBuffer(bytesPerRow * kTextureHeight, MTL::ResourceStorageModeShared));
-
-    NS::SharedPtr<MTL::TextureDescriptor> textureDesc = NS::TransferPtr(MTL::TextureDescriptor::alloc()->init());
-    textureDesc->setWidth(kTextureWidth);
-    textureDesc->setHeight(kTextureHeight);
-    textureDesc->setPixelFormat(MTL::PixelFormatRGBA8Unorm);
-    textureDesc->setTextureType(MTL::TextureType2D);
-    textureDesc->setStorageMode(MTL::StorageModeShared);
-    textureDesc->setUsage(MTL::ResourceUsageSample | MTL::ResourceUsageRead | MTL::ResourceUsageWrite);
-
-    _texture = NS::TransferPtr(_textureBuffer->newTexture(textureDesc.get(), 0, bytesPerRow));
+    _image = std::make_unique<gls::mtl_image_2d<gls::rgba_pixel>>(_device.get(), kTextureWidth, kTextureHeight);
 }
 
 void Renderer::generateMandelbrotTexture() {
@@ -85,30 +72,39 @@ void Renderer::generateMandelbrotTexture() {
 
     auto computeEncoder = commandBuffer->computeCommandEncoder();
     computeEncoder->setComputePipelineState(_computePSO.get());
-    computeEncoder->setTexture(_texture.get(), 0);
+    computeEncoder->setTexture(_image->getTexture(), 0);
 
     auto gridSize = MTL::Size(kTextureWidth, kTextureHeight, 1);
 
     auto threadGroupSize = _computePSO->maxTotalThreadsPerThreadgroup();
     auto threadgroupSize = MTL::Size(threadGroupSize, 1, 1);
-
     computeEncoder->dispatchThreads(gridSize, threadgroupSize);
     computeEncoder->endEncoding();
+
+    const bool useCompletedHandler = false;
+    if (useCompletedHandler) {
+        commandBuffer->addCompletedHandler([&] (MTL::CommandBuffer* commandBuffer) -> void {
+            if (commandBuffer->status() == MTL::CommandBufferStatusCompleted) {
+                const auto start = commandBuffer->GPUStartTime();
+                const auto end = commandBuffer->GPUEndTime();
+
+                std::cout << "Metal execution done, execution time: " << end - start << std::endl;
+
+                const auto imageCPU = _image->mapImage();
+                imageCPU.write_png_file(_path + "test.png");
+            } else {
+                std::cout << "Something wrong with Metal execution: " << commandBuffer->status() << std::endl;
+            }
+        });
+    }
     commandBuffer->commit();
 
+    // Wait here for all handlers to finish execution, otherwise the context disappears...
     commandBuffer->waitUntilCompleted();
-
-    void* bufferData = _textureBuffer->contents();
-    size_t bufferLength = _textureBuffer->length();
-
-    const uint32_t mlta = (uint32_t)_device->minimumLinearTextureAlignmentForPixelFormat(MTL::PixelFormatRGBA8Unorm);
-    uint32_t bytesPerRow = mlta * ((4 * kTextureWidth + mlta - 1) / mlta);
-
-    const auto image = gls::image<gls::rgba_pixel>(
-        kTextureWidth, kTextureHeight, bytesPerRow / sizeof(gls::rgba_pixel),
-        std::span<gls::rgba_pixel>((gls::rgba_pixel*)bufferData, bufferLength / sizeof(gls::rgba_pixel)));
-
-    image.write_png_file(_path + "test.png");
+    if (!useCompletedHandler) {
+        const auto imageCPU = _image->mapImage();
+        imageCPU.write_png_file(_path + "test.png");
+    }
 }
 
 extern "C" void runRenderer(const char* path) {

@@ -82,6 +82,7 @@
 		E5D4D89F27D183D800F1D944 /* CameraService+Enums.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "CameraService+Enums.swift"; sourceTree = "<group>"; };
 		E5D4D8A527D183F700F1D944 /* PhotoCaptureProcessor.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PhotoCaptureProcessor.swift; sourceTree = "<group>"; };
 		E5D4D8A727D1841100F1D944 /* ImageResizer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ImageResizer.swift; sourceTree = "<group>"; };
+		E5FAE7A629C1368900213AE6 /* gls_mtl_image.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = gls_mtl_image.hpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -156,6 +157,7 @@
 				E5C5C01329BD3DDF00AAB593 /* MetalComputeTest.cpp */,
 				E5C5C01429BD3DDF00AAB593 /* MetalComputeTest.hpp */,
 				E5C5C01629BF8DAF00AAB593 /* MandelbrotSet.metal */,
+				E5FAE7A629C1368900213AE6 /* gls_mtl_image.hpp */,
 			);
 			path = MetalPipeline;
 			sourceTree = "<group>";
