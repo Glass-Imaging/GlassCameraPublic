@@ -12,7 +12,7 @@
 extern "C" {
 #endif
 
-void runRenderer(const char* path);
+void runPipeline(const char* path);
 
 #ifdef __cplusplus
 }

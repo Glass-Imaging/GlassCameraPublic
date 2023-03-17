@@ -148,7 +148,7 @@ public class CameraService: NSObject, Identifiable {
         print("temporaryDirectory: ", tmpDirPath)
 
         // Try out Metal-C++ test.
-        runRenderer(tmpDirPath.cString(using: .utf8));
+        runPipeline(tmpDirPath.cString(using: .utf8));
     }
 
     // MARK: Checks for permisions, setup obeservers and starts running session
