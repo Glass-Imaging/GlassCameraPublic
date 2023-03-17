@@ -29,7 +29,7 @@ class Pipeline {
     std::array<Function<MandelbrotParameters>::Parameters, 3> _parameterBuffers;
 
 public:
-    Pipeline(MetalContext* mtlContext, const std::string path) : _mtlContext(mtlContext) {
+    Pipeline(MetalContext* mtlContext) : _mtlContext(mtlContext) {
         for (int i = 0; i < 3; i++) {
             _mandelbrot_image[i] = std::make_unique<gls::mtl_image_2d<gls::rgba_pixel>>(mtlContext->device(), kTextureWidth, kTextureHeight);
             _parameterBuffers[i] = Function<MandelbrotParameters>::Parameters(mtlContext->device(), {
@@ -38,7 +38,7 @@ public:
         }
     }
 
-    void run(const std::string path) {
+    void run(const std::string& path) {
         auto mandelbrot_set = Function<MandelbrotParameters>(_mtlContext, "mandelbrot_set", { kTextureWidth, kTextureHeight, 1 });
 
         for (int channel = 0; channel < 3; channel++) {
@@ -75,6 +75,6 @@ public:
 extern "C" void runPipeline(const char* path) {
     auto metalDevice = NS::TransferPtr(MTL::CreateSystemDefaultDevice());
     auto context = MetalContext(metalDevice);
-    auto pipeline = Pipeline(&context, path);
+    auto pipeline = Pipeline(&context);
     pipeline.run(path);
 }
