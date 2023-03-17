@@ -8,7 +8,13 @@
 #include <metal_stdlib>
 using namespace metal;
 
-kernel void mandelbrot_set(texture2d<half, access::write> tex [[texture(0)]],
+struct MandelbrotParameters {
+    texture2d<half, access::write> outputTexture;
+    uint32_t channel;
+    uint32_t extra;
+};
+
+kernel void mandelbrot_set(constant MandelbrotParameters& parameters [[buffer(0)]],
                            uint2 index [[thread_position_in_grid]],
                            uint2 gridSize [[threads_per_grid]])
 {
@@ -29,5 +35,9 @@ kernel void mandelbrot_set(texture2d<half, access::write> tex [[texture(0)]],
     }
     // Convert iteration result to colors
     half color = (0.5 + 0.5 * cos(3.0 + iteration * 0.15));
-    tex.write(half4(color, color, color, 1.0), index, 0);
+
+    half3 result = 0;
+    result[parameters.channel] = color;
+
+    parameters.outputTexture.write(half4(result, 1.0), index, 0);
 }

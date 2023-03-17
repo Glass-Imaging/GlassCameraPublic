@@ -20,69 +20,130 @@
 static constexpr uint32_t kTextureWidth = 128;
 static constexpr uint32_t kTextureHeight = 128;
 
-class Renderer {
-   public:
-    Renderer(NS::SharedPtr<MTL::Device> device, const std::string& path);
-    ~Renderer() {}
-    void buildComputePipeline();
-    void buildTextures();
-    void generateMandelbrotTexture();
-
-   private:
-    const std::string _path;
+class MetalContext {
     NS::SharedPtr<MTL::Device> _device;
+    NS::SharedPtr<MTL::Library> _computeLibrary;
     NS::SharedPtr<MTL::CommandQueue> _commandQueue;
-    NS::SharedPtr<MTL::ComputePipelineState> _computePSO;
+    MTL::CommandBuffer* _commandBuffer = nullptr;
 
-    gls::mtl_image_2d<gls::rgba_pixel>::unique_ptr _image;
+   public:
+    MetalContext(NS::SharedPtr<MTL::Device> device) : _device(device) {
+        _computeLibrary = NS::TransferPtr(_device->newDefaultLibrary());
+        _commandQueue = NS::TransferPtr(_device->newCommandQueue());
+        _commandBuffer = _commandQueue->commandBuffer();
+    }
+    ~MetalContext() {}
+
+    MTL::Device* device() const {
+        return _device.get();
+    }
+
+    MTL::CommandBuffer* commandBuffer() const {
+        return _commandBuffer;
+    }
+
+    NS::SharedPtr<MTL::ComputePipelineState> buildFunctionPipelineState(const std::string& functionName) const {
+        NS::Error* error = nullptr;
+        auto function =
+            NS::TransferPtr(_computeLibrary->newFunction(NS::String::string(functionName.c_str(), NS::UTF8StringEncoding)));
+        auto pso = NS::TransferPtr(_device->newComputePipelineState(function.get(), &error));
+        if (!pso) {
+            __builtin_printf("%s", error->localizedDescription()->utf8String());
+            assert(false);
+        }
+        return pso;
+    }
 };
 
-Renderer::Renderer(NS::SharedPtr<MTL::Device> device, const std::string& path) : _device(device), _path(path) {
-    _commandQueue = NS::TransferPtr(_device->newCommandQueue());
+template <typename T>
+class Function {
+    MTL::ComputeCommandEncoder* _encoder;
+    NS::SharedPtr<MTL::ComputePipelineState> _functionState;
+    const MTL::Size _gridSize;
 
-    buildComputePipeline();
-    buildTextures();
-    generateMandelbrotTexture();
-}
+public:
+    class Parameters {
+        NS::SharedPtr<MTL::Buffer> _buffer;
 
-void Renderer::buildComputePipeline() {
-    auto computeLibrary = NS::TransferPtr(_device->newDefaultLibrary());
-    if (!computeLibrary) {
-        __builtin_printf("newDefaultLibrary failed.");
-        assert(false);
+    public:
+        Parameters() = default;
+
+        Parameters(const Parameters &) = default;
+
+        Parameters(MTL::Device* device, const T& value) :
+            _buffer(NS::TransferPtr(device->newBuffer(sizeof(T), MTL::ResourceStorageModeShared)))
+        {
+            T* contents = (T*) _buffer->contents();
+            *contents = value;
+        }
+
+        const MTL::Buffer* buffer() const {
+            return _buffer.get();
+        }
+
+        T* data() {
+            return (T*) _buffer->contents();
+        }
+    };
+
+    Function(MetalContext* mtlContext, const std::string& name, MTL::Size gridSize) : _gridSize(gridSize) {
+        _functionState = mtlContext->buildFunctionPipelineState(name);
     }
 
-    NS::Error* error = nullptr;
-    auto pMandelbrotFn =
-        NS::TransferPtr(computeLibrary->newFunction(NS::String::string("mandelbrot_set", NS::UTF8StringEncoding)));
-    _computePSO = NS::TransferPtr(_device->newComputePipelineState(pMandelbrotFn.get(), &error));
-    if (!_computePSO) {
-        __builtin_printf("%s", error->localizedDescription()->utf8String());
-        assert(false);
+    void setParameters(MTL::ComputeCommandEncoder* encoder, const Parameters& pb) {
+        encoder->setComputePipelineState(_functionState.get());
+        encoder->setBuffer(pb.buffer(), 0, 0);
     }
-}
 
-void Renderer::buildTextures() {
-    _image = std::make_unique<gls::mtl_image_2d<gls::rgba_pixel>>(_device.get(), kTextureWidth, kTextureHeight);
-}
+    void dispatchThreads(MTL::ComputeCommandEncoder* encoder) {
+        auto threadGroupSize = _functionState->maxTotalThreadsPerThreadgroup();
+        auto threadgroupSize = MTL::Size(threadGroupSize, 1, 1);
+        encoder->dispatchThreads(_gridSize, threadgroupSize);
+    }
+};
 
-void Renderer::generateMandelbrotTexture() {
-    auto commandBuffer = _commandQueue->commandBuffer();
-    assert(commandBuffer);
+struct MandelbrotParameters {
+    MTL::ResourceID outputTextureResourceID;
+    uint32_t channel;
+    uint32_t extra;
+};
 
-    auto computeEncoder = commandBuffer->computeCommandEncoder();
-    computeEncoder->setComputePipelineState(_computePSO.get());
-    computeEncoder->setTexture(_image->getTexture(), 0);
+class Pipeline {
+    MetalContext* _mtlContext;
+    std::array<gls::mtl_image_2d<gls::rgba_pixel>::unique_ptr, 3> _mandelbrot_image;
+    std::array<Function<MandelbrotParameters>::Parameters, 3> _parameterBuffers;
 
-    auto gridSize = MTL::Size(kTextureWidth, kTextureHeight, 1);
+public:
+    Pipeline(MetalContext* mtlContext, const std::string path) : _mtlContext(mtlContext) {
+        for (int i = 0; i < 3; i++) {
+            _mandelbrot_image[i] = std::make_unique<gls::mtl_image_2d<gls::rgba_pixel>>(mtlContext->device(), kTextureWidth, kTextureHeight);
+            _parameterBuffers[i] = Function<MandelbrotParameters>::Parameters(mtlContext->device(), { _mandelbrot_image[i]->resourceID(), (uint32_t) i, 0 });
+        }
+    }
 
-    auto threadGroupSize = _computePSO->maxTotalThreadsPerThreadgroup();
-    auto threadgroupSize = MTL::Size(threadGroupSize, 1, 1);
-    computeEncoder->dispatchThreads(gridSize, threadgroupSize);
-    computeEncoder->endEncoding();
+    void run(const std::string path) {
+        auto mandelbrot_set = Function<MandelbrotParameters>(_mtlContext, "mandelbrot_set", { kTextureWidth, kTextureHeight, 1 });
 
-    const bool useCompletedHandler = false;
-    if (useCompletedHandler) {
+        auto commandBuffer = _mtlContext->commandBuffer();
+
+        uint64_t signalCounter = 0;
+        auto event = NS::TransferPtr(_mtlContext->device()->newEvent());
+
+        for (int channel = 0; channel < 3; channel++) {
+            commandBuffer->encodeWait(event.get(), signalCounter);
+
+            auto encoder = commandBuffer->computeCommandEncoder();
+            if (encoder) {
+                encoder->useResource(_mandelbrot_image[channel]->texture(), MTL::ResourceUsageWrite);
+
+                mandelbrot_set.setParameters(encoder, _parameterBuffers[channel]);
+                mandelbrot_set.dispatchThreads(encoder);
+
+                encoder->endEncoding();
+            }
+            commandBuffer->encodeSignalEvent(event.get(), ++signalCounter);
+        }
+
         commandBuffer->addCompletedHandler([&] (MTL::CommandBuffer* commandBuffer) -> void {
             if (commandBuffer->status() == MTL::CommandBufferStatusCompleted) {
                 const auto start = commandBuffer->GPUStartTime();
@@ -90,24 +151,25 @@ void Renderer::generateMandelbrotTexture() {
 
                 std::cout << "Metal execution done, execution time: " << end - start << std::endl;
 
-                const auto imageCPU = _image->mapImage();
-                imageCPU.write_png_file(_path + "test.png");
+                for (int i = 0; i < 3; i++) {
+                    const auto imageCPU = _mandelbrot_image[i]->mapImage();
+                    imageCPU.write_png_file(path + "mandelbrot_" + std::to_string(i) + ".png");
+                }
             } else {
                 std::cout << "Something wrong with Metal execution: " << commandBuffer->status() << std::endl;
             }
         });
-    }
-    commandBuffer->commit();
 
-    // Wait here for all handlers to finish execution, otherwise the context disappears...
-    commandBuffer->waitUntilCompleted();
-    if (!useCompletedHandler) {
-        const auto imageCPU = _image->mapImage();
-        imageCPU.write_png_file(_path + "test.png");
+        commandBuffer->commit();
+
+        // Wait here for all handlers to finish execution, otherwise the context disappears...
+        commandBuffer->waitUntilCompleted();
     }
-}
+};
 
 extern "C" void runRenderer(const char* path) {
     auto metalDevice = NS::TransferPtr(MTL::CreateSystemDefaultDevice());
-    auto renderer = Renderer(metalDevice, path);
+    auto context = MetalContext(metalDevice);
+    auto pipeline = Pipeline(&context, path);
+    pipeline.run(path);
 }
