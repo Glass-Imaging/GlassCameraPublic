@@ -49,10 +49,12 @@ public:
             return T::channels == 1 ? MTL::PixelFormatR32Float :
                    T::channels == 2 ? MTL::PixelFormatRG32Float :
                    MTL::PixelFormatRGBA32Float;
+#if USE_FP16_FLOATS && !(__APPLE__ && __x86_64__)
         } else if (std::is_same<typename T::value_type, gls::float16_t>::value) {
             return T::channels == 1 ? MTL::PixelFormatR16Float :
                    T::channels == 2 ? MTL::PixelFormatRG16Float :
                    MTL::PixelFormatRGBA32Float;
+#endif
         } else if (std::is_same<typename T::value_type, uint8_t>::value) {
             return T::channels == 1 ? MTL::PixelFormatR8Unorm :
                    T::channels == 2 ? MTL::PixelFormatRG8Unorm :

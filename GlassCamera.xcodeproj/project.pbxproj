@@ -318,7 +318,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1320;
-				LastUpgradeCheck = 1320;
+				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					E5D4D88827D1798D00F1D944 = {
 						CreatedOnToolsVersion = 13.2.1;
@@ -548,6 +548,7 @@
 					"\"$(SRCROOT)/metal-cpp\"",
 				);
 				INFOPLIST_FILE = GlassCamera/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.photography";
 				INFOPLIST_KEY_NSCameraUsageDescription = "GlassCamera needs access to your camera to capture photo and video";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "GlassCamera captures photos and saves them into your photo library";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -598,6 +599,7 @@
 					"\"$(SRCROOT)/metal-cpp\"",
 				);
 				INFOPLIST_FILE = GlassCamera/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.photography";
 				INFOPLIST_KEY_NSCameraUsageDescription = "GlassCamera needs access to your camera to capture photo and video";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "GlassCamera captures photos and saves them into your photo library";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -633,6 +635,7 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
 				CODE_SIGN_ENTITLEMENTS = PipelineTest/PipelineTest.entitlements;
 				CODE_SIGN_STYLE = Automatic;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 4A4DGXV9V7;
 				ENABLE_HARDENED_RUNTIME = YES;
 				HEADER_SEARCH_PATHS = (
@@ -656,6 +659,7 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
 				CODE_SIGN_ENTITLEMENTS = PipelineTest/PipelineTest.entitlements;
 				CODE_SIGN_STYLE = Automatic;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 4A4DGXV9V7;
 				ENABLE_HARDENED_RUNTIME = YES;
 				HEADER_SEARCH_PATHS = (
