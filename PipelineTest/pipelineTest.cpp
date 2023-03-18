@@ -10,7 +10,7 @@
 #include "MetalComputeTest.hpp"
 
 int main(int argc, const char * argv[]) {
-    runPipeline("/Users/fabio/metal_test/");
+    runPipelineCLI("/Users/fabio/metal_test/");
 
     return 0;
 }

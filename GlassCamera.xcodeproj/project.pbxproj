@@ -8,12 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		E5C5BFA929BC5E4B00AAB593 /* CustomObject.mm in Sources */ = {isa = PBXBuildFile; fileRef = E5C5BFA829BC5E4B00AAB593 /* CustomObject.mm */; };
-		E5C5BFAC29BC630D00AAB593 /* OpenCL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E5C5BFAB29BC630C00AAB593 /* OpenCL.framework */; platformFilter = maccatalyst; };
-		E5C5BFC329BD1C2F00AAB593 /* libjpeg.a in Frameworks */ = {isa = PBXBuildFile; fileRef = E5C5BFC229BD1C2F00AAB593 /* libjpeg.a */; platformFilter = ios; };
-		E5C5BFC729BD1C5800AAB593 /* libtiffxx.a in Frameworks */ = {isa = PBXBuildFile; fileRef = E5C5BFC429BD1C5800AAB593 /* libtiffxx.a */; platformFilter = ios; };
-		E5C5BFC829BD1C5800AAB593 /* libtiff.a in Frameworks */ = {isa = PBXBuildFile; fileRef = E5C5BFC529BD1C5800AAB593 /* libtiff.a */; platformFilter = ios; };
-		E5C5BFCB29BD1D7C00AAB593 /* libpng.a in Frameworks */ = {isa = PBXBuildFile; fileRef = E5C5BFCA29BD1D7C00AAB593 /* libpng.a */; platformFilter = ios; };
-		E5C5BFE729BD2EC500AAB593 /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = E5C5BFE629BD2EC500AAB593 /* libz.tbd */; platformFilter = ios; };
 		E5C5BFF929BD36B600AAB593 /* gls_color_science.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C5BFF229BD36B600AAB593 /* gls_color_science.cpp */; };
 		E5C5BFFA29BD36B600AAB593 /* gls_image_png.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C5BFF329BD36B600AAB593 /* gls_image_png.cpp */; };
 		E5C5BFFB29BD36B600AAB593 /* gls_image_tiff.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C5BFF429BD36B600AAB593 /* gls_image_tiff.cpp */; };
@@ -22,9 +16,6 @@
 		E5C5BFFE29BD36B600AAB593 /* gls_tiff_metadata.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C5BFF729BD36B600AAB593 /* gls_tiff_metadata.cpp */; };
 		E5C5BFFF29BD36B600AAB593 /* gls_dng_lossless_jpeg.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C5BFF829BD36B600AAB593 /* gls_dng_lossless_jpeg.cpp */; };
 		E5C5C00129BD37F600AAB593 /* metal-cpp in Resources */ = {isa = PBXBuildFile; fileRef = E5C5C00029BD37F600AAB593 /* metal-cpp */; };
-		E5C5C00329BD387700AAB593 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E5C5C00229BD387700AAB593 /* Foundation.framework */; };
-		E5C5C00529BD388300AAB593 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E5C5C00429BD388300AAB593 /* QuartzCore.framework */; };
-		E5C5C00729BD389B00AAB593 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E5C5C00629BD389B00AAB593 /* Metal.framework */; };
 		E5C5C01529BD3DDF00AAB593 /* MetalComputeTest.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C5C01329BD3DDF00AAB593 /* MetalComputeTest.cpp */; };
 		E5C5C01729BF8DAF00AAB593 /* MandelbrotSet.metal in Sources */ = {isa = PBXBuildFile; fileRef = E5C5C01629BF8DAF00AAB593 /* MandelbrotSet.metal */; };
 		E5D4D88D27D1798D00F1D944 /* GlassCameraApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5D4D88C27D1798D00F1D944 /* GlassCameraApp.swift */; };
@@ -58,6 +49,15 @@
 		E5FAE7FD29C543C500213AE6 /* libtiff.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = E5FAE7FB29C543C500213AE6 /* libtiff.dylib */; };
 		E5FAE7FF29C543D600213AE6 /* libpng.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = E5FAE7FE29C543D600213AE6 /* libpng.dylib */; };
 		E5FAE80129C543EE00213AE6 /* libjpeg.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = E5FAE80029C543EE00213AE6 /* libjpeg.dylib */; };
+		E5FAE81D29C5927900213AE6 /* libpng_catalyst.a in Frameworks */ = {isa = PBXBuildFile; fileRef = E5FAE81929C5927900213AE6 /* libpng_catalyst.a */; platformFilter = maccatalyst; };
+		E5FAE81E29C5927900213AE6 /* libjpeg_catalyst.a in Frameworks */ = {isa = PBXBuildFile; fileRef = E5FAE81A29C5927900213AE6 /* libjpeg_catalyst.a */; platformFilter = maccatalyst; };
+		E5FAE81F29C5927900213AE6 /* libtiffxx_catalyst.a in Frameworks */ = {isa = PBXBuildFile; fileRef = E5FAE81B29C5927900213AE6 /* libtiffxx_catalyst.a */; platformFilter = maccatalyst; };
+		E5FAE82029C5927900213AE6 /* libtiff_catalyst.a in Frameworks */ = {isa = PBXBuildFile; fileRef = E5FAE81C29C5927900213AE6 /* libtiff_catalyst.a */; platformFilter = maccatalyst; };
+		E5FAE82229C5928900213AE6 /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = E5FAE82129C5928900213AE6 /* libz.tbd */; };
+		E5FAE82729C592C600213AE6 /* libtiffxx_ios.a in Frameworks */ = {isa = PBXBuildFile; fileRef = E5FAE82329C592C600213AE6 /* libtiffxx_ios.a */; platformFilter = ios; };
+		E5FAE82829C592C600213AE6 /* libpng_ios.a in Frameworks */ = {isa = PBXBuildFile; fileRef = E5FAE82429C592C600213AE6 /* libpng_ios.a */; platformFilter = ios; };
+		E5FAE82929C592C600213AE6 /* libtiff_ios.a in Frameworks */ = {isa = PBXBuildFile; fileRef = E5FAE82529C592C600213AE6 /* libtiff_ios.a */; platformFilter = ios; };
+		E5FAE82A29C592C600213AE6 /* libjpeg_ios.a in Frameworks */ = {isa = PBXBuildFile; fileRef = E5FAE82629C592C600213AE6 /* libjpeg_ios.a */; platformFilter = ios; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -77,18 +77,9 @@
 		E5C5BFA629BC5E4B00AAB593 /* GlassCamera-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "GlassCamera-Bridging-Header.h"; sourceTree = "<group>"; };
 		E5C5BFA729BC5E4B00AAB593 /* CustomObject.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CustomObject.h; sourceTree = "<group>"; };
 		E5C5BFA829BC5E4B00AAB593 /* CustomObject.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = CustomObject.mm; sourceTree = "<group>"; };
-		E5C5BFAB29BC630C00AAB593 /* OpenCL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenCL.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.1.sdk/System/Library/Frameworks/OpenCL.framework; sourceTree = DEVELOPER_DIR; };
 		E5C5BFB129BC694100AAB593 /* libtiff.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libtiff.a; path = "../libtiff-ios/ios/dependencies/lib/libtiff.a"; sourceTree = "<group>"; };
 		E5C5BFB229BC694100AAB593 /* libjpeg.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libjpeg.a; path = "../libtiff-ios/ios/dependencies/lib/libjpeg.a"; sourceTree = "<group>"; };
 		E5C5BFB329BC694100AAB593 /* libtiffxx.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libtiffxx.a; path = "../libtiff-ios/ios/dependencies/lib/libtiffxx.a"; sourceTree = "<group>"; };
-		E5C5BFB929BC69B200AAB593 /* libjpeg.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libjpeg.a; path = iosSupport/lib/libjpeg.a; sourceTree = "<group>"; };
-		E5C5BFBA29BC69B200AAB593 /* libtiff.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libtiff.a; path = iosSupport/lib/libtiff.a; sourceTree = "<group>"; };
-		E5C5BFBC29BC69B200AAB593 /* libtiffxx.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libtiffxx.a; path = iosSupport/lib/libtiffxx.a; sourceTree = "<group>"; };
-		E5C5BFC229BD1C2F00AAB593 /* libjpeg.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libjpeg.a; path = iosDependencies/lib/libjpeg.a; sourceTree = "<group>"; };
-		E5C5BFC429BD1C5800AAB593 /* libtiffxx.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libtiffxx.a; path = iosDependencies/lib/libtiffxx.a; sourceTree = "<group>"; };
-		E5C5BFC529BD1C5800AAB593 /* libtiff.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libtiff.a; path = iosDependencies/lib/libtiff.a; sourceTree = "<group>"; };
-		E5C5BFCA29BD1D7C00AAB593 /* libpng.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libpng.a; path = iosDependencies/lib/libpng.a; sourceTree = "<group>"; };
-		E5C5BFE629BD2EC500AAB593 /* libz.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libz.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.1.sdk/usr/lib/libz.tbd; sourceTree = DEVELOPER_DIR; };
 		E5C5BFF229BD36B600AAB593 /* gls_color_science.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = gls_color_science.cpp; path = GlassImage/src/gls_color_science.cpp; sourceTree = "<group>"; };
 		E5C5BFF329BD36B600AAB593 /* gls_image_png.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = gls_image_png.cpp; path = GlassImage/src/gls_image_png.cpp; sourceTree = "<group>"; };
 		E5C5BFF429BD36B600AAB593 /* gls_image_tiff.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = gls_image_tiff.cpp; path = GlassImage/src/gls_image_tiff.cpp; sourceTree = "<group>"; };
@@ -97,9 +88,6 @@
 		E5C5BFF729BD36B600AAB593 /* gls_tiff_metadata.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = gls_tiff_metadata.cpp; path = GlassImage/src/gls_tiff_metadata.cpp; sourceTree = "<group>"; };
 		E5C5BFF829BD36B600AAB593 /* gls_dng_lossless_jpeg.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = gls_dng_lossless_jpeg.cpp; path = GlassImage/src/gls_dng_lossless_jpeg.cpp; sourceTree = "<group>"; };
 		E5C5C00029BD37F600AAB593 /* metal-cpp */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "metal-cpp"; sourceTree = "<group>"; };
-		E5C5C00229BD387700AAB593 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.1.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
-		E5C5C00429BD388300AAB593 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.1.sdk/System/Library/Frameworks/QuartzCore.framework; sourceTree = DEVELOPER_DIR; };
-		E5C5C00629BD389B00AAB593 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.1.sdk/System/Library/Frameworks/Metal.framework; sourceTree = DEVELOPER_DIR; };
 		E5C5C01329BD3DDF00AAB593 /* MetalComputeTest.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = MetalComputeTest.cpp; sourceTree = "<group>"; };
 		E5C5C01429BD3DDF00AAB593 /* MetalComputeTest.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = MetalComputeTest.hpp; sourceTree = "<group>"; };
 		E5C5C01629BF8DAF00AAB593 /* MandelbrotSet.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = MandelbrotSet.metal; sourceTree = "<group>"; };
@@ -127,6 +115,15 @@
 		E5FAE7FE29C543D600213AE6 /* libpng.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libpng.dylib; path = ../../../../opt/homebrew/lib/libpng.dylib; sourceTree = "<group>"; };
 		E5FAE80029C543EE00213AE6 /* libjpeg.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libjpeg.dylib; path = ../../../../opt/homebrew/lib/libjpeg.dylib; sourceTree = "<group>"; };
 		E5FAE80229C5443200213AE6 /* PipelineTest.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PipelineTest.entitlements; sourceTree = "<group>"; };
+		E5FAE81929C5927900213AE6 /* libpng_catalyst.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libpng_catalyst.a; path = catalystDependencies/lib/libpng_catalyst.a; sourceTree = "<group>"; };
+		E5FAE81A29C5927900213AE6 /* libjpeg_catalyst.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libjpeg_catalyst.a; path = catalystDependencies/lib/libjpeg_catalyst.a; sourceTree = "<group>"; };
+		E5FAE81B29C5927900213AE6 /* libtiffxx_catalyst.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libtiffxx_catalyst.a; path = catalystDependencies/lib/libtiffxx_catalyst.a; sourceTree = "<group>"; };
+		E5FAE81C29C5927900213AE6 /* libtiff_catalyst.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libtiff_catalyst.a; path = catalystDependencies/lib/libtiff_catalyst.a; sourceTree = "<group>"; };
+		E5FAE82129C5928900213AE6 /* libz.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libz.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.3.sdk/usr/lib/libz.tbd; sourceTree = DEVELOPER_DIR; };
+		E5FAE82329C592C600213AE6 /* libtiffxx_ios.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libtiffxx_ios.a; path = iosDependencies/lib/libtiffxx_ios.a; sourceTree = "<group>"; };
+		E5FAE82429C592C600213AE6 /* libpng_ios.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libpng_ios.a; path = iosDependencies/lib/libpng_ios.a; sourceTree = "<group>"; };
+		E5FAE82529C592C600213AE6 /* libtiff_ios.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libtiff_ios.a; path = iosDependencies/lib/libtiff_ios.a; sourceTree = "<group>"; };
+		E5FAE82629C592C600213AE6 /* libjpeg_ios.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libjpeg_ios.a; path = iosDependencies/lib/libjpeg_ios.a; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -134,15 +131,15 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				E5C5C00729BD389B00AAB593 /* Metal.framework in Frameworks */,
-				E5C5C00529BD388300AAB593 /* QuartzCore.framework in Frameworks */,
-				E5C5C00329BD387700AAB593 /* Foundation.framework in Frameworks */,
-				E5C5BFAC29BC630D00AAB593 /* OpenCL.framework in Frameworks */,
-				E5C5BFCB29BD1D7C00AAB593 /* libpng.a in Frameworks */,
-				E5C5BFC329BD1C2F00AAB593 /* libjpeg.a in Frameworks */,
-				E5C5BFC729BD1C5800AAB593 /* libtiffxx.a in Frameworks */,
-				E5C5BFC829BD1C5800AAB593 /* libtiff.a in Frameworks */,
-				E5C5BFE729BD2EC500AAB593 /* libz.tbd in Frameworks */,
+				E5FAE82229C5928900213AE6 /* libz.tbd in Frameworks */,
+				E5FAE82729C592C600213AE6 /* libtiffxx_ios.a in Frameworks */,
+				E5FAE82829C592C600213AE6 /* libpng_ios.a in Frameworks */,
+				E5FAE82929C592C600213AE6 /* libtiff_ios.a in Frameworks */,
+				E5FAE82A29C592C600213AE6 /* libjpeg_ios.a in Frameworks */,
+				E5FAE81D29C5927900213AE6 /* libpng_catalyst.a in Frameworks */,
+				E5FAE81E29C5927900213AE6 /* libjpeg_catalyst.a in Frameworks */,
+				E5FAE81F29C5927900213AE6 /* libtiffxx_catalyst.a in Frameworks */,
+				E5FAE82029C5927900213AE6 /* libtiff_catalyst.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -175,27 +172,24 @@
 		E5C5BFAA29BC630C00AAB593 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				E5FAE82629C592C600213AE6 /* libjpeg_ios.a */,
+				E5FAE82429C592C600213AE6 /* libpng_ios.a */,
+				E5FAE82529C592C600213AE6 /* libtiff_ios.a */,
+				E5FAE82329C592C600213AE6 /* libtiffxx_ios.a */,
+				E5FAE82129C5928900213AE6 /* libz.tbd */,
+				E5FAE81A29C5927900213AE6 /* libjpeg_catalyst.a */,
+				E5FAE81929C5927900213AE6 /* libpng_catalyst.a */,
+				E5FAE81C29C5927900213AE6 /* libtiff_catalyst.a */,
+				E5FAE81B29C5927900213AE6 /* libtiffxx_catalyst.a */,
 				E5FAE80029C543EE00213AE6 /* libjpeg.dylib */,
 				E5FAE7FE29C543D600213AE6 /* libpng.dylib */,
 				E5FAE7FB29C543C500213AE6 /* libtiff.dylib */,
 				E5FAE7FA29C543C500213AE6 /* libtiffxx.dylib */,
 				E5FAE7F829C5439500213AE6 /* Foundation.framework */,
-				E5C5C00629BD389B00AAB593 /* Metal.framework */,
 				E5FAE7F629C5438A00213AE6 /* Metal.framework */,
-				E5C5C00429BD388300AAB593 /* QuartzCore.framework */,
-				E5C5C00229BD387700AAB593 /* Foundation.framework */,
-				E5C5BFE629BD2EC500AAB593 /* libz.tbd */,
-				E5C5BFCA29BD1D7C00AAB593 /* libpng.a */,
-				E5C5BFC529BD1C5800AAB593 /* libtiff.a */,
-				E5C5BFC429BD1C5800AAB593 /* libtiffxx.a */,
 				E5C5BFB229BC694100AAB593 /* libjpeg.a */,
-				E5C5BFC229BD1C2F00AAB593 /* libjpeg.a */,
 				E5C5BFB129BC694100AAB593 /* libtiff.a */,
 				E5C5BFB329BC694100AAB593 /* libtiffxx.a */,
-				E5C5BFB929BC69B200AAB593 /* libjpeg.a */,
-				E5C5BFBA29BC69B200AAB593 /* libtiff.a */,
-				E5C5BFBC29BC69B200AAB593 /* libtiffxx.a */,
-				E5C5BFAB29BC630C00AAB593 /* OpenCL.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -576,6 +570,7 @@
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/iosDependencies/lib",
+					"$(PROJECT_DIR)/catalystDependencies/lib",
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.glass-imaging.GlassCamera";
@@ -625,6 +620,7 @@
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/iosDependencies/lib",
+					"$(PROJECT_DIR)/catalystDependencies/lib",
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.glass-imaging.GlassCamera";

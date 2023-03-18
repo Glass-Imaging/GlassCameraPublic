@@ -1,9 +1,17 @@
+// Copyright (c) 2021-2022 Glass Imaging Inc.
+// Author: Fabio Riccardi <fabio@glass-imaging.com>
 //
-//  ComputeTest.cpp
-//  GlassCamera
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-//  Created by Fabio Riccardi on 3/11/23.
+//    http://www.apache.org/licenses/LICENSE-2.0
 //
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include "MetalComputeTest.hpp"
 
@@ -72,11 +80,25 @@ public:
     }
 };
 
-extern "C" void runPipeline(const char* path) {
-    // auto metalDevice = NS::TransferPtr(MTL::CreateSystemDefaultDevice());
-    auto allMetalDevices = NS::TransferPtr(MTL::CopyAllDevices());
-    auto metalDevice = NS::RetainPtr((MTL::Device *) allMetalDevices->object(0));
+void runPipelineCommon(NS::SharedPtr<MTL::Device> metalDevice, const char* path) {
     auto context = MetalContext(metalDevice);
     auto pipeline = Pipeline(&context);
     pipeline.run(path);
+}
+
+extern "C" void runPipelineCLI(const char* path) {
+    auto allMetalDevices = NS::TransferPtr(MTL::CopyAllDevices());
+
+    if (allMetalDevices->count() >= 1) {
+        auto metalDevice = NS::RetainPtr(allMetalDevices->object<MTL::Device>(0));
+        runPipelineCommon(metalDevice, path);
+    } else {
+        std::cout << "Couldn't access Metal Device" << std::endl;
+    }
+}
+
+extern "C" void runPipeline(const char* path) {
+    auto metalDevice = NS::TransferPtr(MTL::CreateSystemDefaultDevice());
+
+    runPipelineCommon(metalDevice, path);
 }
