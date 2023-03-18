@@ -73,7 +73,9 @@ public:
 };
 
 extern "C" void runPipeline(const char* path) {
-    auto metalDevice = NS::TransferPtr(MTL::CreateSystemDefaultDevice());
+    // auto metalDevice = NS::TransferPtr(MTL::CreateSystemDefaultDevice());
+    auto allMetalDevices = NS::TransferPtr(MTL::CopyAllDevices());
+    auto metalDevice = NS::RetainPtr((MTL::Device *) allMetalDevices->object(0));
     auto context = MetalContext(metalDevice);
     auto pipeline = Pipeline(&context);
     pipeline.run(path);
