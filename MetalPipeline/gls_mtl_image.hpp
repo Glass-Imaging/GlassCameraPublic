@@ -93,11 +93,11 @@ public:
     const int stride;
     typedef std::unique_ptr<mtl_image_2d<T>> unique_ptr;
 
-    const MTL::Buffer* buffer() const {
+    MTL::Buffer* buffer() const {
         return _buffer.get();
     }
 
-    const MTL::Texture* texture() const {
+    MTL::Texture* texture() const {
         return _texture.get();
     }
 

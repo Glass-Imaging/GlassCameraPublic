@@ -34,28 +34,34 @@ struct MandelbrotParameters {
 class Pipeline {
     MetalContext* _mtlContext;
     std::array<gls::mtl_image_2d<gls::rgba_pixel>::unique_ptr, 3> _mandelbrot_image;
-    std::array<Function<MandelbrotParameters>::Parameters, 3> _parameterBuffers;
+    std::array<Kernel::Parameters<MandelbrotParameters>, 3> _parameterBuffers;
 
 public:
     Pipeline(MetalContext* mtlContext) : _mtlContext(mtlContext) {
         for (int i = 0; i < 3; i++) {
             _mandelbrot_image[i] = std::make_unique<gls::mtl_image_2d<gls::rgba_pixel>>(mtlContext->device(), kTextureWidth, kTextureHeight);
-            _parameterBuffers[i] = Function<MandelbrotParameters>::Parameters(mtlContext->device(), {
+            _parameterBuffers[i] = Kernel::Parameters<MandelbrotParameters>(mtlContext->device(), {
                 _mandelbrot_image[i]->resourceID(), (uint32_t) i, 0
             });
         }
     }
 
     void run(const std::string& path) {
-        auto mandelbrot_set = Function<MandelbrotParameters>(_mtlContext, "mandelbrot_set", { kTextureWidth, kTextureHeight, 1 });
+        auto mandelbrot_set = Kernel(_mtlContext, "mandelbrot_set", { kTextureWidth, kTextureHeight, 1 });
 
-        for (int channel = 0; channel < 3; channel++) {
-            _mtlContext->scheduleFunction(mandelbrot_set, _parameterBuffers[channel], [&](MTL::ComputeCommandEncoder *encoder){
-                encoder->useResource(_mandelbrot_image[channel]->texture(), MTL::ResourceUsageWrite);
-            });
-        }
+        auto mandelbrot_set_kernel = KernelFunctor<MTL::Texture*,
+                                                   uint32_t
+                                                   >(mandelbrot_set);
 
         auto commandBuffer = _mtlContext->commandBuffer();
+
+        for (int channel = 0; channel < 3; channel++) {
+//            _mtlContext->scheduleKernel(mandelbrot_set, _parameterBuffers[channel], [&](MTL::ComputeCommandEncoder *encoder){
+//                encoder->useResource(_mandelbrot_image[channel]->texture(), MTL::ResourceUsageWrite);
+//            });
+
+            mandelbrot_set_kernel(commandBuffer, _mandelbrot_image[channel]->texture(), channel);
+        }
 
         commandBuffer->addCompletedHandler([&] (MTL::CommandBuffer* commandBuffer) -> void {
             if (commandBuffer->status() == MTL::CommandBufferStatusCompleted) {

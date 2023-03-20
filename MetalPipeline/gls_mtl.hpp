@@ -23,13 +23,13 @@
 
 class MetalContext;
 
-template <typename T>
-class Function {
+class Kernel {
     MTL::ComputeCommandEncoder* _encoder;
-    NS::SharedPtr<MTL::ComputePipelineState> _functionState;
+    NS::SharedPtr<MTL::ComputePipelineState> _kernelState;
     const MTL::Size _gridSize;
 
 public:
+    template <typename T>
     class Parameters {
         NS::SharedPtr<MTL::Buffer> _buffer;
 
@@ -54,18 +54,78 @@ public:
         }
     };
 
-    Function(MetalContext* mtlContext, const std::string& name, MTL::Size gridSize);
+    Kernel(MetalContext* mtlContext, const std::string& name, MTL::Size gridSize);
 
-    void setParameters(MTL::ComputeCommandEncoder* encoder, const Parameters& pb) const {
-        encoder->setComputePipelineState(_functionState.get());
+    template <typename T>
+    void setParameters(MTL::ComputeCommandEncoder* encoder, const Parameters<T>& pb) const {
+        encoder->setComputePipelineState(_kernelState.get());
         encoder->setBuffer(pb.buffer(), 0, 0);
     }
 
+    void setState(MTL::ComputeCommandEncoder* encoder) const {
+        encoder->setComputePipelineState(_kernelState.get());
+    }
+
+    template <typename parameter_type>
+    void setParameter(MTL::ComputeCommandEncoder* encoder, const parameter_type& parameter, unsigned index) const {
+        encoder->setBytes(&parameter, sizeof(parameter_type), index);
+    }
+
+    template <>
+    void setParameter<MTL::Buffer*>(MTL::ComputeCommandEncoder* encoder, MTL::Buffer* const & parameter, unsigned index) const {
+        encoder->setBuffer(parameter, 0, index);
+    }
+
+    template <>
+    void setParameter<MTL::Texture*>(MTL::ComputeCommandEncoder* encoder, MTL::Texture* const & parameter, unsigned index) const {
+        encoder->setTexture(parameter, index);
+    }
+
     void dispatchThreads(MTL::ComputeCommandEncoder* encoder) const {
-        auto threadGroupSize = _functionState->maxTotalThreadsPerThreadgroup();
+        auto threadGroupSize = _kernelState->maxTotalThreadsPerThreadgroup();
         auto threadgroupSize = MTL::Size(threadGroupSize, 1, 1);
         encoder->dispatchThreads(_gridSize, threadgroupSize);
     }
+};
+
+template <typename... Ts>
+class KernelFunctor {
+   private:
+    const Kernel _kernel;
+
+    template <int index, typename T0, typename... T1s>
+    void setArgs(MTL::ComputeCommandEncoder* encoder, T0&& t0, T1s&&... t1s) {
+        _kernel.setParameter(encoder, t0, index);
+        setArgs<index + 1, T1s...>(encoder, std::forward<T1s>(t1s)...);
+    }
+
+    template <int index, typename T0>
+    void setArgs(MTL::ComputeCommandEncoder* encoder, T0&& t0) {
+        _kernel.setParameter(encoder, t0, index);
+    }
+
+    template <int index>
+    void setArgs(MTL::ComputeCommandEncoder* encoder) {
+    }
+
+   public:
+    KernelFunctor(Kernel kernel) : _kernel(kernel) {}
+
+    void operator()(MTL::CommandBuffer* commandBuffer, Ts... ts) {
+        auto encoder = commandBuffer->computeCommandEncoder();
+
+        if (encoder) {
+            kernel().setState(encoder);
+
+            setArgs<0>(encoder, std::forward<Ts>(ts)...);
+
+            kernel().dispatchThreads(encoder);
+
+            encoder->endEncoding();
+        }
+    }
+
+    const Kernel& kernel() const { return _kernel; }
 };
 
 class EventWrapper {
@@ -109,11 +169,11 @@ class MetalContext {
         return _commandBuffer;
     }
 
-    NS::SharedPtr<MTL::ComputePipelineState> buildFunctionPipelineState(const std::string& functionName) const {
+    NS::SharedPtr<MTL::ComputePipelineState> buildKernelPipelineState(const std::string& kernelName) const {
         NS::Error* error = nullptr;
-        auto function =
-            NS::TransferPtr(_computeLibrary->newFunction(NS::String::string(functionName.c_str(), NS::UTF8StringEncoding)));
-        auto pso = NS::TransferPtr(_device->newComputePipelineState(function.get(), &error));
+        auto kernel =
+            NS::TransferPtr(_computeLibrary->newFunction(NS::String::string(kernelName.c_str(), NS::UTF8StringEncoding)));
+        auto pso = NS::TransferPtr(_device->newComputePipelineState(kernel.get(), &error));
         if (!pso) {
             __builtin_printf("%s", error->localizedDescription()->utf8String());
             assert(false);
@@ -122,17 +182,18 @@ class MetalContext {
     }
 
     template <typename T>
-    void scheduleFunction(const Function<T>& function,
-                          const typename Function<T>::Parameters& parameters,
-                          std::function<void(MTL::ComputeCommandEncoder*)> usedResources) {
+    void scheduleKernel(const Kernel& kernel,
+                        const typename Kernel::Parameters<T>& parameters,
+                        std::function<void(MTL::ComputeCommandEncoder*)> usedResources) {
         _event.wait(_commandBuffer);
 
         auto encoder = _commandBuffer->computeCommandEncoder();
         if (encoder) {
             usedResources(encoder);
 
-            function.setParameters(encoder, parameters);
-            function.dispatchThreads(encoder);
+            kernel.setParameters(encoder, parameters);
+
+            kernel.dispatchThreads(encoder);
 
             encoder->endEncoding();
         }
@@ -140,9 +201,8 @@ class MetalContext {
     }
 };
 
-template <typename T>
-Function<T>::Function(MetalContext* mtlContext, const std::string& name, MTL::Size gridSize) : _gridSize(gridSize) {
-    _functionState = mtlContext->buildFunctionPipelineState(name);
+Kernel::Kernel(MetalContext* mtlContext, const std::string& name, MTL::Size gridSize) : _gridSize(gridSize) {
+    _kernelState = mtlContext->buildKernelPipelineState(name);
 }
 
 #endif /* gls_mtl_hpp */
