@@ -47,7 +47,7 @@ public:
     }
 
     void run(const std::string& path) {
-        auto mandelbrot_set = Kernel(_mtlContext, "mandelbrot_set", { kTextureWidth, kTextureHeight, 1 });
+        auto mandelbrot_set = Kernel(_mtlContext, "mandelbrot_set");
 
         auto mandelbrot_set_kernel = KernelFunctor<MTL::Texture*,
                                                    uint32_t
@@ -60,7 +60,8 @@ public:
 //                encoder->useResource(_mandelbrot_image[channel]->texture(), MTL::ResourceUsageWrite);
 //            });
 
-            mandelbrot_set_kernel(commandBuffer, _mandelbrot_image[channel]->texture(), channel);
+            mandelbrot_set_kernel(commandBuffer, /*gridSize=*/ { kTextureWidth, kTextureHeight, 1 },
+                                  _mandelbrot_image[channel]->texture(), channel);
         }
 
         commandBuffer->addCompletedHandler([&] (MTL::CommandBuffer* commandBuffer) -> void {

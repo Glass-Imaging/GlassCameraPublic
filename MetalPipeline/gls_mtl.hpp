@@ -25,8 +25,7 @@ class MetalContext;
 
 class Kernel {
     MTL::ComputeCommandEncoder* _encoder;
-    NS::SharedPtr<MTL::ComputePipelineState> _kernelState;
-    const MTL::Size _gridSize;
+    NS::SharedPtr<MTL::ComputePipelineState> _pipelineState;
 
 public:
     template <typename T>
@@ -54,16 +53,16 @@ public:
         }
     };
 
-    Kernel(MetalContext* mtlContext, const std::string& name, MTL::Size gridSize);
+    Kernel(MetalContext* mtlContext, const std::string& name);
 
     template <typename T>
     void setParameters(MTL::ComputeCommandEncoder* encoder, const Parameters<T>& pb) const {
-        encoder->setComputePipelineState(_kernelState.get());
+        encoder->setComputePipelineState(_pipelineState.get());
         encoder->setBuffer(pb.buffer(), 0, 0);
     }
 
-    void setState(MTL::ComputeCommandEncoder* encoder) const {
-        encoder->setComputePipelineState(_kernelState.get());
+    MTL::ComputePipelineState* pipelineState() const {
+        return _pipelineState.get();
     }
 
     template <typename parameter_type>
@@ -81,10 +80,10 @@ public:
         encoder->setTexture(parameter, index);
     }
 
-    void dispatchThreads(MTL::ComputeCommandEncoder* encoder) const {
-        auto threadGroupSize = _kernelState->maxTotalThreadsPerThreadgroup();
+    void dispatchThreads(const MTL::Size& gridSize, MTL::ComputeCommandEncoder* encoder) const {
+        auto threadGroupSize = _pipelineState->maxTotalThreadsPerThreadgroup();
         auto threadgroupSize = MTL::Size(threadGroupSize, 1, 1);
-        encoder->dispatchThreads(_gridSize, threadgroupSize);
+        encoder->dispatchThreads(gridSize, threadgroupSize);
     }
 };
 
@@ -111,15 +110,15 @@ class KernelFunctor {
    public:
     KernelFunctor(Kernel kernel) : _kernel(kernel) {}
 
-    void operator()(MTL::CommandBuffer* commandBuffer, Ts... ts) {
+    void operator()(MTL::CommandBuffer* commandBuffer, const MTL::Size& gridSize, Ts... ts) {
         auto encoder = commandBuffer->computeCommandEncoder();
 
         if (encoder) {
-            kernel().setState(encoder);
+            encoder->setComputePipelineState(_kernel.pipelineState());
 
             setArgs<0>(encoder, std::forward<Ts>(ts)...);
 
-            kernel().dispatchThreads(encoder);
+            _kernel.dispatchThreads(gridSize, encoder);
 
             encoder->endEncoding();
         }
@@ -181,28 +180,28 @@ class MetalContext {
         return pso;
     }
 
-    template <typename T>
-    void scheduleKernel(const Kernel& kernel,
-                        const typename Kernel::Parameters<T>& parameters,
-                        std::function<void(MTL::ComputeCommandEncoder*)> usedResources) {
-        _event.wait(_commandBuffer);
-
-        auto encoder = _commandBuffer->computeCommandEncoder();
-        if (encoder) {
-            usedResources(encoder);
-
-            kernel.setParameters(encoder, parameters);
-
-            kernel.dispatchThreads(encoder);
-
-            encoder->endEncoding();
-        }
-        _event.signal(_commandBuffer);
-    }
+//    template <typename T>
+//    void scheduleKernel(const Kernel& kernel,
+//                        const typename Kernel::Parameters<T>& parameters,
+//                        std::function<void(MTL::ComputeCommandEncoder*)> usedResources) {
+//        _event.wait(_commandBuffer);
+//
+//        auto encoder = _commandBuffer->computeCommandEncoder();
+//        if (encoder) {
+//            usedResources(encoder);
+//
+//            kernel.setParameters(encoder, parameters);
+//
+//            kernel.dispatchThreads(encoder);
+//
+//            encoder->endEncoding();
+//        }
+//        _event.signal(_commandBuffer);
+//    }
 };
 
-Kernel::Kernel(MetalContext* mtlContext, const std::string& name, MTL::Size gridSize) : _gridSize(gridSize) {
-    _kernelState = mtlContext->buildKernelPipelineState(name);
+Kernel::Kernel(MetalContext* mtlContext, const std::string& name) {
+    _pipelineState = mtlContext->buildKernelPipelineState(name);
 }
 
 #endif /* gls_mtl_hpp */
