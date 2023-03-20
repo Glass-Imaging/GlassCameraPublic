@@ -34,37 +34,33 @@ struct MandelbrotParameters {
 class Pipeline {
     MetalContext* _mtlContext;
     std::array<gls::mtl_image_2d<gls::rgba_pixel>::unique_ptr, 3> _mandelbrot_image;
-    std::array<Kernel::Parameters<MandelbrotParameters>, 3> _parameterBuffers;
 
 public:
     Pipeline(MetalContext* mtlContext) : _mtlContext(mtlContext) {
         for (int i = 0; i < 3; i++) {
             _mandelbrot_image[i] = std::make_unique<gls::mtl_image_2d<gls::rgba_pixel>>(mtlContext->device(), kTextureWidth, kTextureHeight);
-            _parameterBuffers[i] = Kernel::Parameters<MandelbrotParameters>(mtlContext->device(), {
-                _mandelbrot_image[i]->resourceID(), (uint32_t) i, 0
-            });
         }
     }
 
+    ~Pipeline() {
+        _mtlContext->waitForCompletion();
+    }
+
     void run(const std::string& path) {
-        auto mandelbrot_set = Kernel(_mtlContext, "mandelbrot_set");
+        auto mandelbrot_set = Kernel<MTL::Texture*,
+                                     uint32_t
+                                     >(_mtlContext, "mandelbrot_set");
 
-        auto mandelbrot_set_kernel = KernelFunctor<MTL::Texture*,
-                                                   uint32_t
-                                                   >(mandelbrot_set);
+        _mtlContext->scheduleOnCommandBuffer([&] (MTL::CommandBuffer* commandBuffer) {
+            for (int channel = 0; channel < 3; channel++) {
+                _mtlContext->wait(commandBuffer);
 
-        auto commandBuffer = _mtlContext->commandBuffer();
+                mandelbrot_set(commandBuffer, /*gridSize=*/ { kTextureWidth, kTextureHeight, 1 },
+                                      _mandelbrot_image[channel]->texture(), channel);
 
-        for (int channel = 0; channel < 3; channel++) {
-//            _mtlContext->scheduleKernel(mandelbrot_set, _parameterBuffers[channel], [&](MTL::ComputeCommandEncoder *encoder){
-//                encoder->useResource(_mandelbrot_image[channel]->texture(), MTL::ResourceUsageWrite);
-//            });
-
-            mandelbrot_set_kernel(commandBuffer, /*gridSize=*/ { kTextureWidth, kTextureHeight, 1 },
-                                  _mandelbrot_image[channel]->texture(), channel);
-        }
-
-        commandBuffer->addCompletedHandler([&] (MTL::CommandBuffer* commandBuffer) -> void {
+                _mtlContext->signal(commandBuffer);
+            }
+        }, [&] (MTL::CommandBuffer* commandBuffer) {
             if (commandBuffer->status() == MTL::CommandBufferStatusCompleted) {
                 const auto start = commandBuffer->GPUStartTime();
                 const auto end = commandBuffer->GPUEndTime();
@@ -80,10 +76,7 @@ public:
             }
         });
 
-        commandBuffer->commit();
-
-        // Wait here for all handlers to finish execution, otherwise the context disappears...
-        commandBuffer->waitUntilCompleted();
+        _mtlContext->waitForCompletion();
     }
 };
 

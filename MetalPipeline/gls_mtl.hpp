@@ -17,46 +17,146 @@
 #define gls_mtl_hpp
 
 #include <string>
+#include <exception>
 #include <functional>
 
 #include <Metal/Metal.hpp>
 
-class MetalContext;
+class EventWrapper {
+    NS::SharedPtr<MTL::Event> _event;
+    uint64_t _signalCounter = 0;
 
+public:
+    EventWrapper(MTL::Device* device) {
+        _event = NS::TransferPtr(device->newEvent());
+    }
+
+    void signal(MTL::CommandBuffer* commandBuffer) {
+        commandBuffer->encodeSignalEvent(_event.get(), ++_signalCounter);
+    }
+
+    void wait(MTL::CommandBuffer* commandBuffer) {
+        commandBuffer->encodeWait(_event.get(), _signalCounter);
+    }
+};
+
+class MetalContext {
+    NS::SharedPtr<MTL::Device> _device;
+    NS::SharedPtr<MTL::Library> _computeLibrary;
+    NS::SharedPtr<MTL::CommandQueue> _commandQueue;
+    std::vector<MTL::CommandBuffer*> work_in_progress;
+    EventWrapper _event;
+
+public:
+    MetalContext(NS::SharedPtr<MTL::Device> device) : _device(device), _event(_device.get()) {
+        _computeLibrary = NS::TransferPtr(_device->newDefaultLibrary());
+        _commandQueue = NS::TransferPtr(_device->newCommandQueue());
+    }
+
+    ~MetalContext() {
+        waitForCompletion();
+    }
+
+    void wait(MTL::CommandBuffer* commandBuffer) {
+        _event.wait(commandBuffer);
+    }
+
+    void signal(MTL::CommandBuffer* commandBuffer) {
+        _event.signal(commandBuffer);
+    }
+
+    void waitForCompletion() {
+        while (!work_in_progress.empty()) {
+            for (auto cb : work_in_progress) {
+                cb->waitUntilCompleted();
+            }
+        }
+    }
+
+    MTL::Device* device() const {
+        return _device.get();
+    }
+
+    MTL::ComputePipelineState* newKernelPipelineState(const std::string& kernelName) const {
+        NS::Error* error = nullptr;
+        auto kernel =
+        NS::TransferPtr(_computeLibrary->newFunction(NS::String::string(kernelName.c_str(), NS::UTF8StringEncoding)));
+        auto pso = _device->newComputePipelineState(kernel.get(), &error);
+        if (!pso) {
+            throw std::runtime_error("Couldn't create pipeline state for kernel " + kernelName + " : " + error->localizedDescription()->utf8String());
+        }
+        return pso;
+    }
+
+    void scheduleOnCommandBuffer(std::function<void(MTL::CommandBuffer*)> task, std::function<void(MTL::CommandBuffer*)> completionHandler) {
+        auto commandBuffer = _commandQueue->commandBuffer();
+
+        work_in_progress.push_back(commandBuffer);
+
+        task(commandBuffer);
+
+        commandBuffer->addCompletedHandler([&](MTL::CommandBuffer* commandBuffer) {
+            completionHandler(commandBuffer);
+            work_in_progress.erase(std::remove(work_in_progress.begin(), work_in_progress.end(), commandBuffer), work_in_progress.end());
+        });
+
+        commandBuffer->commit();
+    }
+
+    void scheduleOnCommandBuffer(std::function<void(MTL::CommandBuffer*)> task) {
+        scheduleOnCommandBuffer(task, [](MTL::CommandBuffer*) {});
+    }
+};
+
+template <typename T>
+class BufferParameters {
+    NS::SharedPtr<MTL::Buffer> _buffer;
+
+public:
+    BufferParameters() = default;
+
+    BufferParameters(const BufferParameters &) = default;
+
+    BufferParameters(MTL::Device* device, const T& value) :
+        _buffer(NS::TransferPtr(device->newBuffer(sizeof(T), MTL::ResourceStorageModeShared)))
+    {
+        T* contents = (T*) _buffer->contents();
+        *contents = value;
+    }
+
+    const MTL::Buffer* buffer() const {
+        return _buffer.get();
+    }
+
+    T* data() {
+        return (T*) _buffer->contents();
+    }
+};
+
+template <typename... Ts>
 class Kernel {
     MTL::ComputeCommandEncoder* _encoder;
     NS::SharedPtr<MTL::ComputePipelineState> _pipelineState;
 
+    template <int index, typename T0, typename... T1s>
+    void setArgs(MTL::ComputeCommandEncoder* encoder, T0&& t0, T1s&&... t1s) {
+        setParameter(encoder, t0, index);
+        setArgs<index + 1, T1s...>(encoder, std::forward<T1s>(t1s)...);
+    }
+
+    template <int index, typename T0>
+    void setArgs(MTL::ComputeCommandEncoder* encoder, T0&& t0) {
+        setParameter(encoder, t0, index);
+    }
+
 public:
-    template <typename T>
-    class Parameters {
-        NS::SharedPtr<MTL::Buffer> _buffer;
 
-    public:
-        Parameters() = default;
-
-        Parameters(const Parameters &) = default;
-
-        Parameters(MTL::Device* device, const T& value) :
-            _buffer(NS::TransferPtr(device->newBuffer(sizeof(T), MTL::ResourceStorageModeShared)))
-        {
-            T* contents = (T*) _buffer->contents();
-            *contents = value;
-        }
-
-        const MTL::Buffer* buffer() const {
-            return _buffer.get();
-        }
-
-        T* data() {
-            return (T*) _buffer->contents();
-        }
-    };
-
-    Kernel(MetalContext* mtlContext, const std::string& name);
+    Kernel(MetalContext* mtlContext, const std::string& name) {
+        _pipelineState = NS::TransferPtr(mtlContext->newKernelPipelineState(name));
+    }
 
     template <typename T>
-    void setParameters(MTL::ComputeCommandEncoder* encoder, const Parameters<T>& pb) const {
+    void setParameters(MTL::ComputeCommandEncoder* encoder, const BufferParameters<T>& pb) const {
         encoder->setComputePipelineState(_pipelineState.get());
         encoder->setBuffer(pb.buffer(), 0, 0);
     }
@@ -85,123 +185,27 @@ public:
         auto threadgroupSize = MTL::Size(threadGroupSize, 1, 1);
         encoder->dispatchThreads(gridSize, threadgroupSize);
     }
-};
 
-template <typename... Ts>
-class KernelFunctor {
-   private:
-    const Kernel _kernel;
-
-    template <int index, typename T0, typename... T1s>
-    void setArgs(MTL::ComputeCommandEncoder* encoder, T0&& t0, T1s&&... t1s) {
-        _kernel.setParameter(encoder, t0, index);
-        setArgs<index + 1, T1s...>(encoder, std::forward<T1s>(t1s)...);
+    void operator()(MTL::ComputeCommandEncoder* encoder, const MTL::Size& gridSize, Ts... ts) {
+        assert(encoder);
+        encoder->setComputePipelineState(_pipelineState.get());
+        setArgs<0>(encoder, std::forward<Ts>(ts)...);
+        dispatchThreads(gridSize, encoder);
     }
-
-    template <int index, typename T0>
-    void setArgs(MTL::ComputeCommandEncoder* encoder, T0&& t0) {
-        _kernel.setParameter(encoder, t0, index);
-    }
-
-    template <int index>
-    void setArgs(MTL::ComputeCommandEncoder* encoder) {
-    }
-
-   public:
-    KernelFunctor(Kernel kernel) : _kernel(kernel) {}
 
     void operator()(MTL::CommandBuffer* commandBuffer, const MTL::Size& gridSize, Ts... ts) {
         auto encoder = commandBuffer->computeCommandEncoder();
-
         if (encoder) {
-            encoder->setComputePipelineState(_kernel.pipelineState());
-
-            setArgs<0>(encoder, std::forward<Ts>(ts)...);
-
-            _kernel.dispatchThreads(gridSize, encoder);
-
+            operator()(encoder, gridSize, std::forward<Ts>(ts)...);
             encoder->endEncoding();
         }
     }
 
-    const Kernel& kernel() const { return _kernel; }
-};
-
-class EventWrapper {
-    NS::SharedPtr<MTL::Event> _event;
-    uint64_t _signalCounter = 0;
-
-public:
-    EventWrapper(MTL::Device* device) {
-        _event = NS::TransferPtr(device->newEvent());
-    }
-
-    void signal(MTL::CommandBuffer* commandBuffer) {
-        commandBuffer->encodeSignalEvent(_event.get(), ++_signalCounter);
-    }
-
-    void wait(MTL::CommandBuffer* commandBuffer) {
-        commandBuffer->encodeWait(_event.get(), _signalCounter);
+    void operator()(MetalContext* metalContext, const MTL::Size& gridSize, Ts... ts) {
+        metalContext->scheduleOnCommandBuffer([&](MTL::CommandBuffer* commandBuffer){
+            operator()(commandBuffer, gridSize, std::forward<Ts>(ts)...);
+        });
     }
 };
-
-class MetalContext {
-    NS::SharedPtr<MTL::Device> _device;
-    NS::SharedPtr<MTL::Library> _computeLibrary;
-    NS::SharedPtr<MTL::CommandQueue> _commandQueue;
-    MTL::CommandBuffer* _commandBuffer = nullptr;
-    EventWrapper _event;
-
-   public:
-    MetalContext(NS::SharedPtr<MTL::Device> device) : _device(device), _event(_device.get()) {
-        _computeLibrary = NS::TransferPtr(_device->newDefaultLibrary());
-        _commandQueue = NS::TransferPtr(_device->newCommandQueue());
-        _commandBuffer = _commandQueue->commandBuffer();
-    }
-    ~MetalContext() {}
-
-    MTL::Device* device() const {
-        return _device.get();
-    }
-
-    MTL::CommandBuffer* commandBuffer() const {
-        return _commandBuffer;
-    }
-
-    NS::SharedPtr<MTL::ComputePipelineState> buildKernelPipelineState(const std::string& kernelName) const {
-        NS::Error* error = nullptr;
-        auto kernel =
-            NS::TransferPtr(_computeLibrary->newFunction(NS::String::string(kernelName.c_str(), NS::UTF8StringEncoding)));
-        auto pso = NS::TransferPtr(_device->newComputePipelineState(kernel.get(), &error));
-        if (!pso) {
-            __builtin_printf("%s", error->localizedDescription()->utf8String());
-            assert(false);
-        }
-        return pso;
-    }
-
-//    template <typename T>
-//    void scheduleKernel(const Kernel& kernel,
-//                        const typename Kernel::Parameters<T>& parameters,
-//                        std::function<void(MTL::ComputeCommandEncoder*)> usedResources) {
-//        _event.wait(_commandBuffer);
-//
-//        auto encoder = _commandBuffer->computeCommandEncoder();
-//        if (encoder) {
-//            usedResources(encoder);
-//
-//            kernel.setParameters(encoder, parameters);
-//
-//            kernel.dispatchThreads(encoder);
-//
-//            encoder->endEncoding();
-//        }
-//        _event.signal(_commandBuffer);
-//    }
-};
-
-Kernel::Kernel(MetalContext* mtlContext, const std::string& name) {
-    _pipelineState = mtlContext->buildKernelPipelineState(name);
-}
 
 #endif /* gls_mtl_hpp */
