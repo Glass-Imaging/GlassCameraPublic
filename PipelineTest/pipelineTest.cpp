@@ -131,18 +131,56 @@ int main(int argc, const char * argv[]) {
         gls::mtl_image_2d<gls::luma_alpha_pixel_float> rawGradientImage(metalDevice.get(), rawImage->width, rawImage->height);
         gaussianBlurSobelImage(&mtlContext, scaledRawImage, rawSobelImage, rawVariance[1], 1.5, 4.5, &rawGradientImage);
 
+        gls::mtl_image_2d<gls::luma_pixel_float> greenImage(metalDevice.get(), rawImage->width, rawImage->height);
+        gls::mtl_image_2d<gls::rgba_pixel_float> linearRGBImageA(metalDevice.get(), rawImage->width, rawImage->height);
+        gls::mtl_image_2d<gls::rgba_pixel_float> linearRGBImageB(metalDevice.get(), rawImage->width, rawImage->height);
+
+        interpolateGreen(&mtlContext, scaledRawImage, rawGradientImage, &greenImage,
+                         demosaicParameters->bayerPattern, rawVariance[1]);
+
+        interpolateRedBlue(&mtlContext, scaledRawImage, greenImage, rawGradientImage, &linearRGBImageA,
+                           demosaicParameters->bayerPattern, rawVariance[0], rawVariance[2]);
+
+        interpolateRedBlueAtGreen(&mtlContext, linearRGBImageA, rawGradientImage, &linearRGBImageA,
+                                  demosaicParameters->bayerPattern, rawVariance[0], rawVariance[2]);
+
         mtlContext.waitForCompletion();
 
-        const auto scaledRawImageCpu = scaledRawImage.mapImage();
-        gls::image<gls::luma_pixel> saveImage(scaledRawImageCpu->width, scaledRawImageCpu->height);
-        saveImage.apply([&](gls::luma_pixel* p, int x, int y) {
-            p->luma = 255 * (*scaledRawImageCpu)[y][x].luma;
-        });
-        saveImage.write_png_file("/Users/fabio/scaled.png");
+        {
+            const auto scaledRawImageCpu = scaledRawImage.mapImage();
+            gls::image<gls::luma_pixel> saveImage(scaledRawImageCpu->width, scaledRawImageCpu->height);
+            saveImage.apply([&](gls::luma_pixel* p, int x, int y) {
+                p->luma = 255 * (*scaledRawImageCpu)[y][x].luma;
+            });
+            saveImage.write_png_file("/Users/fabio/scaled.png");
+        }
 
         dumpGradientImage(rawSobelImage, "/Users/fabio/rawSobelImage.png");
 
         dumpGradientImage(rawGradientImage, "/Users/fabio/rawGradientImage.png");
+
+        {
+            const auto greenImageCpu = greenImage.mapImage();
+            gls::image<gls::luma_pixel> saveImage(greenImageCpu->width, greenImageCpu->height);
+            saveImage.apply([&](gls::luma_pixel* p, int x, int y) {
+                p->luma = 255 * (*greenImageCpu)[y][x].luma;
+            });
+            saveImage.write_png_file("/Users/fabio/green.png");
+        }
+
+        {
+            const auto linearRGBImageACpu = linearRGBImageA.mapImage();
+            gls::image<gls::rgb_pixel> saveImage(linearRGBImageACpu->width, linearRGBImageACpu->height);
+            saveImage.apply([&](gls::rgb_pixel* p, int x, int y) {
+                const auto& pi = (*linearRGBImageACpu)[y][x];
+                *p = {
+                    (uint8_t) (255 * pi.red),
+                    (uint8_t) (255 * pi.green),
+                    (uint8_t) (255 * pi.blue)
+                };
+            });
+            saveImage.write_png_file("/Users/fabio/linearRGBImageA.png");
+        }
 
         std::cout << "It all went very well..." << std::endl;
         return 0;

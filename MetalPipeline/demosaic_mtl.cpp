@@ -123,6 +123,64 @@ void gaussianBlurSobelImage(MetalContext* mtlContext,
            weightsBuffer1.get(),
            (int) weightsOut2.size(),
            weightsBuffer2.get(),
-           simd::float2{ rawNoiseModel[0], rawNoiseModel[1] },
+           simd::float2 { rawNoiseModel[0], rawNoiseModel[1] },
            outputImage->texture());
+}
+
+void interpolateGreen(MetalContext* mtlContext, const gls::mtl_image_2d<gls::luma_pixel_float>& rawImage,
+                      const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& gradientImage,
+                      gls::mtl_image_2d<gls::luma_pixel_float>* greenImage, BayerPattern bayerPattern,
+                      gls::Vector<2> greenVariance) {
+    // Bind the kernel parameters
+    auto kernel = Kernel<MTL::Texture*,  // rawImage
+                         MTL::Texture*,  // gradientImage
+                         MTL::Texture*,  // greenImage
+                         int,            // bayerPattern
+                         simd::float2    // greenVariance
+                         >(mtlContext, "interpolateGreen");
+
+    // Schedule the kernel on the GPU
+    kernel(mtlContext, /*gridSize=*/ MTL::Size(greenImage->width, greenImage->height, 1), rawImage.texture(),
+           gradientImage.texture(), greenImage->texture(), bayerPattern, simd::float2 {greenVariance[0], greenVariance[1]});
+}
+
+void interpolateRedBlue(MetalContext* mtlContext, const gls::mtl_image_2d<gls::luma_pixel_float>& rawImage,
+                        const gls::mtl_image_2d<gls::luma_pixel_float>& greenImage,
+                        const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& gradientImage,
+                        gls::mtl_image_2d<gls::rgba_pixel_float>* rgbImage, BayerPattern bayerPattern,
+                        gls::Vector<2> redVariance, gls::Vector<2> blueVariance) {
+    // Bind the kernel parameters
+    auto kernel = Kernel<MTL::Texture*,  // rawImage
+                         MTL::Texture*,  // greenImage
+                         MTL::Texture*,  // gradientImage
+                         MTL::Texture*,  // rgbImage
+                         int,            // bayerPattern
+                         simd::float2,   // redVariance
+                         simd::float2    // blueVariance
+                         >(mtlContext, "interpolateRedBlue");
+
+    // Schedule the kernel on the GPU
+    kernel(mtlContext, /*gridSize=*/ MTL::Size(rgbImage->width / 2, rgbImage->height / 2, 1), rawImage.texture(),
+           greenImage.texture(), gradientImage.texture(), rgbImage->texture(), bayerPattern,
+           simd::float2 {redVariance[0], redVariance[1]}, simd::float2 {blueVariance[0], blueVariance[1]});
+}
+
+void interpolateRedBlueAtGreen(MetalContext* mtlContext,
+                               const gls::mtl_image_2d<gls::rgba_pixel_float>& rgbImageIn,
+                               const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& gradientImage,
+                               gls::mtl_image_2d<gls::rgba_pixel_float>* rgbImageOut, BayerPattern bayerPattern,
+                               gls::Vector<2> redVariance, gls::Vector<2> blueVariance) {
+    // Bind the kernel parameters
+    auto kernel = Kernel<MTL::Texture*,  // rgbImageIn
+                         MTL::Texture*,  // gradientImage
+                         MTL::Texture*,  // rgbImageOut
+                         int,            // bayerPattern
+                         simd::float2,   // redVariance
+                         simd::float2    // blueVariance
+                         >(mtlContext, "interpolateRedBlueAtGreen");
+
+    // Schedule the kernel on the GPU
+    kernel(mtlContext, /*gridSize=*/ MTL::Size(rgbImageOut->width / 2, rgbImageOut->height / 2, 1),
+           rgbImageIn.texture(), gradientImage.texture(), rgbImageOut->texture(), bayerPattern,
+           simd::float2 {redVariance[0], redVariance[1]}, simd::float2 {blueVariance[0], blueVariance[1]});
 }

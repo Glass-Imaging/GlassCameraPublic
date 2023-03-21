@@ -35,4 +35,21 @@ void gaussianBlurSobelImage(MetalContext* mtlContext,
                             std::array<float, 2> rawNoiseModel, float radius1, float radius2,
                             gls::mtl_image_2d<gls::luma_alpha_pixel_float>* outputImage);
 
+void interpolateGreen(MetalContext* mtlContext, const gls::mtl_image_2d<gls::luma_pixel_float>& rawImage,
+                      const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& gradientImage,
+                      gls::mtl_image_2d<gls::luma_pixel_float>* greenImage, BayerPattern bayerPattern,
+                      gls::Vector<2> greenVariance);
+
+void interpolateRedBlue(MetalContext* mtlContext, const gls::mtl_image_2d<gls::luma_pixel_float>& rawImage,
+                        const gls::mtl_image_2d<gls::luma_pixel_float>& greenImage,
+                        const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& gradientImage,
+                        gls::mtl_image_2d<gls::rgba_pixel_float>* rgbImage, BayerPattern bayerPattern,
+                        gls::Vector<2> redVariance, gls::Vector<2> blueVariance);
+
+void interpolateRedBlueAtGreen(MetalContext* mtlContext,
+                               const gls::mtl_image_2d<gls::rgba_pixel_float>& rgbImageIn,
+                               const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& gradientImage,
+                               gls::mtl_image_2d<gls::rgba_pixel_float>* rgbImageOut, BayerPattern bayerPattern,
+                               gls::Vector<2> redVariance, gls::Vector<2> blueVariance);
+
 #endif /* demosaic_mtl_hpp */
