@@ -171,6 +171,18 @@ public:
     }
 };
 
+template< typename IteratorType >
+NS::SharedPtr<MTL::Buffer> Buffer(MTL::Device* device,
+                                  IteratorType startIterator,
+                                  IteratorType endIterator,
+                                  MTL::ResourceOptions resourceOptions = MTL::ResourceStorageModeShared) {
+    typedef typename std::iterator_traits<IteratorType>::value_type value_type;
+    size_t size = sizeof(value_type) * (endIterator - startIterator);
+    auto buffer = NS::TransferPtr(device->newBuffer(size, resourceOptions));
+    std::copy(startIterator, endIterator, (value_type *) buffer->contents());
+    return buffer;
+}
+
 }  // namespace gls
 
 

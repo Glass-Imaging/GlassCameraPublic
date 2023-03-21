@@ -61,3 +61,68 @@ void rawImageSobel(MetalContext* mtlContext, const gls::mtl_image_2d<gls::luma_p
            rawImage.texture(),
            gradientImage->texture());
 }
+
+std::vector<std::array<float, 3>> gaussianKernelBilinearWeights(float radius) {
+    int kernelSize = (int)(ceil(2 * radius));
+    if ((kernelSize % 2) == 0) {
+        kernelSize++;
+    }
+
+    std::vector<float> weights(kernelSize * kernelSize);
+    for (int y = -kernelSize / 2, i = 0; y <= kernelSize / 2; y++) {
+        for (int x = -kernelSize / 2; x <= kernelSize / 2; x++, i++) {
+            weights[i] = exp(-((float)(x * x + y * y) / (2 * radius * radius)));
+        }
+    }
+//    std::cout << "Gaussian Kernel weights (" << weights.size() << "): " << std::endl;
+//    for (const auto& w : weights) {
+//        std::cout << std::setprecision(4) << std::scientific << w << ", ";
+//    }
+//    std::cout << std::endl;
+
+    const int outWidth = kernelSize / 2 + 1;
+    const int weightsCount = outWidth * outWidth;
+    std::vector<std::array<float, 3>> weightsOut(weightsCount);
+    KernelOptimizeBilinear2d(kernelSize, weights, &weightsOut);
+
+//    std::cout << "Bilinear Gaussian Kernel weights and offsets (" << weightsOut.size() << "): " << std::endl;
+//    for (const auto& [w, x, y] : weightsOut) {
+//        std::cout << w << " @ (" << x << " : " << y << "), " << std::endl;
+//    }
+
+    return weightsOut;
+}
+
+void gaussianBlurSobelImage(MetalContext* mtlContext,
+                            const gls::mtl_image_2d<gls::luma_pixel_float>& rawImage,
+                            const gls::mtl_image_2d<gls::rgba_pixel_float>& sobelImage,
+                            std::array<float, 2> rawNoiseModel, float radius1, float radius2,
+                            gls::mtl_image_2d<gls::luma_alpha_pixel_float>* outputImage) {
+    auto weightsOut1 = gaussianKernelBilinearWeights(radius1);
+    auto weightsOut2 = gaussianKernelBilinearWeights(radius2);
+
+    auto weightsBuffer1 = gls::Buffer(mtlContext->device(), weightsOut1.begin(), weightsOut1.end());
+    auto weightsBuffer2 = gls::Buffer(mtlContext->device(), weightsOut2.begin(), weightsOut2.end());
+
+    // Bind the kernel parameters
+    auto kernel = Kernel<MTL::Texture*,  // rawImage
+                         MTL::Texture*,  // sobelImage
+                         int,            // samples1
+                         MTL::Buffer*,   // weights1
+                         int,            // samples2
+                         MTL::Buffer*,   // weights2
+                         simd::float2,   // rawVariance
+                         MTL::Texture*   // outputImage
+                         >(mtlContext, "sampledConvolutionSobel");
+
+    // Schedule the kernel on the GPU
+    kernel(mtlContext, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
+           rawImage.texture(),
+           sobelImage.texture(),
+           (int) weightsOut1.size(),
+           weightsBuffer1.get(),
+           (int) weightsOut2.size(),
+           weightsBuffer2.get(),
+           simd::float2{ rawNoiseModel[0], rawNoiseModel[1] },
+           outputImage->texture());
+}

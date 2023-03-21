@@ -17,7 +17,7 @@ std::unique_ptr<DemosaicParameters> unpackSonya6400RawImage(const gls::image<gls
                                                             gls::tiff_metadata* dng_metadata, gls::tiff_metadata* exif_metadata);
 
 template <typename T>
-void dumpGradientImage(const gls::mtl_image_2d<T>& image) {
+void dumpGradientImage(const gls::mtl_image_2d<T>& image, const std::string& path) {
     gls::image<gls::rgb_pixel> out(image.width, image.height);
     const auto image_cpu = image.mapImage();
     out.apply([&](gls::rgb_pixel* p, int x, int y) {
@@ -36,8 +36,16 @@ void dumpGradientImage(const gls::mtl_image_2d<T>& image) {
             (uint8_t)(val * std::lerp(1.0f, 0.0f, 1 - direction)),
         };
     });
-    static int count = 0;
-    out.write_png_file("/Users/fabio/raw_gradient_sgn_5_fine_" + std::to_string(count++) + ".png");
+    out.write_png_file(path);
+}
+
+std::array<gls::Vector<2>, 3> getRawVariance(const RawNLF& rawNLF) {
+    const gls::Vector<2> greenVariance = {(rawNLF.first[1] + rawNLF.first[3]) / 2,
+                                          (rawNLF.second[1] + rawNLF.second[3]) / 2};
+    const gls::Vector<2> redVariance = {rawNLF.first[0], rawNLF.second[0]};
+    const gls::Vector<2> blueVariance = {rawNLF.first[2], rawNLF.second[2]};
+
+    return {redVariance, greenVariance, blueVariance};
 }
 
 int main(int argc, const char * argv[]) {
@@ -115,6 +123,14 @@ int main(int argc, const char * argv[]) {
 
         rawImageSobel(&mtlContext, scaledRawImage, &rawSobelImage);
 
+        NoiseModel<5>* noiseModel = &demosaicParameters->noiseModel;
+        const auto rawVariance = getRawVariance(noiseModel->rawNlf);
+
+        std::cout << "rawVariance: " << rawVariance[1] << std::endl;
+
+        gls::mtl_image_2d<gls::luma_alpha_pixel_float> rawGradientImage(metalDevice.get(), rawImage->width, rawImage->height);
+        gaussianBlurSobelImage(&mtlContext, scaledRawImage, rawSobelImage, rawVariance[1], 1.5, 4.5, &rawGradientImage);
+
         mtlContext.waitForCompletion();
 
         const auto scaledRawImageCpu = scaledRawImage.mapImage();
@@ -124,7 +140,9 @@ int main(int argc, const char * argv[]) {
         });
         saveImage.write_png_file("/Users/fabio/scaled.png");
 
-        dumpGradientImage(rawSobelImage);
+        dumpGradientImage(rawSobelImage, "/Users/fabio/rawSobelImage.png");
+
+        dumpGradientImage(rawGradientImage, "/Users/fabio/rawGradientImage.png");
 
         std::cout << "It all went very well..." << std::endl;
         return 0;

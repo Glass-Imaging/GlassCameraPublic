@@ -174,25 +174,19 @@ public:
         return _pipelineState.get();
     }
 
-    template <typename T>
-    void setParameters(MTL::ComputeCommandEncoder* encoder, const BufferParameters<T>& pb) const {
-        encoder->setComputePipelineState(_pipelineState.get());
-        encoder->setBuffer(pb.buffer(), 0, 0);
-    }
-
     template <typename parameter_type>
     void setParameter(MTL::ComputeCommandEncoder* encoder, const parameter_type& parameter, unsigned index) const {
         encoder->setBytes(&parameter, sizeof(parameter_type), index);
     }
 
     template <>
-    void setParameter<MTL::Buffer*>(MTL::ComputeCommandEncoder* encoder, MTL::Buffer* const & parameter, unsigned index) const {
-        encoder->setBuffer(parameter, 0, index);
+    void setParameter<MTL::Buffer*>(MTL::ComputeCommandEncoder* encoder, MTL::Buffer* const & buffer, unsigned index) const {
+        encoder->setBuffer(buffer, /*offset=*/ 0, index);
     }
 
     template <>
-    void setParameter<MTL::Texture*>(MTL::ComputeCommandEncoder* encoder, MTL::Texture* const & parameter, unsigned index) const {
-        encoder->setTexture(parameter, index);
+    void setParameter<MTL::Texture*>(MTL::ComputeCommandEncoder* encoder, MTL::Texture* const & texture, unsigned index) const {
+        encoder->setTexture(texture, index);
     }
 
     void dispatchThreads(const MTL::Size& gridSize, MTL::ComputeCommandEncoder* encoder) const {

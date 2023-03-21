@@ -29,4 +29,10 @@ void scaleRawData(MetalContext* mtlContext, const gls::mtl_image_2d<gls::luma_pi
 void rawImageSobel(MetalContext* mtlContext, const gls::mtl_image_2d<gls::luma_pixel_float>& rawImage,
                    gls::mtl_image_2d<gls::rgba_pixel_float>* gradientImage);
 
+void gaussianBlurSobelImage(MetalContext* mtlContext,
+                            const gls::mtl_image_2d<gls::luma_pixel_float>& rawImage,
+                            const gls::mtl_image_2d<gls::rgba_pixel_float>& sobelImage,
+                            std::array<float, 2> rawNoiseModel, float radius1, float radius2,
+                            gls::mtl_image_2d<gls::luma_alpha_pixel_float>* outputImage);
+
 #endif /* demosaic_mtl_hpp */
