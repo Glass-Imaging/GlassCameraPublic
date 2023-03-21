@@ -13,11 +13,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#define NS_PRIVATE_IMPLEMENTATION
-#define MTL_PRIVATE_IMPLEMENTATION
-#include <Metal/Metal.hpp>
-
-#include "gls_mtl.hpp"
-
-std::unique_ptr<std::map<const std::string,
-                         NS::SharedPtr<MTL::ComputePipelineState>>> kernelStateMap = nullptr;
+#include "raw_converter.hpp"

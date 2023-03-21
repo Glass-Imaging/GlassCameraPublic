@@ -25,12 +25,6 @@
 static constexpr uint32_t kTextureWidth = 128;
 static constexpr uint32_t kTextureHeight = 128;
 
-struct MandelbrotParameters {
-    MTL::ResourceID outputTextureResourceID;
-    uint32_t channel;
-    uint32_t extra;
-};
-
 class Pipeline {
     MetalContext* _mtlContext;
     std::array<gls::mtl_image_2d<gls::rgba_pixel>::unique_ptr, 3> _mandelbrot_image;
@@ -51,7 +45,7 @@ public:
                                      uint32_t
                                      >(_mtlContext, "mandelbrot_set");
 
-        _mtlContext->scheduleOnCommandBuffer([&] (MTL::CommandBuffer* commandBuffer) {
+        _mtlContext->scheduleOnCommandBuffer([this, &mandelbrot_set] (MTL::CommandBuffer* commandBuffer) {
             for (int channel = 0; channel < 3; channel++) {
                 _mtlContext->wait(commandBuffer);
 
@@ -60,7 +54,7 @@ public:
 
                 _mtlContext->signal(commandBuffer);
             }
-        }, [&] (MTL::CommandBuffer* commandBuffer) {
+        }, [this, &path] (MTL::CommandBuffer* commandBuffer) {
             if (commandBuffer->status() == MTL::CommandBufferStatusCompleted) {
                 const auto start = commandBuffer->GPUStartTime();
                 const auto end = commandBuffer->GPUEndTime();
@@ -69,7 +63,7 @@ public:
 
                 for (int i = 0; i < 3; i++) {
                     const auto imageCPU = _mandelbrot_image[i]->mapImage();
-                    imageCPU.write_png_file(path + "mandelbrot_" + std::to_string(i) + ".png");
+                    imageCPU->write_png_file(path + "mandelbrot_" + std::to_string(i) + ".png");
                 }
             } else {
                 std::cout << "Something wrong with Metal execution: " << commandBuffer->status() << std::endl;

@@ -13,11 +13,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#define NS_PRIVATE_IMPLEMENTATION
-#define MTL_PRIVATE_IMPLEMENTATION
-#include <Metal/Metal.hpp>
+#ifndef demosaic_mtl_hpp
+#define demosaic_mtl_hpp
 
+#include "gls_image.hpp"
+#include "gls_mtl_image.hpp"
 #include "gls_mtl.hpp"
 
-std::unique_ptr<std::map<const std::string,
-                         NS::SharedPtr<MTL::ComputePipelineState>>> kernelStateMap = nullptr;
+#include "demosaic.hpp"
+
+void scaleRawData(MetalContext* mtlContext, const gls::mtl_image_2d<gls::luma_pixel_16>& rawImage,
+                  gls::mtl_image_2d<gls::luma_pixel_float>* scaledRawImage, BayerPattern bayerPattern,
+                  gls::Vector<4> scaleMul, float blackLevel);
+
+#endif /* demosaic_mtl_hpp */

@@ -18,6 +18,19 @@
 		E5C5C01529BD3DDF00AAB593 /* MetalComputeTest.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C5C01329BD3DDF00AAB593 /* MetalComputeTest.cpp */; };
 		E5C5C01729BF8DAF00AAB593 /* MandelbrotSet.metal in Sources */ = {isa = PBXBuildFile; fileRef = E5C5C01629BF8DAF00AAB593 /* MandelbrotSet.metal */; };
 		E5C6984629C805B500F7062C /* demosaic.metal in Sources */ = {isa = PBXBuildFile; fileRef = E5C6984529C805B500F7062C /* demosaic.metal */; };
+		E5C6984D29C906FC00F7062C /* raw_converter.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C6984B29C906FC00F7062C /* raw_converter.cpp */; };
+		E5C6984E29C906FC00F7062C /* raw_converter.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C6984B29C906FC00F7062C /* raw_converter.cpp */; };
+		E5C6986329C925A600F7062C /* CameraCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C6986229C925A600F7062C /* CameraCalibration.cpp */; };
+		E5C6986429C925A600F7062C /* CameraCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C6986229C925A600F7062C /* CameraCalibration.cpp */; };
+		E5C6986629C9269400F7062C /* demosaic_utils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C6986529C9269400F7062C /* demosaic_utils.cpp */; };
+		E5C6986729C9269400F7062C /* demosaic_utils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C6986529C9269400F7062C /* demosaic_utils.cpp */; };
+		E5C6986A29C926CD00F7062C /* ThreadPool.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C6986929C926CD00F7062C /* ThreadPool.cpp */; };
+		E5C6986B29C926CD00F7062C /* ThreadPool.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C6986929C926CD00F7062C /* ThreadPool.cpp */; };
+		E5C6986D29C926F100F7062C /* Sonya6400Calibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C6986C29C926F100F7062C /* Sonya6400Calibration.cpp */; };
+		E5C6986E29C926F100F7062C /* Sonya6400Calibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C6986C29C926F100F7062C /* Sonya6400Calibration.cpp */; };
+		E5C6986F29C92E9600F7062C /* demosaic.metal in Sources */ = {isa = PBXBuildFile; fileRef = E5C6984529C805B500F7062C /* demosaic.metal */; };
+		E5C6987229C96F8B00F7062C /* demosaic_mtl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C6987029C96F8B00F7062C /* demosaic_mtl.cpp */; };
+		E5C6987329C96F8B00F7062C /* demosaic_mtl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C6987029C96F8B00F7062C /* demosaic_mtl.cpp */; };
 		E5D4D88D27D1798D00F1D944 /* GlassCameraApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5D4D88C27D1798D00F1D944 /* GlassCameraApp.swift */; };
 		E5D4D88F27D1798D00F1D944 /* CameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5D4D88E27D1798D00F1D944 /* CameraView.swift */; };
 		E5D4D89127D1798E00F1D944 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E5D4D89027D1798E00F1D944 /* Assets.xcassets */; };
@@ -89,6 +102,31 @@
 		E5C5C01429BD3DDF00AAB593 /* MetalComputeTest.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = MetalComputeTest.hpp; sourceTree = "<group>"; };
 		E5C5C01629BF8DAF00AAB593 /* MandelbrotSet.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = MandelbrotSet.metal; sourceTree = "<group>"; };
 		E5C6984529C805B500F7062C /* demosaic.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = demosaic.metal; sourceTree = "<group>"; };
+		E5C6984B29C906FC00F7062C /* raw_converter.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = raw_converter.cpp; sourceTree = "<group>"; };
+		E5C6984C29C906FC00F7062C /* raw_converter.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = raw_converter.hpp; sourceTree = "<group>"; };
+		E5C6984F29C912C500F7062C /* gls_logging.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = gls_logging.h; path = GlassImage/include/gls_logging.h; sourceTree = "<group>"; };
+		E5C6985029C912C500F7062C /* gls_color_science.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = gls_color_science.hpp; path = GlassImage/include/gls_color_science.hpp; sourceTree = "<group>"; };
+		E5C6985129C912C500F7062C /* gls_tiff_metadata.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = gls_tiff_metadata.hpp; path = GlassImage/include/gls_tiff_metadata.hpp; sourceTree = "<group>"; };
+		E5C6985229C912C500F7062C /* gls_image_tiff.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = gls_image_tiff.h; path = GlassImage/include/gls_image_tiff.h; sourceTree = "<group>"; };
+		E5C6985329C912C500F7062C /* gls_image_png.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = gls_image_png.h; path = GlassImage/include/gls_image_png.h; sourceTree = "<group>"; };
+		E5C6985429C912C500F7062C /* gls_statistics.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = gls_statistics.hpp; path = GlassImage/include/gls_statistics.hpp; sourceTree = "<group>"; };
+		E5C6985529C912C500F7062C /* gls_linalg.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = gls_linalg.hpp; path = GlassImage/include/gls_linalg.hpp; sourceTree = "<group>"; };
+		E5C6985629C912C500F7062C /* gls_auto_ptr.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = gls_auto_ptr.hpp; path = GlassImage/include/gls_auto_ptr.hpp; sourceTree = "<group>"; };
+		E5C6985729C912C500F7062C /* gls_dng_lossless_jpeg.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = gls_dng_lossless_jpeg.hpp; path = GlassImage/include/gls_dng_lossless_jpeg.hpp; sourceTree = "<group>"; };
+		E5C6985829C912C500F7062C /* gls_image.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = gls_image.hpp; path = GlassImage/include/gls_image.hpp; sourceTree = "<group>"; };
+		E5C6985929C912C500F7062C /* gls_cl.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = gls_cl.hpp; path = GlassImage/include/gls_cl.hpp; sourceTree = "<group>"; };
+		E5C6985A29C912C500F7062C /* gls_image_jpeg.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = gls_image_jpeg.h; path = GlassImage/include/gls_image_jpeg.h; sourceTree = "<group>"; };
+		E5C6985B29C912C500F7062C /* gls_cl_image.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = gls_cl_image.hpp; path = GlassImage/include/gls_cl_image.hpp; sourceTree = "<group>"; };
+		E5C6985C29C912C500F7062C /* gls_geometry.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = gls_geometry.hpp; path = GlassImage/include/gls_geometry.hpp; sourceTree = "<group>"; };
+		E5C6985E29C91EF600F7062C /* demosaic.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = demosaic.hpp; sourceTree = "<group>"; };
+		E5C6986129C925A600F7062C /* CameraCalibration.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = CameraCalibration.hpp; sourceTree = "<group>"; };
+		E5C6986229C925A600F7062C /* CameraCalibration.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CameraCalibration.cpp; sourceTree = "<group>"; };
+		E5C6986529C9269400F7062C /* demosaic_utils.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = demosaic_utils.cpp; sourceTree = "<group>"; };
+		E5C6986829C926CD00F7062C /* ThreadPool.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = ThreadPool.hpp; sourceTree = "<group>"; };
+		E5C6986929C926CD00F7062C /* ThreadPool.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ThreadPool.cpp; sourceTree = "<group>"; };
+		E5C6986C29C926F100F7062C /* Sonya6400Calibration.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Sonya6400Calibration.cpp; sourceTree = "<group>"; };
+		E5C6987029C96F8B00F7062C /* demosaic_mtl.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = demosaic_mtl.cpp; sourceTree = "<group>"; };
+		E5C6987129C96F8B00F7062C /* demosaic_mtl.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = demosaic_mtl.hpp; sourceTree = "<group>"; };
 		E5D4D88927D1798D00F1D944 /* GlassCamera.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GlassCamera.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E5D4D88C27D1798D00F1D944 /* GlassCameraApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassCameraApp.swift; sourceTree = "<group>"; };
 		E5D4D88E27D1798D00F1D944 /* CameraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraView.swift; sourceTree = "<group>"; };
@@ -192,6 +230,20 @@
 		E5C5BFF129BD369900AAB593 /* GlassImage */ = {
 			isa = PBXGroup;
 			children = (
+				E5C6985629C912C500F7062C /* gls_auto_ptr.hpp */,
+				E5C6985B29C912C500F7062C /* gls_cl_image.hpp */,
+				E5C6985929C912C500F7062C /* gls_cl.hpp */,
+				E5C6985029C912C500F7062C /* gls_color_science.hpp */,
+				E5C6985729C912C500F7062C /* gls_dng_lossless_jpeg.hpp */,
+				E5C6985C29C912C500F7062C /* gls_geometry.hpp */,
+				E5C6985A29C912C500F7062C /* gls_image_jpeg.h */,
+				E5C6985329C912C500F7062C /* gls_image_png.h */,
+				E5C6985229C912C500F7062C /* gls_image_tiff.h */,
+				E5C6985829C912C500F7062C /* gls_image.hpp */,
+				E5C6985529C912C500F7062C /* gls_linalg.hpp */,
+				E5C6984F29C912C500F7062C /* gls_logging.h */,
+				E5C6985429C912C500F7062C /* gls_statistics.hpp */,
+				E5C6985129C912C500F7062C /* gls_tiff_metadata.hpp */,
 				E5C5BFF229BD36B600AAB593 /* gls_color_science.cpp */,
 				E5C5BFF829BD36B600AAB593 /* gls_dng_lossless_jpeg.cpp */,
 				E5C5BFF529BD36B600AAB593 /* gls_image_jpeg.cpp */,
@@ -208,11 +260,22 @@
 			children = (
 				E5C5C01329BD3DDF00AAB593 /* MetalComputeTest.cpp */,
 				E5C5C01429BD3DDF00AAB593 /* MetalComputeTest.hpp */,
-				E5C5C01629BF8DAF00AAB593 /* MandelbrotSet.metal */,
 				E5C6984529C805B500F7062C /* demosaic.metal */,
+				E5C5C01629BF8DAF00AAB593 /* MandelbrotSet.metal */,
 				E5FAE7A629C1368900213AE6 /* gls_mtl_image.hpp */,
 				E5FAE7AB29C50D2C00213AE6 /* gls_mtl.cpp */,
 				E5FAE7AC29C50D2C00213AE6 /* gls_mtl.hpp */,
+				E5C6985E29C91EF600F7062C /* demosaic.hpp */,
+				E5C6984B29C906FC00F7062C /* raw_converter.cpp */,
+				E5C6984C29C906FC00F7062C /* raw_converter.hpp */,
+				E5C6986229C925A600F7062C /* CameraCalibration.cpp */,
+				E5C6986129C925A600F7062C /* CameraCalibration.hpp */,
+				E5C6986529C9269400F7062C /* demosaic_utils.cpp */,
+				E5C6986929C926CD00F7062C /* ThreadPool.cpp */,
+				E5C6986829C926CD00F7062C /* ThreadPool.hpp */,
+				E5C6986C29C926F100F7062C /* Sonya6400Calibration.cpp */,
+				E5C6987029C96F8B00F7062C /* demosaic_mtl.cpp */,
+				E5C6987129C96F8B00F7062C /* demosaic_mtl.hpp */,
 			);
 			path = MetalPipeline;
 			sourceTree = "<group>";
@@ -369,6 +432,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				E5C5BFFC29BD36B600AAB593 /* gls_image_jpeg.cpp in Sources */,
+				E5C6986A29C926CD00F7062C /* ThreadPool.cpp in Sources */,
+				E5C6987229C96F8B00F7062C /* demosaic_mtl.cpp in Sources */,
+				E5C6986329C925A600F7062C /* CameraCalibration.cpp in Sources */,
 				E5C5BFA929BC5E4B00AAB593 /* CustomObject.mm in Sources */,
 				E5D4D8A027D183D800F1D944 /* CameraPreview.swift in Sources */,
 				E5D4D8A327D183D900F1D944 /* CameraService.swift in Sources */,
@@ -378,6 +444,8 @@
 				E5C5BFFA29BD36B600AAB593 /* gls_image_png.cpp in Sources */,
 				E5C6984629C805B500F7062C /* demosaic.metal in Sources */,
 				E5D4D8A627D183F700F1D944 /* PhotoCaptureProcessor.swift in Sources */,
+				E5C6986D29C926F100F7062C /* Sonya6400Calibration.cpp in Sources */,
+				E5C6984D29C906FC00F7062C /* raw_converter.cpp in Sources */,
 				E5D4D8A127D183D800F1D944 /* CameraService+Extensions.swift in Sources */,
 				E5D4D8A427D183D900F1D944 /* CameraService+Enums.swift in Sources */,
 				E5D4D8A827D1841100F1D944 /* ImageResizer.swift in Sources */,
@@ -385,6 +453,7 @@
 				E5C5BFFD29BD36B600AAB593 /* gls_logging.cpp in Sources */,
 				E5C5C01729BF8DAF00AAB593 /* MandelbrotSet.metal in Sources */,
 				E5FAE7AD29C50D2C00213AE6 /* gls_mtl.cpp in Sources */,
+				E5C6986629C9269400F7062C /* demosaic_utils.cpp in Sources */,
 				E5C5C01529BD3DDF00AAB593 /* MetalComputeTest.cpp in Sources */,
 				E5C5BFFB29BD36B600AAB593 /* gls_image_tiff.cpp in Sources */,
 				E5C5BFFE29BD36B600AAB593 /* gls_tiff_metadata.cpp in Sources */,
@@ -396,15 +465,22 @@
 			buildActionMask = 2147483647;
 			files = (
 				E5FAE7E829C5425300213AE6 /* MetalComputeTest.cpp in Sources */,
+				E5C6986E29C926F100F7062C /* Sonya6400Calibration.cpp in Sources */,
+				E5C6986B29C926CD00F7062C /* ThreadPool.cpp in Sources */,
 				E5FAE7E929C5425300213AE6 /* MetalComputeTest.hpp in Sources */,
 				E5FAE7EA29C5425300213AE6 /* MandelbrotSet.metal in Sources */,
+				E5C6986F29C92E9600F7062C /* demosaic.metal in Sources */,
 				E5FAE7EB29C5425300213AE6 /* gls_mtl_image.hpp in Sources */,
 				E5FAE7EC29C5425300213AE6 /* gls_mtl.cpp in Sources */,
 				E5FAE7ED29C5425300213AE6 /* gls_mtl.hpp in Sources */,
+				E5C6986729C9269400F7062C /* demosaic_utils.cpp in Sources */,
 				E5FAE7EE29C5425300213AE6 /* gls_color_science.cpp in Sources */,
+				E5C6986429C925A600F7062C /* CameraCalibration.cpp in Sources */,
 				E5FAE7EF29C5425300213AE6 /* gls_dng_lossless_jpeg.cpp in Sources */,
 				E5FAE7F029C5425300213AE6 /* gls_image_jpeg.cpp in Sources */,
 				E5FAE7F129C5425300213AE6 /* gls_image_png.cpp in Sources */,
+				E5C6987329C96F8B00F7062C /* demosaic_mtl.cpp in Sources */,
+				E5C6984E29C906FC00F7062C /* raw_converter.cpp in Sources */,
 				E5FAE7F229C5425300213AE6 /* gls_image_tiff.cpp in Sources */,
 				E5FAE7F329C5425300213AE6 /* gls_logging.cpp in Sources */,
 				E5FAE7F429C5425300213AE6 /* gls_tiff_metadata.cpp in Sources */,

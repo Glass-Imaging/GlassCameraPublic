@@ -19,6 +19,7 @@
 #include <string>
 #include <exception>
 #include <functional>
+#include <map>
 
 #include <Metal/Metal.hpp>
 
@@ -95,7 +96,7 @@ public:
 
         task(commandBuffer);
 
-        commandBuffer->addCompletedHandler([&](MTL::CommandBuffer* commandBuffer) {
+        commandBuffer->addCompletedHandler([this, completionHandler](MTL::CommandBuffer* commandBuffer) {
             completionHandler(commandBuffer);
             work_in_progress.erase(std::remove(work_in_progress.begin(), work_in_progress.end(), commandBuffer), work_in_progress.end());
         });
@@ -133,6 +134,9 @@ public:
     }
 };
 
+extern std::unique_ptr<std::map<const std::string,
+                                NS::SharedPtr<MTL::ComputePipelineState>>> kernelStateMap;
+
 template <typename... Ts>
 class Kernel {
     MTL::ComputeCommandEncoder* _encoder;
@@ -150,19 +154,30 @@ class Kernel {
     }
 
 public:
-
     Kernel(MetalContext* mtlContext, const std::string& name) {
-        _pipelineState = NS::TransferPtr(mtlContext->newKernelPipelineState(name));
+        if (kernelStateMap == nullptr) {
+            kernelStateMap = std::make_unique<std::map<const std::string,
+                                                       NS::SharedPtr<MTL::ComputePipelineState>>>();
+        }
+
+        _pipelineState = (*kernelStateMap)[name];
+
+        if (!_pipelineState) {
+            _pipelineState = NS::TransferPtr(mtlContext->newKernelPipelineState(name));
+            (*kernelStateMap)[name] = _pipelineState;
+        }
+    }
+
+    ~Kernel() { }
+
+    MTL::ComputePipelineState* pipelineState() const {
+        return _pipelineState.get();
     }
 
     template <typename T>
     void setParameters(MTL::ComputeCommandEncoder* encoder, const BufferParameters<T>& pb) const {
         encoder->setComputePipelineState(_pipelineState.get());
         encoder->setBuffer(pb.buffer(), 0, 0);
-    }
-
-    MTL::ComputePipelineState* pipelineState() const {
-        return _pipelineState.get();
     }
 
     template <typename parameter_type>
@@ -202,7 +217,7 @@ public:
     }
 
     void operator()(MetalContext* metalContext, const MTL::Size& gridSize, Ts... ts) {
-        metalContext->scheduleOnCommandBuffer([&](MTL::CommandBuffer* commandBuffer){
+        metalContext->scheduleOnCommandBuffer([&, this](MTL::CommandBuffer* commandBuffer){
             operator()(commandBuffer, gridSize, std::forward<Ts>(ts)...);
         });
     }

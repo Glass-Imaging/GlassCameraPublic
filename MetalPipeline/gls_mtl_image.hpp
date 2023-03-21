@@ -131,16 +131,12 @@ public:
 
     virtual ~mtl_image_2d() {}
 
-    virtual image<T> mapImage() const {
+    virtual typename gls::image<T>::unique_ptr mapImage() const {
         void* bufferData = _buffer->contents();
         size_t bufferLength = _buffer->length();
 
-        return gls::image<gls::rgba_pixel>(basic_image<T>::width, basic_image<T>::height, stride,
-                                           std::span<gls::rgba_pixel>((gls::rgba_pixel*)bufferData, bufferLength / sizeof(gls::rgba_pixel)));
-    }
-
-    virtual void unmapImage(const image<T>& mappedImage) const {
-        // TODO: Do we need this?
+        return std::make_unique<gls::image<T>>(basic_image<T>::width, basic_image<T>::height, stride,
+                                               std::span<T>((T*)bufferData, bufferLength / sizeof(T)));
     }
 
     inline typename gls::image<T>::unique_ptr toImage() const {
@@ -156,25 +152,22 @@ public:
     void copyPixelsFrom(const image<T>& other) const {
         assert(other.width == image<T>::width && other.height == image<T>::height);
         auto cpuImage = mapImage();
-        copyPixels(&cpuImage, other);
-        unmapImage(cpuImage);
+        copyPixels(cpuImage.get(), other);
     }
 
     void copyPixelsTo(image<T>* other) const {
         assert(other->width == image<T>::width && other->height == image<T>::height);
         auto cpuImage = mapImage();
-        copyPixels(other, cpuImage);
-        unmapImage(cpuImage);
+        copyPixels(other, *cpuImage);
     }
 
     void apply(std::function<void(T* pixel, int x, int y)> process) {
         auto cpu_image = mapImage();
         for (int y = 0; y < basic_image<T>::height; y++) {
             for (int x = 0; x < basic_image<T>::width; x++) {
-                process(&cpu_image[y][x], x, y);
+                process(&(*cpu_image)[y][x], x, y);
             }
         }
-        unmapImage(cpu_image);
     }
 };
 
