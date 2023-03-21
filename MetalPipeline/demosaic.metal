@@ -112,8 +112,9 @@ float4 sampledConvolution(texture2d<float> inputImage,
     float4 sum = 0;
     float norm = 0;
     for (int i = 0; i < samples; i++) {
-        float w = weights[3 * i + 0];
-        sum += w * read_imagef(inputImage, linear_sampler, inputPos + ((float2) { weights[3 * i + 1], weights[3 * i + 2] } + 0.5) * inputNorm);
+        float w = weights[3 * i];
+        float2 off = { weights[3 * i + 1], weights[3 * i + 2] };
+        sum += w * read_imagef(inputImage, linear_sampler, inputPos + (off + 0.5) * inputNorm);
         norm += w;
     }
     return sum / norm;
@@ -138,8 +139,7 @@ kernel void sampledConvolutionSobel(texture2d<float> rawImage                   
         result = sampledConvolution(sobelImage, imageCoordinates, inputNorm, samples2, weights2);
     }
 
-    float2 result2 = copysign(result.zw, result.xy);
-    write_imagef(outputImage, imageCoordinates, (float4) { result2.x, result2.y, 0, 0});
+    write_imagef(outputImage, imageCoordinates, float4(copysign(result.zw, result.xy), 0, 0));
 }
 
 // Modified Hamilton-Adams green channel interpolation
@@ -317,7 +317,6 @@ void interpolateRedBluePixel(texture2d<float> rawImage,
 
     float3 output = red_pixel ? (float3) { c1, green, c2 } : (float3) { c2, green, c1 };
 
-    // TODO: Verify the float4 constructor
     write_imagef(rgbImage, imageCoordinates, float4(clamp(output, 0.0, 1.0), 0));
 }
 
