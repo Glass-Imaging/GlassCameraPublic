@@ -16,6 +16,30 @@
 std::unique_ptr<DemosaicParameters> unpackSonya6400RawImage(const gls::image<gls::luma_pixel_16>& inputImage,
                                                             gls::tiff_metadata* dng_metadata, gls::tiff_metadata* exif_metadata);
 
+template <typename T>
+void dumpGradientImage(const gls::mtl_image_2d<T>& image) {
+    gls::image<gls::rgb_pixel> out(image.width, image.height);
+    const auto image_cpu = image.mapImage();
+    out.apply([&](gls::rgb_pixel* p, int x, int y) {
+        const auto& ip = (*image_cpu)[y][x];
+
+        // float direction = (1 + atan2(ip.y, ip.x) / M_PI) / 2;
+        // float direction = atan2(abs(ip.y), ip.x) / M_PI;
+        float direction = std::atan2(std::abs(ip.y), std::abs(ip.x)) / M_PI_2;
+        float magnitude = std::sqrt((float)(ip.x * ip.x + ip.y * ip.y));
+
+        uint8_t val = std::clamp(255 * std::sqrt(magnitude), 0.0f, 255.0f);
+
+        *p = gls::rgb_pixel{
+            (uint8_t)(val * std::lerp(1.0f, 0.0f, direction)),
+            0,
+            (uint8_t)(val * std::lerp(1.0f, 0.0f, 1 - direction)),
+        };
+    });
+    static int count = 0;
+    out.write_png_file("/Users/fabio/raw_gradient_sgn_5_fine_" + std::to_string(count++) + ".png");
+}
+
 int main(int argc, const char * argv[]) {
     if (argc > 1) {
         auto input_path = std::filesystem::path(argv[1]);
@@ -87,6 +111,10 @@ int main(int argc, const char * argv[]) {
 
         scaleRawData(&mtlContext, *rawImage, &scaledRawImage, demosaicParameters->bayerPattern, demosaicParameters->scale_mul, demosaicParameters->black_level / 0xffff);
 
+        gls::mtl_image_2d<gls::rgba_pixel_float> rawSobelImage(metalDevice.get(), rawImage->width, rawImage->height);
+
+        rawImageSobel(&mtlContext, scaledRawImage, &rawSobelImage);
+
         mtlContext.waitForCompletion();
 
         const auto scaledRawImageCpu = scaledRawImage.mapImage();
@@ -95,6 +123,8 @@ int main(int argc, const char * argv[]) {
             p->luma = 255 * (*scaledRawImageCpu)[y][x].luma;
         });
         saveImage.write_png_file("/Users/fabio/scaled.png");
+
+        dumpGradientImage(rawSobelImage);
 
         std::cout << "It all went very well..." << std::endl;
         return 0;

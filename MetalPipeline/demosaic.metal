@@ -47,16 +47,46 @@ half4 read_imageh(texture2d<half, access::read> image, int2 coord) {
 }
 
 // Work on one Quad (2x2) at a time
-kernel void scaleRawData(texture2d<float, access::read> rawImage            [[texture(0)]],
-                         texture2d<float, access::write> scaledRawImage     [[texture(1)]],
+kernel void scaleRawData(texture2d<half, access::read> rawImage            [[texture(0)]],
+                         texture2d<half, access::write> scaledRawImage     [[texture(1)]],
                          constant int& bayerPattern                         [[buffer(2)]],
-                         constant float4& scaleMul                          [[buffer(3)]],
-                         constant float& blackLevel                         [[buffer(4)]],
-                         uint2 index [[thread_position_in_grid]],
-                         uint2 gridSize [[threads_per_grid]]) {
+                         constant half4& scaleMul                          [[buffer(3)]],
+                         constant half& blackLevel                         [[buffer(4)]],
+                         uint2 index                                        [[thread_position_in_grid]],
+                         uint2 gridSize                                     [[threads_per_grid]])
+{
+    const int2 imageCoordinates = 2 * (int2) index;
+
     for (int c = 0; c < 4; c++) {
-        int2 off = bayerOffsets[bayerPattern][c];
-        write_imagef(scaledRawImage, static_cast<int2>(2 * index) + off,
-                     scaleMul[c] * (read_imagef(rawImage, static_cast<int2>(2 * index) + off) - blackLevel));
+        int2 o = bayerOffsets[bayerPattern][c];
+        write_imageh(scaledRawImage, imageCoordinates + o,
+                     max(scaleMul[c] * (read_imageh(rawImage, imageCoordinates + o).x - blackLevel), 0.0h));
     }
+}
+
+constant half2 sobelKernel2D[3][3] = {
+    { { 1,  1 }, { 0,  2 }, { -1,  1 } },
+    { { 2,  0 }, { 0,  0 }, { -2,  0 } },
+    { { 1, -1 }, { 0, -2 }, { -1, -1 } },
+};
+
+half2 sobel(texture2d<half, access::read> inputImage, int x, int y) {
+    half2 value = 0;
+    for (int j = -1; j <= 1; j++) {
+        for (int i = -1; i <= 1; i++) {
+            half sample = read_imageh(inputImage, (int2) { x + i, y + j }).x;
+            value += sobelKernel2D[j+1][i+1] * sample;
+        }
+    }
+    return value / sqrt(4.5);
+}
+
+kernel void rawImageSobel(texture2d<half, access::read> inputImage         [[texture(0)]],
+                          texture2d<half, access::write> gradientImage     [[texture(1)]],
+                          uint2 index                                       [[thread_position_in_grid]])
+{
+    const int2 imageCoordinates = (int2) index;
+    half2 gradient = sobel(inputImage, imageCoordinates.x, imageCoordinates.y);
+
+    write_imageh(gradientImage, imageCoordinates, (half4) { gradient.x, gradient.y, abs(gradient.x), abs(gradient.y) });
 }

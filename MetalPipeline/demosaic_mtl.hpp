@@ -26,4 +26,7 @@ void scaleRawData(MetalContext* mtlContext, const gls::mtl_image_2d<gls::luma_pi
                   gls::mtl_image_2d<gls::luma_pixel_float>* scaledRawImage, BayerPattern bayerPattern,
                   gls::Vector<4> scaleMul, float blackLevel);
 
+void rawImageSobel(MetalContext* mtlContext, const gls::mtl_image_2d<gls::luma_pixel_float>& rawImage,
+                   gls::mtl_image_2d<gls::rgba_pixel_float>* gradientImage);
+
 #endif /* demosaic_mtl_hpp */

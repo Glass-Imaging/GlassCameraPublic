@@ -18,6 +18,21 @@
 #include <iostream>
 #include <simd/simd.h>
 
+typedef __fp16 float16_t;
+typedef __fp16 half;
+
+typedef __attribute__((__ext_vector_type__(2))) half simd_half2;
+typedef __attribute__((__ext_vector_type__(3))) half simd_half3;
+typedef __attribute__((__ext_vector_type__(4))) half simd_half4;
+
+namespace simd {
+
+typedef ::simd_half2 half2;
+typedef ::simd_half3 half3;
+typedef ::simd_half4 half4;
+
+}
+
 void scaleRawData(MetalContext* mtlContext, const gls::mtl_image_2d<gls::luma_pixel_16>& rawImage,
                   gls::mtl_image_2d<gls::luma_pixel_float>* scaledRawImage, BayerPattern bayerPattern,
                   gls::Vector<4> scaleMul, float blackLevel) {
@@ -25,12 +40,24 @@ void scaleRawData(MetalContext* mtlContext, const gls::mtl_image_2d<gls::luma_pi
     auto kernel = Kernel<MTL::Texture*,     // rawImage
                          MTL::Texture*,     // scaledRawImage
                          int,               // bayerPattern
-                         simd::float4,      // scaleMul
-                         float              // blackLevel
+                         simd::half4,       // scaleMul
+                         half               // blackLevel
                          >(mtlContext, "scaleRawData");
 
-    kernel(mtlContext, /*gridSize=*/ { (unsigned) scaledRawImage->width / 2, (unsigned) scaledRawImage->height / 2, 1 },
+    kernel(mtlContext, /*gridSize=*/ MTL::Size(scaledRawImage->width / 2, scaledRawImage->height / 2, 1),
            rawImage.texture(), scaledRawImage->texture(), bayerPattern,
-           simd::float4 { scaleMul[0], scaleMul[1], scaleMul[2], scaleMul[3] },
+           simd::half4 { (half) scaleMul[0], (half) scaleMul[1], (half) scaleMul[2], (half) scaleMul[3] },
            blackLevel);
+}
+
+void rawImageSobel(MetalContext* mtlContext, const gls::mtl_image_2d<gls::luma_pixel_float>& rawImage,
+                   gls::mtl_image_2d<gls::rgba_pixel_float>* gradientImage) {
+    auto kernel = Kernel<MTL::Texture*,  // rawImage
+                         MTL::Texture*   // gradientImage
+                         >(mtlContext, "rawImageSobel");
+
+    // Schedule the kernel on the GPU
+    kernel(mtlContext, /*gridSize=*/ MTL::Size(gradientImage->width, gradientImage->height, 1),
+           rawImage.texture(),
+           gradientImage->texture());
 }
