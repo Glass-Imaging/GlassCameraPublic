@@ -22,6 +22,15 @@
 
 #include "demosaic.hpp"
 
+static inline std::array<gls::Vector<2>, 3> getRawVariance(const RawNLF& rawNLF) {
+    const gls::Vector<2> greenVariance = {(rawNLF.first[1] + rawNLF.first[3]) / 2,
+                                          (rawNLF.second[1] + rawNLF.second[3]) / 2};
+    const gls::Vector<2> redVariance = {rawNLF.first[0], rawNLF.second[0]};
+    const gls::Vector<2> blueVariance = {rawNLF.first[2], rawNLF.second[2]};
+
+    return {redVariance, greenVariance, blueVariance};
+}
+
 void scaleRawData(MetalContext* mtlContext, const gls::mtl_image_2d<gls::luma_pixel_16>& rawImage,
                   gls::mtl_image_2d<gls::luma_pixel_float>* scaledRawImage, BayerPattern bayerPattern,
                   gls::Vector<4> scaleMul, float blackLevel);

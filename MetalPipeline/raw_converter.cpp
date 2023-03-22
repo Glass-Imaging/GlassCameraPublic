@@ -14,3 +14,51 @@
 // limitations under the License.
 
 #include "raw_converter.hpp"
+
+// Alternative ways to run the Metal pipeline
+
+//        auto kernel = Kernel<MTL::Texture*,     // rawImage
+//                             MTL::Texture*,     // scaledRawImage
+//                             int,               // bayerPattern
+//                             simd::float4,      // scaleMul
+//                             float              // blackLevel
+//                             >(&mtlContext, "scaleRawData");
+
+//        const auto scaleMul = demosaicParameters->scale_mul;
+
+//        kernel(&mtlContext, /*gridSize=*/ { (unsigned) scaledRawImage.width / 2, (unsigned) scaledRawImage.height / 2, 1 },
+//               rawImage->texture(), scaledRawImage.texture(), demosaicParameters->bayerPattern,
+//               simd::float4 { scaleMul[0], scaleMul[1], scaleMul[2], scaleMul[3] },
+//               demosaicParameters->black_level / 0xffff);
+
+//        mtlContext.scheduleOnCommandBuffer([&] (MTL::CommandBuffer* commandBuffer) {
+//            for (int channel = 0; channel < 3; channel++) {
+//                mtlContext.wait(commandBuffer);
+//
+//                kernel(commandBuffer, /*gridSize=*/ { (unsigned) scaledRawImage.width / 2, (unsigned) scaledRawImage.height / 2, 1 },
+//                       rawImage->texture(), scaledRawImage.texture(), demosaicParameters->bayerPattern,
+//                       simd::float4 { scaleMul[0], scaleMul[1], scaleMul[2], scaleMul[3] },
+//                       demosaicParameters->black_level / 0xffff);
+//
+//                mtlContext.signal(commandBuffer);
+//            }
+//        }, [&] (MTL::CommandBuffer* commandBuffer) {
+//            if (commandBuffer->status() == MTL::CommandBufferStatusCompleted) {
+//                const auto start = commandBuffer->GPUStartTime();
+//                const auto end = commandBuffer->GPUEndTime();
+//
+//                std::cout << "Metal execution done, execution time: " << end - start << std::endl;
+//
+//                const auto scaledRawImageCpu = scaledRawImage.mapImage();
+//
+//                gls::image<gls::luma_pixel> saveImage(scaledRawImageCpu->width, scaledRawImageCpu->height);
+//
+//                saveImage.apply([&](gls::luma_pixel* p, int x, int y) {
+//                    p->luma = 255 * (*scaledRawImageCpu)[y][x].luma;
+//                });
+//
+//                saveImage.write_png_file("/Users/fabio/scaled.png");
+//            } else {
+//                std::cout << "Something wrong with Metal execution: " << commandBuffer->status() << std::endl;
+//            }
+//        });

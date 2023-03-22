@@ -73,21 +73,11 @@ std::vector<std::array<float, 3>> gaussianKernelBilinearWeights(float radius) {
             weights[i] = exp(-((float)(x * x + y * y) / (2 * radius * radius)));
         }
     }
-//    std::cout << "Gaussian Kernel weights (" << weights.size() << "): " << std::endl;
-//    for (const auto& w : weights) {
-//        std::cout << std::setprecision(4) << std::scientific << w << ", ";
-//    }
-//    std::cout << std::endl;
 
     const int outWidth = kernelSize / 2 + 1;
     const int weightsCount = outWidth * outWidth;
     std::vector<std::array<float, 3>> weightsOut(weightsCount);
     KernelOptimizeBilinear2d(kernelSize, weights, &weightsOut);
-
-//    std::cout << "Bilinear Gaussian Kernel weights and offsets (" << weightsOut.size() << "): " << std::endl;
-//    for (const auto& [w, x, y] : weightsOut) {
-//        std::cout << w << " @ (" << x << " : " << y << "), " << std::endl;
-//    }
 
     return weightsOut;
 }
@@ -114,12 +104,9 @@ void gaussianBlurSobelImage(MetalContext* mtlContext,
                          >(mtlContext, "sampledConvolutionSobel");
 
     kernel(mtlContext, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
-           rawImage.texture(),
-           sobelImage.texture(),
-           (int) weightsOut1.size(),
-           weightsBuffer1.get(),
-           (int) weightsOut2.size(),
-           weightsBuffer2.get(),
+           rawImage.texture(), sobelImage.texture(),
+           (int) weightsOut1.size(), weightsBuffer1.get(),
+           (int) weightsOut2.size(), weightsBuffer2.get(),
            simd::float2 { rawNoiseModel[0], rawNoiseModel[1] },
            outputImage->texture());
 }
