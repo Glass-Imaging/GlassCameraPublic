@@ -444,3 +444,192 @@ kernel void interpolateRedBlueAtGreen(texture2d<float> rgbImageIn               
     interpolateRedBlueAtGreenPixel(rgbImageIn, gradientImage, rgbImageOut, redVariance, blueVariance, imageCoordinates + g);
     interpolateRedBlueAtGreenPixel(rgbImageIn, gradientImage, rgbImageOut, redVariance, blueVariance, imageCoordinates + g2);
 }
+
+#define M_SQRT3_F 1.7320508f
+
+constant float3 trans[3] = {
+    {         1,          1, 1 },
+    { M_SQRT3_F, -M_SQRT3_F, 0 },
+    {        -1,         -1, 2 },
+};
+constant float3 itrans[3] = {
+    { 1,  M_SQRT3_F / 2, -0.5 },
+    { 1, -M_SQRT3_F / 2, -0.5 },
+    { 1,              0,  1   },
+};
+
+kernel void blendHighlightsImage(texture2d<float> inputImage                    [[texture(0)]],
+                                 constant float& clip                           [[buffer(1)]],
+                                 texture2d<float, access::write> outputImage    [[texture(2)]],
+                                 uint2 index                                    [[thread_position_in_grid]])
+{
+    const int2 imageCoordinates = (int2) index;
+
+    float3 pixel = read_imagef(inputImage, imageCoordinates).xyz;
+    if (any(pixel > clip)) {
+        float3 cam[2] = {pixel, min(pixel, clip)};
+
+        float3 lab[2];
+        float sum[2];
+        for (int i = 0; i < 2; i++) {
+            lab[i] = (float3)(dot(trans[0], cam[i]),
+                              dot(trans[1], cam[i]),
+                              dot(trans[2], cam[i]));
+            sum[i] = dot(lab[i].yz, lab[i].yz);
+        }
+        float chratio = sum[0] > 0 ? sqrt(sum[1] / sum[0]) : 1;
+        lab[0].yz *= chratio;
+
+        pixel = (float3)(dot(itrans[0], lab[0]),
+                         dot(itrans[1], lab[0]),
+                         dot(itrans[2], lab[0])) / 3;
+    }
+
+#if LENS_SHADING
+    float2 imageCenter = convert_float2(get_image_dim(inputImage) / 2);
+    float distance_from_center = length(convert_float2(imageCoordinates) - imageCenter) / length(imageCenter);
+    float lens_shading = 1 + LENS_SHADING_GAIN * distance_from_center * distance_from_center;
+    pixel *= lens_shading;
+#endif
+
+    write_imagef(outputImage, imageCoordinates, float4(pixel, 0.0));
+}
+
+float3 gaussianBlur(float radius, texture2d<float> inputImage, int2 imageCoordinates) {
+    const int kernelSize = (int) (2 * ceil(2.5 * radius) + 1);
+
+    float3 blurred_pixel = 0;
+    float3 kernel_norm = 0;
+    for (int y = -kernelSize / 2; y <= kernelSize / 2; y++) {
+        for (int x = -kernelSize / 2; x <= kernelSize / 2; x++) {
+            float kernelWeight = exp(-((float)(x * x + y * y) / (2 * radius * radius)));
+            blurred_pixel += kernelWeight * read_imagef(inputImage, imageCoordinates + (int2){x, y}).xyz;
+            kernel_norm += kernelWeight;
+        }
+    }
+    return blurred_pixel / kernel_norm;
+}
+
+float3 sharpen(float3 pixel_value, float amount, float radius, texture2d<float> inputImage, int2 imageCoordinates) {
+    float3 dx = read_imagef(inputImage, imageCoordinates + (int2){1, 0}).xyz - pixel_value;
+    float3 dy = read_imagef(inputImage, imageCoordinates + (int2){0, 1}).xyz - pixel_value;
+
+    // Smart sharpening
+    float3 sharpening = amount * smoothstep(0.0, 0.03, length(dx) + length(dy))     // Gradient magnitude thresholding
+                               * (1.0 - smoothstep(0.95, 1.0, pixel_value))         // Highlight ringing protection
+                               * (0.6 + 0.4 * smoothstep(0.0, 0.1, pixel_value));   // Shadows ringing protection
+
+    float3 blurred_pixel = gaussianBlur(radius, inputImage, imageCoordinates);
+
+    return mix(blurred_pixel, pixel_value, fmax(sharpening, 1.0));
+}
+
+/// ---- Tone Curve ----
+
+float3 algebraic(float3 x) {
+    return x / sqrt(1 + x * x);
+}
+
+float3 sigmoid(float3 x, float s) {
+    return 0.5 * (tanh(s * x - 0.3 * s) + 1);
+}
+
+float sigmoid(float x, float s) {
+    return 0.5 * (tanh(s * x - 0.3 * s) + 1);
+}
+
+// This tone curve is designed to mostly match the default curve from DNG files
+// TODO: it would be nice to have separate control on highlights and shhadows contrast
+
+float3 toneCurve(float3 x, float s) {
+    return (sigmoid(powr(0.95 * x, 0.5), s) - sigmoid(0.0, s)) / (sigmoid(1.0, s) - sigmoid(0.0, s));
+}
+
+float toneCurve(float x, float s) {
+    return (sigmoid(powr(0.95 * x, 0.5), s) - sigmoid(0.0, s)) / (sigmoid(1.0, s) - sigmoid(0.0, s));
+}
+
+float3 saturationBoost(float3 value, float saturation) {
+    // Saturation boost with highlight protection
+    const float luma = 0.2126 * value.x + 0.7152 * value.y + 0.0722 * value.z; // BT.709-2 (sRGB) luma primaries
+    const float3 clipping = smoothstep(0.75, 2.0, value);
+    return mix(luma, value, mix(saturation, 1.0, clipping));
+}
+
+float3 desaturateBlacks(float3 value) {
+    // Saturation boost with highlight protection
+    const float luma = 0.2126 * value.x + 0.7152 * value.y + 0.0722 * value.z; // BT.709-2 (sRGB) luma primaries
+    const float desaturate = smoothstep(0.005, 0.04, luma);
+    return mix(luma, value, desaturate);
+}
+
+float3 contrastBoost(float3 value, float contrast) {
+    const float gray = 0.2;
+    const float3 clipping = smoothstep(0.9, 2.0, value);
+    return mix(gray, value, mix(contrast, 1.0, clipping));
+}
+
+// Make sure this struct is in sync with the declaration in demosaic.hpp
+typedef struct RGBConversionParameters {
+    float contrast;
+    float saturation;
+    float toneCurveSlope;
+    float exposureBias;
+    float blacks;
+    int localToneMapping;
+} RGBConversionParameters;
+
+typedef struct {
+    float3 m[3];
+} Matrix3x3;
+
+kernel void convertTosRGB(texture2d<float> linearImage                  [[texture(0)]],
+                          texture2d<float> ltmMaskImage                 [[texture(1)]],
+                          texture2d<float, access::write> rgbImage      [[texture(2)]],
+                          constant Matrix3x3& transform                 [[buffer(3)]],
+                          constant RGBConversionParameters& parameters  [[buffer(4)]],
+                          uint2 index                                   [[thread_position_in_grid]])
+{
+    const int2 imageCoordinates = (int2) index;
+
+    float3 pixel_value = read_imagef(linearImage, imageCoordinates).xyz;
+
+    // Exposure Bias
+    pixel_value *= parameters.exposureBias != 0 ? powr(2.0, parameters.exposureBias) : 1;
+
+    // Saturation
+    pixel_value = parameters.saturation != 1.0 ? saturationBoost(pixel_value, parameters.saturation) : pixel_value;
+
+    // Contrast
+    pixel_value = parameters.contrast != 1.0 ? contrastBoost(pixel_value, parameters.contrast) : pixel_value;
+
+    // Conversion to target color space, ensure definite positiveness
+    float3 rgb = max((float3) {
+        dot(transform.m[0], pixel_value),
+        dot(transform.m[1], pixel_value),
+        dot(transform.m[2], pixel_value)
+    }, 0);
+
+    // Local Tone Mapping
+    if (parameters.localToneMapping) {
+        float ltmBoost = read_imagef(ltmMaskImage, imageCoordinates).x;
+
+        if (ltmBoost > 1) {
+            // Modified Naik and Murthy’s method for preserving hue/saturation under luminance changes
+            const float luma = 0.2126 * rgb.x + 0.7152 * rgb.y + 0.0722 * rgb.z; // BT.709-2 (sRGB) luma primaries
+            rgb = mix(rgb * ltmBoost, luma < 1 ? 1 - (1.0 - rgb) * (1 - ltmBoost * luma) / (1 - luma) : rgb, min(2 * pow(luma, 0.5), 1.0));
+        } else if (ltmBoost < 1) {
+            rgb *= ltmBoost;
+        }
+    }
+
+    // Tone Curve
+    rgb = toneCurve(max(rgb, 0), parameters.toneCurveSlope);
+
+    // Black Level Adjustment
+    if (parameters.blacks > 0) {
+        rgb = (rgb - parameters.blacks) / (1 - parameters.blacks);
+    }
+
+    write_imagef(rgbImage, imageCoordinates, float4(clamp(rgb, 0.0, 1.0), 0.0));
+}

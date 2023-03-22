@@ -144,6 +144,12 @@ int main(int argc, const char * argv[]) {
         interpolateRedBlueAtGreen(&mtlContext, linearRGBImageA, rawGradientImage, &linearRGBImageA,
                                   demosaicParameters->bayerPattern, rawVariance[0], rawVariance[2]);
 
+        // Recover clipped highlights
+        blendHighlightsImage(&mtlContext, linearRGBImageA, /*clip=*/1.0, &linearRGBImageA);
+
+        gls::mtl_image_2d<gls::luma_pixel_float> ltmMaskImage(metalDevice.get(), 1, 1);
+        convertTosRGB(&mtlContext, linearRGBImageA, ltmMaskImage, &linearRGBImageA, *demosaicParameters);
+
         mtlContext.waitForCompletion();
 
         {

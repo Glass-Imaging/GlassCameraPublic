@@ -52,4 +52,12 @@ void interpolateRedBlueAtGreen(MetalContext* mtlContext,
                                gls::mtl_image_2d<gls::rgba_pixel_float>* rgbImageOut, BayerPattern bayerPattern,
                                gls::Vector<2> redVariance, gls::Vector<2> blueVariance);
 
+void blendHighlightsImage(MetalContext* mtlContext,
+                          const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
+                          float clip, gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage);
+
+void convertTosRGB(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_pixel_float>& linearImage,
+                   const gls::mtl_image_2d<gls::luma_pixel_float>& ltmMaskImage,
+                   gls::mtl_image_2d<gls::rgba_pixel_float>* rgbImage, const DemosaicParameters& demosaicParameters);
+
 #endif /* demosaic_mtl_hpp */
