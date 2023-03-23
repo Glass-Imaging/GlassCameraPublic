@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		E5C5BFA929BC5E4B00AAB593 /* CustomObject.mm in Sources */ = {isa = PBXBuildFile; fileRef = E5C5BFA829BC5E4B00AAB593 /* CustomObject.mm */; };
 		E5C5BFF929BD36B600AAB593 /* gls_color_science.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C5BFF229BD36B600AAB593 /* gls_color_science.cpp */; };
 		E5C5BFFA29BD36B600AAB593 /* gls_image_png.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C5BFF329BD36B600AAB593 /* gls_image_png.cpp */; };
 		E5C5BFFB29BD36B600AAB593 /* gls_image_tiff.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C5BFF429BD36B600AAB593 /* gls_image_tiff.cpp */; };
@@ -15,8 +14,6 @@
 		E5C5BFFD29BD36B600AAB593 /* gls_logging.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C5BFF629BD36B600AAB593 /* gls_logging.cpp */; };
 		E5C5BFFE29BD36B600AAB593 /* gls_tiff_metadata.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C5BFF729BD36B600AAB593 /* gls_tiff_metadata.cpp */; };
 		E5C5BFFF29BD36B600AAB593 /* gls_dng_lossless_jpeg.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C5BFF829BD36B600AAB593 /* gls_dng_lossless_jpeg.cpp */; };
-		E5C5C01529BD3DDF00AAB593 /* MetalComputeTest.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C5C01329BD3DDF00AAB593 /* MetalComputeTest.cpp */; };
-		E5C5C01729BF8DAF00AAB593 /* MandelbrotSet.metal in Sources */ = {isa = PBXBuildFile; fileRef = E5C5C01629BF8DAF00AAB593 /* MandelbrotSet.metal */; };
 		E5C6984629C805B500F7062C /* demosaic.metal in Sources */ = {isa = PBXBuildFile; fileRef = E5C6984529C805B500F7062C /* demosaic.metal */; };
 		E5C6984D29C906FC00F7062C /* raw_converter.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C6984B29C906FC00F7062C /* raw_converter.cpp */; };
 		E5C6984E29C906FC00F7062C /* raw_converter.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C6984B29C906FC00F7062C /* raw_converter.cpp */; };
@@ -31,6 +28,7 @@
 		E5C6986F29C92E9600F7062C /* demosaic.metal in Sources */ = {isa = PBXBuildFile; fileRef = E5C6984529C805B500F7062C /* demosaic.metal */; };
 		E5C6987229C96F8B00F7062C /* demosaic_mtl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C6987029C96F8B00F7062C /* demosaic_mtl.cpp */; };
 		E5C6987329C96F8B00F7062C /* demosaic_mtl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C6987029C96F8B00F7062C /* demosaic_mtl.cpp */; };
+		E5C6987F29CBAD8300F7062C /* RawProcessor.mm in Sources */ = {isa = PBXBuildFile; fileRef = E5C6987E29CBAD8300F7062C /* RawProcessor.mm */; };
 		E5D4D88D27D1798D00F1D944 /* GlassCameraApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5D4D88C27D1798D00F1D944 /* GlassCameraApp.swift */; };
 		E5D4D88F27D1798D00F1D944 /* CameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5D4D88E27D1798D00F1D944 /* CameraView.swift */; };
 		E5D4D89127D1798E00F1D944 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E5D4D89027D1798E00F1D944 /* Assets.xcassets */; };
@@ -43,9 +41,6 @@
 		E5D4D8A827D1841100F1D944 /* ImageResizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5D4D8A727D1841100F1D944 /* ImageResizer.swift */; };
 		E5FAE7AD29C50D2C00213AE6 /* gls_mtl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5FAE7AB29C50D2C00213AE6 /* gls_mtl.cpp */; };
 		E5FAE7E429C5420200213AE6 /* pipelineTest.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5FAE7E329C5420200213AE6 /* pipelineTest.cpp */; };
-		E5FAE7E829C5425300213AE6 /* MetalComputeTest.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C5C01329BD3DDF00AAB593 /* MetalComputeTest.cpp */; };
-		E5FAE7E929C5425300213AE6 /* MetalComputeTest.hpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C5C01429BD3DDF00AAB593 /* MetalComputeTest.hpp */; };
-		E5FAE7EA29C5425300213AE6 /* MandelbrotSet.metal in Sources */ = {isa = PBXBuildFile; fileRef = E5C5C01629BF8DAF00AAB593 /* MandelbrotSet.metal */; };
 		E5FAE7EB29C5425300213AE6 /* gls_mtl_image.hpp in Sources */ = {isa = PBXBuildFile; fileRef = E5FAE7A629C1368900213AE6 /* gls_mtl_image.hpp */; };
 		E5FAE7EC29C5425300213AE6 /* gls_mtl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5FAE7AB29C50D2C00213AE6 /* gls_mtl.cpp */; };
 		E5FAE7ED29C5425300213AE6 /* gls_mtl.hpp in Sources */ = {isa = PBXBuildFile; fileRef = E5FAE7AC29C50D2C00213AE6 /* gls_mtl.hpp */; };
@@ -88,8 +83,6 @@
 /* Begin PBXFileReference section */
 		E5C5BF4229BA833F00AAB593 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		E5C5BFA629BC5E4B00AAB593 /* GlassCamera-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "GlassCamera-Bridging-Header.h"; sourceTree = "<group>"; };
-		E5C5BFA729BC5E4B00AAB593 /* CustomObject.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CustomObject.h; sourceTree = "<group>"; };
-		E5C5BFA829BC5E4B00AAB593 /* CustomObject.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = CustomObject.mm; sourceTree = "<group>"; };
 		E5C5BFF229BD36B600AAB593 /* gls_color_science.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = gls_color_science.cpp; path = GlassImage/src/gls_color_science.cpp; sourceTree = "<group>"; };
 		E5C5BFF329BD36B600AAB593 /* gls_image_png.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = gls_image_png.cpp; path = GlassImage/src/gls_image_png.cpp; sourceTree = "<group>"; };
 		E5C5BFF429BD36B600AAB593 /* gls_image_tiff.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = gls_image_tiff.cpp; path = GlassImage/src/gls_image_tiff.cpp; sourceTree = "<group>"; };
@@ -98,9 +91,6 @@
 		E5C5BFF729BD36B600AAB593 /* gls_tiff_metadata.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = gls_tiff_metadata.cpp; path = GlassImage/src/gls_tiff_metadata.cpp; sourceTree = "<group>"; };
 		E5C5BFF829BD36B600AAB593 /* gls_dng_lossless_jpeg.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = gls_dng_lossless_jpeg.cpp; path = GlassImage/src/gls_dng_lossless_jpeg.cpp; sourceTree = "<group>"; };
 		E5C5C00029BD37F600AAB593 /* metal-cpp */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "metal-cpp"; sourceTree = "<group>"; };
-		E5C5C01329BD3DDF00AAB593 /* MetalComputeTest.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = MetalComputeTest.cpp; sourceTree = "<group>"; };
-		E5C5C01429BD3DDF00AAB593 /* MetalComputeTest.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = MetalComputeTest.hpp; sourceTree = "<group>"; };
-		E5C5C01629BF8DAF00AAB593 /* MandelbrotSet.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = MandelbrotSet.metal; sourceTree = "<group>"; };
 		E5C6984529C805B500F7062C /* demosaic.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = demosaic.metal; sourceTree = "<group>"; };
 		E5C6984B29C906FC00F7062C /* raw_converter.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = raw_converter.cpp; sourceTree = "<group>"; };
 		E5C6984C29C906FC00F7062C /* raw_converter.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = raw_converter.hpp; sourceTree = "<group>"; };
@@ -127,6 +117,8 @@
 		E5C6986C29C926F100F7062C /* Sonya6400Calibration.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Sonya6400Calibration.cpp; sourceTree = "<group>"; };
 		E5C6987029C96F8B00F7062C /* demosaic_mtl.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = demosaic_mtl.cpp; sourceTree = "<group>"; };
 		E5C6987129C96F8B00F7062C /* demosaic_mtl.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = demosaic_mtl.hpp; sourceTree = "<group>"; };
+		E5C6987D29CBAD8300F7062C /* RawProcessor.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RawProcessor.h; sourceTree = "<group>"; };
+		E5C6987E29CBAD8300F7062C /* RawProcessor.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = RawProcessor.mm; sourceTree = "<group>"; };
 		E5D4D88927D1798D00F1D944 /* GlassCamera.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GlassCamera.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E5D4D88C27D1798D00F1D944 /* GlassCameraApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassCameraApp.swift; sourceTree = "<group>"; };
 		E5D4D88E27D1798D00F1D944 /* CameraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraView.swift; sourceTree = "<group>"; };
@@ -198,9 +190,9 @@
 		E5C5BFA529BC5DF900AAB593 /* Objective-C */ = {
 			isa = PBXGroup;
 			children = (
-				E5C5BFA729BC5E4B00AAB593 /* CustomObject.h */,
-				E5C5BFA829BC5E4B00AAB593 /* CustomObject.mm */,
 				E5C5BFA629BC5E4B00AAB593 /* GlassCamera-Bridging-Header.h */,
+				E5C6987D29CBAD8300F7062C /* RawProcessor.h */,
+				E5C6987E29CBAD8300F7062C /* RawProcessor.mm */,
 			);
 			path = "Objective-C";
 			sourceTree = "<group>";
@@ -258,24 +250,21 @@
 		E5C5C01229BD3DAE00AAB593 /* MetalPipeline */ = {
 			isa = PBXGroup;
 			children = (
-				E5C5C01329BD3DDF00AAB593 /* MetalComputeTest.cpp */,
-				E5C5C01429BD3DDF00AAB593 /* MetalComputeTest.hpp */,
-				E5C6984529C805B500F7062C /* demosaic.metal */,
-				E5C5C01629BF8DAF00AAB593 /* MandelbrotSet.metal */,
 				E5FAE7A629C1368900213AE6 /* gls_mtl_image.hpp */,
 				E5FAE7AB29C50D2C00213AE6 /* gls_mtl.cpp */,
 				E5FAE7AC29C50D2C00213AE6 /* gls_mtl.hpp */,
-				E5C6985E29C91EF600F7062C /* demosaic.hpp */,
-				E5C6984B29C906FC00F7062C /* raw_converter.cpp */,
-				E5C6984C29C906FC00F7062C /* raw_converter.hpp */,
-				E5C6986229C925A600F7062C /* CameraCalibration.cpp */,
-				E5C6986129C925A600F7062C /* CameraCalibration.hpp */,
-				E5C6986529C9269400F7062C /* demosaic_utils.cpp */,
-				E5C6986929C926CD00F7062C /* ThreadPool.cpp */,
-				E5C6986829C926CD00F7062C /* ThreadPool.hpp */,
-				E5C6986C29C926F100F7062C /* Sonya6400Calibration.cpp */,
+				E5C6984529C805B500F7062C /* demosaic.metal */,
 				E5C6987029C96F8B00F7062C /* demosaic_mtl.cpp */,
 				E5C6987129C96F8B00F7062C /* demosaic_mtl.hpp */,
+				E5C6985E29C91EF600F7062C /* demosaic.hpp */,
+				E5C6986529C9269400F7062C /* demosaic_utils.cpp */,
+				E5C6984B29C906FC00F7062C /* raw_converter.cpp */,
+				E5C6984C29C906FC00F7062C /* raw_converter.hpp */,
+				E5C6986129C925A600F7062C /* CameraCalibration.hpp */,
+				E5C6986229C925A600F7062C /* CameraCalibration.cpp */,
+				E5C6986C29C926F100F7062C /* Sonya6400Calibration.cpp */,
+				E5C6986929C926CD00F7062C /* ThreadPool.cpp */,
+				E5C6986829C926CD00F7062C /* ThreadPool.hpp */,
 			);
 			path = MetalPipeline;
 			sourceTree = "<group>";
@@ -435,7 +424,6 @@
 				E5C6986A29C926CD00F7062C /* ThreadPool.cpp in Sources */,
 				E5C6987229C96F8B00F7062C /* demosaic_mtl.cpp in Sources */,
 				E5C6986329C925A600F7062C /* CameraCalibration.cpp in Sources */,
-				E5C5BFA929BC5E4B00AAB593 /* CustomObject.mm in Sources */,
 				E5D4D8A027D183D800F1D944 /* CameraPreview.swift in Sources */,
 				E5D4D8A327D183D900F1D944 /* CameraService.swift in Sources */,
 				E5C5BFFF29BD36B600AAB593 /* gls_dng_lossless_jpeg.cpp in Sources */,
@@ -451,12 +439,11 @@
 				E5D4D8A827D1841100F1D944 /* ImageResizer.swift in Sources */,
 				E5D4D88D27D1798D00F1D944 /* GlassCameraApp.swift in Sources */,
 				E5C5BFFD29BD36B600AAB593 /* gls_logging.cpp in Sources */,
-				E5C5C01729BF8DAF00AAB593 /* MandelbrotSet.metal in Sources */,
 				E5FAE7AD29C50D2C00213AE6 /* gls_mtl.cpp in Sources */,
 				E5C6986629C9269400F7062C /* demosaic_utils.cpp in Sources */,
-				E5C5C01529BD3DDF00AAB593 /* MetalComputeTest.cpp in Sources */,
 				E5C5BFFB29BD36B600AAB593 /* gls_image_tiff.cpp in Sources */,
 				E5C5BFFE29BD36B600AAB593 /* gls_tiff_metadata.cpp in Sources */,
+				E5C6987F29CBAD8300F7062C /* RawProcessor.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -464,11 +451,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				E5FAE7E829C5425300213AE6 /* MetalComputeTest.cpp in Sources */,
 				E5C6986E29C926F100F7062C /* Sonya6400Calibration.cpp in Sources */,
 				E5C6986B29C926CD00F7062C /* ThreadPool.cpp in Sources */,
-				E5FAE7E929C5425300213AE6 /* MetalComputeTest.hpp in Sources */,
-				E5FAE7EA29C5425300213AE6 /* MandelbrotSet.metal in Sources */,
 				E5C6986F29C92E9600F7062C /* demosaic.metal in Sources */,
 				E5FAE7EB29C5425300213AE6 /* gls_mtl_image.hpp in Sources */,
 				E5FAE7EC29C5425300213AE6 /* gls_mtl.cpp in Sources */,

@@ -21,12 +21,15 @@ class PhotoCaptureProcessor: NSObject {
     private(set) var requestedPhotoSettings: AVCapturePhotoSettings
 
     private(set) var rawFileURL: URL?
+    private(set) var procesedImageURL: URL?
     private(set) var compressedData: Data?
 
     private let willCapturePhotoAnimation: () -> Void
     private let completionHandler: (PhotoCaptureProcessor) -> Void
     private let photoProcessingHandler: (Bool) -> Void
     private var maxPhotoProcessingTime: CMTime?
+
+    private let rawProcessor = RawProcessor()
 
     init(with requestedPhotoSettings: AVCapturePhotoSettings,
          willCapturePhotoAnimation: @escaping () -> Void,
@@ -79,8 +82,16 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
             // Generate a unique URL to write the RAW file.
             rawFileURL = makeUniqueDNGFileURL()
             do {
-                // Write the RAW (DNG) file data to a URL.
+                // Write the RAW data to a DNG file.
                 try captureData!.write(to: rawFileURL!)
+
+                // Convert DNG file to PNG.
+                let procesedImagePath = rawProcessor.convertDngFile(rawFileURL!.path())
+                procesedImageURL = URL(fileURLWithPath: procesedImagePath)
+
+                // Remove DNG file.
+                let fileManager = FileManager()
+                try fileManager.removeItem(at: rawFileURL!)
             } catch {
                 fatalError("Couldn't write DNG file to the URL.")
             }
@@ -109,10 +120,10 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
                     }
 
                     // Add the RAW (DNG) file as an altenate resource.
-                    if let rawFileURL = self.rawFileURL {
+                    if let procesedImageURL = self.procesedImageURL {
                         let options = PHAssetResourceCreationOptions()
                         options.shouldMoveFile = true
-                        creationRequest.addResource(with: .alternatePhoto, fileURL: rawFileURL, options: options)
+                        creationRequest.addResource(with: .alternatePhoto, fileURL: procesedImageURL, options: options)
                     }
                 }, completionHandler: { _, error in
                     if let error = error {

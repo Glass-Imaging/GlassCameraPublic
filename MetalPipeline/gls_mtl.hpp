@@ -96,7 +96,7 @@ public:
 
         task(commandBuffer);
 
-        commandBuffer->addCompletedHandler([this, completionHandler](MTL::CommandBuffer* commandBuffer) {
+        commandBuffer->addCompletedHandler((MTL::HandlerFunction) [this, completionHandler](MTL::CommandBuffer* commandBuffer) {
             completionHandler(commandBuffer);
             work_in_progress.erase(std::remove(work_in_progress.begin(), work_in_progress.end(), commandBuffer), work_in_progress.end());
         });

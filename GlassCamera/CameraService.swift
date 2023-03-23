@@ -136,19 +136,6 @@ public class CameraService: NSObject, Identifiable {
                 self.configureSession()
             }
         }
-
-        // Objective-C Bridge Test
-        let instanceOfCustomObject = CustomObject()
-        instanceOfCustomObject.someProperty = "Hello World"
-        print(instanceOfCustomObject.someProperty!)
-        let value = instanceOfCustomObject.someMethod()
-        print("value: ", value)
-
-        let tmpDirPath = FileManager.default.temporaryDirectory.path();
-        print("temporaryDirectory: ", tmpDirPath)
-
-        // Try out Metal-C++ test.
-        runPipeline(tmpDirPath.cString(using: .utf8));
     }
 
     // MARK: Checks for permisions, setup obeservers and starts running session

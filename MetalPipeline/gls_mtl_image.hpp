@@ -106,6 +106,7 @@ public:
     }
 
     static uint32_t computeStride(MTL::Device* device, MTL::PixelFormat pixelFormat, int _width) {
+        assert(device != nullptr);
         const uint32_t mlta = (uint32_t)device->minimumLinearTextureAlignmentForPixelFormat(pixelFormat);
         uint32_t bytesPerRow = mlta * ((sizeof(T) * _width + mlta - 1) / mlta);
         return bytesPerRow / sizeof(T);
@@ -113,6 +114,7 @@ public:
 
     mtl_image_2d(MTL::Device* device, int _width, int _height)
     : mtl_image<T>(_width, _height), stride(computeStride(device, mtl_image<T>::ImageFormat(), _width)) {
+        assert(device != nullptr);
         uint32_t bytesPerRow = sizeof(T) * stride;
 
         _buffer = NS::TransferPtr(device->newBuffer(bytesPerRow * _height, MTL::ResourceStorageModeShared));
@@ -126,6 +128,7 @@ public:
 
     mtl_image_2d(MTL::Device* device, const gls::image<T>& other)
         : mtl_image_2d(device, other.width, other.height) {
+        assert(device != nullptr);
         copyPixelsFrom(other);
     }
 
@@ -176,6 +179,7 @@ NS::SharedPtr<MTL::Buffer> Buffer(MTL::Device* device,
                                   IteratorType startIterator,
                                   IteratorType endIterator,
                                   MTL::ResourceOptions resourceOptions = MTL::ResourceStorageModeShared) {
+    assert(device != nullptr);
     typedef typename std::iterator_traits<IteratorType>::value_type value_type;
     size_t size = sizeof(value_type) * (endIterator - startIterator);
     auto buffer = NS::TransferPtr(device->newBuffer(size, resourceOptions));
