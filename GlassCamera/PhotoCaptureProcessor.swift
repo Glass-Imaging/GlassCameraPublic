@@ -15,6 +15,7 @@
 
 import Foundation
 import Photos
+import UIKit
 
 class PhotoCaptureProcessor: NSObject {
     private(set) var captureData: Data?
@@ -23,6 +24,7 @@ class PhotoCaptureProcessor: NSObject {
     private(set) var rawFileURL: URL?
     private(set) var procesedImageURL: URL?
     private(set) var compressedData: Data?
+    private(set) var metadata: NSDictionary?
 
     private let willCapturePhotoAnimation: () -> Void
     private let completionHandler: (PhotoCaptureProcessor) -> Void
@@ -39,6 +41,60 @@ class PhotoCaptureProcessor: NSObject {
         self.willCapturePhotoAnimation = willCapturePhotoAnimation
         self.completionHandler = completionHandler
         self.photoProcessingHandler = photoProcessingHandler
+    }
+}
+
+extension CGImagePropertyOrientation {
+    init(_ uiOrientation: UIImage.Orientation) {
+        switch uiOrientation {
+            case .up: self = .up
+            case .upMirrored: self = .upMirrored
+            case .down: self = .down
+            case .downMirrored: self = .downMirrored
+            case .left: self = .left
+            case .leftMirrored: self = .leftMirrored
+            case .right: self = .right
+            case .rightMirrored: self = .rightMirrored
+        @unknown default:
+            fatalError()
+        }
+    }
+}
+
+extension UIImage {
+    var cgImageOrientation: CGImagePropertyOrientation { .init(imageOrientation) }
+}
+
+extension UIImage {
+    var heic: Data? { heic() }
+    func heic(compressionQuality: CGFloat = 1) -> Data? {
+        guard
+            let mutableData = CFDataCreateMutable(nil, 0),
+            let destination = CGImageDestinationCreateWithData(mutableData, "public.heic" as CFString, 1, nil),
+            let cgImage = cgImage
+        else { return nil }
+        CGImageDestinationAddImage(destination, cgImage, [kCGImageDestinationLossyCompressionQuality: compressionQuality, kCGImagePropertyOrientation: cgImageOrientation.rawValue] as [CFString : Any] as CFDictionary)
+        guard CGImageDestinationFinalize(destination) else { return nil }
+        return mutableData as Data
+    }
+}
+
+extension CGImage {
+    func heic(withMetadata metadata:NSDictionary?) -> Data? {
+        guard let mutableData = CFDataCreateMutable(nil, 0),
+            let destination = CGImageDestinationCreateWithData(mutableData, "public.heic" as CFString, 1, nil) else { return nil }
+        CGImageDestinationAddImage(destination, self, metadata)
+        guard CGImageDestinationFinalize(destination) else { return nil }
+        return mutableData as Data
+    }
+}
+
+func removeFile(at url:URL) {
+    do {
+        let fileManager = FileManager()
+        try fileManager.removeItem(at: url)
+    } catch {
+        print("can't remove processed image...")
     }
 }
 
@@ -79,6 +135,7 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
         }
 
         if photo.isRawPhoto {
+            print("got raw data")
             // Generate a unique URL to write the RAW file.
             rawFileURL = makeUniqueDNGFileURL()
             do {
@@ -87,17 +144,34 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
 
                 // Convert DNG file to PNG.
                 let procesedImagePath = rawProcessor.convertDngFile(rawFileURL!.path())
-                procesedImageURL = URL(fileURLWithPath: procesedImagePath)
+
+                // Convert PNG to HEIC.
+                let image = UIImage(contentsOfFile: procesedImagePath)
+                var isHeicSupported: Bool {
+                    (CGImageDestinationCopyTypeIdentifiers() as! [String]).contains("public.heic")
+                }
+                if isHeicSupported, let heicData = image!.heic(compressionQuality: 0.75) {
+                    let heic_name = procesedImagePath.replacingOccurrences(of: ".png", with: ".heic")
+                    let heic_url = URL(fileURLWithPath: heic_name)
+                    try heicData.write(to: heic_url)
+                    procesedImageURL = heic_url
+                }
 
                 // Remove DNG file.
-                let fileManager = FileManager()
-                try fileManager.removeItem(at: rawFileURL!)
+                removeFile(at: rawFileURL!)
+                // Remove PNG file.
+                removeFile(at: URL(fileURLWithPath: procesedImagePath))
             } catch {
                 fatalError("Couldn't write DNG file to the URL.")
             }
         } else {
+            print("got compressed data")
+
             // Store compressed bitmap data.
             compressedData = captureData
+
+            // Save metadata for reprocessed image.
+            metadata = photo.metadata as NSDictionary
         }
     }
 
@@ -109,6 +183,7 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
 
     // MARK: Saves capture to photo library
     func saveToPhotoLibrary(_ captureData: Data) {
+        // TODO: this code needs cleanup!
         PHPhotoLibrary.requestAuthorization { status in
             if status == .authorized {
                 PHPhotoLibrary.shared().performChanges({
@@ -117,13 +192,6 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
 
                     if let compressedData = self.compressedData {
                         creationRequest.addResource(with: .photo, data: compressedData, options: nil)
-                    }
-
-                    // Add the RAW (DNG) file as an altenate resource.
-                    if let procesedImageURL = self.procesedImageURL {
-                        let options = PHAssetResourceCreationOptions()
-                        options.shouldMoveFile = true
-                        creationRequest.addResource(with: .alternatePhoto, fileURL: procesedImageURL, options: options)
                     }
                 }, completionHandler: { _, error in
                     if let error = error {
@@ -137,6 +205,43 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
             } else {
                 DispatchQueue.main.async {
                     self.completionHandler(self)
+                }
+            }
+        }
+        // Add the RAW (DNG) file as second file.
+        if let procesedImageURL = self.procesedImageURL {
+            PHPhotoLibrary.requestAuthorization { status in
+                if status == .authorized {
+                    PHPhotoLibrary.shared().performChanges({
+                        // Add the compressed (HEIF) data as the main resource for the Photos asset.
+                        let creationRequest = PHAssetCreationRequest.forAsset()
+
+                        if let cgImageSource = CGImageSourceCreateWithURL(procesedImageURL as CFURL, nil) {
+                            if let cgImage = CGImageSourceCreateImageAtIndex(cgImageSource, 0, nil) {
+                                if let heicData = cgImage.heic(withMetadata: self.metadata) {
+                                    creationRequest.addResource(with: .photo, data: heicData, options: nil)
+                                }
+                            }
+                        }
+                    }, completionHandler: { _, error in
+                        if let error = error {
+                            print("Error occurred while saving photo to photo library: \(error)")
+                        }
+
+                        DispatchQueue.main.async {
+                            self.completionHandler(self)
+                        }
+
+                        // Remove HEIC processed file.
+                        removeFile(at: procesedImageURL)
+                    })
+                } else {
+                    DispatchQueue.main.async {
+                        self.completionHandler(self)
+                    }
+
+                    // Remove HEIC processed file.
+                    removeFile(at: procesedImageURL)
                 }
             }
         }
