@@ -526,10 +526,6 @@ float3 sharpen(float3 pixel_value, float amount, float radius, texture2d<float> 
 
 /// ---- Tone Curve ----
 
-float3 algebraic(float3 x) {
-    return x / sqrt(1 + x * x);
-}
-
 float3 sigmoid(float3 x, float s) {
     return 0.5 * (tanh(s * x - 0.3 * s) + 1);
 }
@@ -582,6 +578,21 @@ typedef struct RGBConversionParameters {
 typedef struct {
     float3 m[3];
 } Matrix3x3;
+
+kernel void transformImage(texture2d<float> inputImage                  [[texture(0)]],
+                           texture2d<float, access::write> outputImage  [[texture(1)]],
+                           constant Matrix3x3& transform                [[buffer(2)]],
+                           uint2 index                                  [[thread_position_in_grid]]) {
+    const int2 imageCoordinates = (int2) index;
+
+    float3 inputValue = read_imagef(inputImage, imageCoordinates).xyz;
+    float3 outputPixel = (float3) {
+        dot(transform.m[0], inputValue),
+        dot(transform.m[1], inputValue),
+        dot(transform.m[2], inputValue)
+    };
+    write_imagef(outputImage, imageCoordinates, float4(outputPixel, 0.0));
+}
 
 kernel void convertTosRGB(texture2d<float> linearImage                  [[texture(0)]],
                           texture2d<float> ltmMaskImage                 [[texture(1)]],

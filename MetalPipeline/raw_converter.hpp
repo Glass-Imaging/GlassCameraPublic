@@ -87,6 +87,19 @@ public:
 
         blendHighlightsImage(&mtlContext, *_linearRGBImageA, /*clip=*/1.0, _linearRGBImageA.get());
 
+        // --- Image Denoising ---
+
+        // Convert linear image to YCbCr for denoising
+        const auto cam_to_ycbcr = cam_ycbcr(demosaicParameters.rgb_cam);
+
+        transformImage(&mtlContext, *_linearRGBImageA, _linearRGBImageA.get(), cam_to_ycbcr);
+
+        // const auto clDenoisedImage = denoise(*clLinearRGBImageA, demosaicParameters, calibrateFromImage);
+
+        // Convert result back to camera RGB
+        const auto normalized_ycbcr_to_cam = inverse(cam_to_ycbcr) * demosaicParameters.exposure_multiplier;
+        transformImage(&mtlContext, *_linearRGBImageA, _linearRGBImageA.get(), normalized_ycbcr_to_cam);
+
         convertTosRGB(&mtlContext, *_linearRGBImageA, *_ltmMaskImage, _linearRGBImageA.get(), demosaicParameters);
 
         mtlContext.waitForCompletion();

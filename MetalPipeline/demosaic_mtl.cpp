@@ -175,7 +175,6 @@ void blendHighlightsImage(MetalContext* mtlContext,
                          MTL::Texture*   // outputImage
                          >(mtlContext, "blendHighlightsImage");
 
-    // Schedule the kernel on the GPU
     kernel(mtlContext, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
            inputImage.texture(), clip, outputImage->texture());
 }
@@ -187,9 +186,9 @@ void convertTosRGB(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_p
 
     struct Matrix3x3 {
         simd::float3 m[3];
-    } clTransform = {{{transform[0][0], transform[0][1], transform[0][2]},
-                      {transform[1][0], transform[1][1], transform[1][2]},
-                      {transform[2][0], transform[2][1], transform[2][2]}}};
+    } mtlTransform = {{{transform[0][0], transform[0][1], transform[0][2]},
+                       {transform[1][0], transform[1][1], transform[1][2]},
+                       {transform[2][0], transform[2][1], transform[2][2]}}};
 
     // Bind the kernel parameters
     auto kernel = Kernel<MTL::Texture*,           // linearImage
@@ -199,7 +198,24 @@ void convertTosRGB(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_p
                          RGBConversionParameters  // demosaicParameters
                          >(mtlContext, "convertTosRGB");
 
-    // Schedule the kernel on the GPU
     kernel(mtlContext, /*gridSize=*/ MTL::Size(rgbImage->width, rgbImage->height, 1), linearImage.texture(),
-           ltmMaskImage.texture(), rgbImage->texture(), clTransform, demosaicParameters.rgbConversionParameters);
+           ltmMaskImage.texture(), rgbImage->texture(), mtlTransform, demosaicParameters.rgbConversionParameters);
+}
+
+void transformImage(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_pixel_float>& linearImage,
+                    gls::mtl_image_2d<gls::rgba_pixel_float>* rgbImage, const gls::Matrix<3, 3>& transform) {
+    struct Matrix3x3 {
+        simd::float3 m[3];
+    } mtlTransform = {{{transform[0][0], transform[0][1], transform[0][2]},
+                       {transform[1][0], transform[1][1], transform[1][2]},
+                       {transform[2][0], transform[2][1], transform[2][2]}}};
+
+    // Bind the kernel parameters
+    auto kernel = Kernel<MTL::Texture*,  // linearImage
+                         MTL::Texture*,  // rgbImage
+                         Matrix3x3       // transform
+                         >(mtlContext, "transformImage");
+
+    kernel(mtlContext, /*gridSize=*/ MTL::Size(rgbImage->width, rgbImage->height, 1), linearImage.texture(),
+           rgbImage->texture(), mtlTransform);
 }

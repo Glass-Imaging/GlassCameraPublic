@@ -65,6 +65,9 @@ void blendHighlightsImage(MetalContext* mtlContext,
                           const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
                           float clip, gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage);
 
+void transformImage(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_pixel_float>& linearImage,
+                    gls::mtl_image_2d<gls::rgba_pixel_float>* rgbImage, const gls::Matrix<3, 3>& transform);
+
 void convertTosRGB(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_pixel_float>& linearImage,
                    const gls::mtl_image_2d<gls::luma_pixel_float>& ltmMaskImage,
                    gls::mtl_image_2d<gls::rgba_pixel_float>* rgbImage, const DemosaicParameters& demosaicParameters);
