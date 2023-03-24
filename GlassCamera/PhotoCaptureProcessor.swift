@@ -109,7 +109,7 @@ extension UIImage {
     func heic(compressionQuality: CGFloat = 1) -> Data? {
         guard
             let mutableData = CFDataCreateMutable(nil, 0),
-            let destination = CGImageDestinationCreateWithData(mutableData, "public.heic" as CFString, 1, nil),
+            let destination = CGImageDestinationCreateWithData(mutableData, AVFileType.heic as CFString, 1, nil),
             let cgImage = cgImage
         else {
             return nil
@@ -131,7 +131,7 @@ extension UIImage {
 extension CGImage {
     func heic(withMetadata metadata:NSDictionary?) -> Data? {
         guard let mutableData = CFDataCreateMutable(nil, 0),
-            let destination = CGImageDestinationCreateWithData(mutableData, "public.heic" as CFString, 1, nil) else { return nil }
+            let destination = CGImageDestinationCreateWithData(mutableData, AVFileType.heic as CFString, 1, nil) else { return nil }
 
         CGImageDestinationAddImage(destination, self, metadata)
         guard CGImageDestinationFinalize(destination) else {
@@ -148,6 +148,30 @@ func removeFile(at url:URL) {
     } catch {
         print("can't remove item: ", url)
     }
+}
+
+func encodeImageToHeif(_ image: CIImage, compressionQuality: CGFloat, use10BitRepresentation: Bool = false ) -> Data? {
+    return autoreleasepool(invoking: { () -> Data? in
+        let color = CGColorSpace(name: CGColorSpace.sRGB)
+        let context = CIContext()
+
+        if use10BitRepresentation {
+            do {
+                return try context.heif10Representation(of: image,
+                                                        colorSpace: color!,
+                                                        options: [kCGImageDestinationLossyCompressionQuality
+                                                                  as CIImageRepresentationOption : compressionQuality] )
+            } catch {
+                return nil
+            }
+        } else {
+            return context.heifRepresentation(of: image,
+                                              format: CIFormat.RGBA8,
+                                              colorSpace: color!,
+                                              options: [kCGImageDestinationLossyCompressionQuality
+                                                        as CIImageRepresentationOption : compressionQuality] )
+        }
+    })
 }
 
 extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
@@ -200,8 +224,12 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
                         // TODO: add some error checking here...
 
                         // Convert PNG to HEIC.
-                        let image = UIImage(contentsOfFile: pngImagePath)
-                        procesedImage = image!.heic(compressionQuality: 0.9)
+                        let png_image = UIImage(contentsOfFile: pngImagePath)
+
+                        print("PNG image bit depth: ", png_image!.cgImage!.bitsPerComponent)
+
+                        // procesedImage = png_image!.heic(compressionQuality: 0.9)
+                        procesedImage = encodeImageToHeif(CIImage(image: png_image!)!, compressionQuality: 0.9, use10BitRepresentation: true)
 
                         // Remove PNG file.
                         removeFile(at: URL(fileURLWithPath: pngImagePath))

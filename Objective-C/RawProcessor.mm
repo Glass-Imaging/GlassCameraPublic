@@ -17,13 +17,13 @@ std::unique_ptr<DemosaicParameters> unpackSonya6400RawImage(const gls::image<gls
                                                             gls::tiff_metadata* dng_metadata, gls::tiff_metadata* exif_metadata);
 
 void saveImage(const gls::image<gls::rgba_pixel_float>& image, const std::string& path) {
-    gls::image<gls::rgb_pixel> saveImage(image.width, image.height);
-    saveImage.apply([&](gls::rgb_pixel* p, int x, int y) {
+    gls::image<gls::rgb_pixel_16> saveImage(image.width, image.height);
+    saveImage.apply([&](gls::rgb_pixel_16* p, int x, int y) {
         const auto& pi = image[y][x];
         *p = {
-            (uint8_t) (255 * pi.red),
-            (uint8_t) (255 * pi.green),
-            (uint8_t) (255 * pi.blue)
+            (uint8_t) (0xffff * pi.red),
+            (uint8_t) (0xffff * pi.green),
+            (uint8_t) (0xffff * pi.blue)
         };
     });
     saveImage.write_png_file(path);
