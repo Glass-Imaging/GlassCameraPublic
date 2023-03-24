@@ -7,11 +7,15 @@
 
 #import "RawProcessor.h"
 
+#import <CoreGraphics/CGColorSpace.h>
+
 #include <simd/simd.h>
 
 #include "demosaic_mtl.hpp"
 #include "gls_tiff_metadata.hpp"
 #include "raw_converter.hpp"
+
+#include "tinyicc.hpp"
 
 std::unique_ptr<DemosaicParameters> unpackSonya6400RawImage(const gls::image<gls::luma_pixel_16>& inputImage,
                                                             gls::tiff_metadata* dng_metadata, gls::tiff_metadata* exif_metadata);
@@ -27,6 +31,31 @@ void saveImage(const gls::image<gls::rgba_pixel_float>& image, const std::string
         };
     });
     saveImage.write_png_file(path);
+}
+
+std::unique_ptr<std::array<std::array<float, 3>, 3>> ICCProfileToXYZ(const CFStringRef colorSpaceName) {
+    std::unique_ptr<std::array<std::array<float, 3>, 3>> matrix = nullptr;
+
+    CGColorSpaceRef displayP3 = CGColorSpaceCreateWithName(colorSpaceName);
+    CGColorSpaceRetain(displayP3);
+    CFDataRef data = CGColorSpaceCopyICCData(displayP3);
+    if ( !data ) {
+        std::cout<<"Cannot get CGColorSpaceCopyICCProfile()"<<std::endl;
+    } else {
+        const UInt8* icc_data = CFDataGetBytePtr(data);
+        const CFIndex icc_length = CFDataGetLength(data);
+
+        TinyICC::Profile icc_profile;
+
+        if (loadFromMem(icc_profile, icc_data, icc_length)) {
+            matrix = std::make_unique<std::array<std::array<float, 3>, 3>>();
+            *matrix = icc_profile.xyz_matrix();
+        }
+
+        CGColorSpaceRelease(displayP3);
+    }
+
+    return matrix;
 }
 
 @implementation RawProcessor : NSObject
@@ -65,6 +94,18 @@ static std::unique_ptr<RawConverter> _rawConverter = nullptr;
                   << "ms for image of size: " << rawImage->width << " x " << rawImage->height << std::endl;
 
     _rawConverter->buildTextures(rawImage->size());
+
+    // Retrieve "Display P3" to XYZ transformation matrix
+    const auto matrix = ICCProfileToXYZ(kCGColorSpaceDisplayP3);
+    if (matrix) {
+        std::cout << "Display P3 -> XYZ matrix: " << std::endl;
+        for (int j = 0; j < 3; j++) {
+            for (int i = 0; i < 3; i++) {
+                std::cout << (*matrix)[j][i] << " ";
+            }
+            std::cout << std::endl;
+        }
+    }
 
     t_start = std::chrono::high_resolution_clock::now();
 

@@ -218,6 +218,12 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
                     if let captureData = photo.fileDataRepresentation() {
                         try captureData.write(to: rawImage)
 
+                        var displayP3iCCData:CFData? = nil
+                        if let displayP3 = CGColorSpace(name: CGColorSpace.displayP3) {
+                            displayP3iCCData = displayP3.copyICCData()
+                            print("displayP3", displayP3, CFDataGetLength(displayP3iCCData))
+                        }
+
                         // Convert DNG file to PNG.
                         let pngImagePath = rawProcessor.convertDngFile(rawImage.path())
 
