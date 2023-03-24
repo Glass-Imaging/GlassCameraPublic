@@ -152,7 +152,7 @@ func removeFile(at url:URL) {
 
 func encodeImageToHeif(_ image: CIImage, compressionQuality: CGFloat, use10BitRepresentation: Bool = false ) -> Data? {
     return autoreleasepool(invoking: { () -> Data? in
-        let color = CGColorSpace(name: CGColorSpace.sRGB)
+        let color = CGColorSpace(name: CGColorSpace.sRGB)  // TODO: use displayP3
         let context = CIContext()
 
         if use10BitRepresentation {
