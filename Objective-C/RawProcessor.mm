@@ -31,17 +31,20 @@ void saveImage(const gls::image<gls::rgba_pixel_float>& image, const std::string
 
 @implementation RawProcessor : NSObject
 
-std::unique_ptr<RawConverter> _rawConverter;
+static std::unique_ptr<RawConverter> _rawConverter = nullptr;
 
 - (instancetype)init {
     if (self = [super init]) {
         // Initialize self
     }
 
-    // Create RawConverter object
-    auto metalDevice = NS::RetainPtr(MTL::CreateSystemDefaultDevice());
-    _rawConverter = std::make_unique<RawConverter>(metalDevice);
+    if (_rawConverter == nullptr) {
+        std::cout << "Allocating new RawConvwerter instance." << std::endl;
 
+        // Create RawConverter object
+        auto metalDevice = NS::RetainPtr(MTL::CreateSystemDefaultDevice());
+        _rawConverter = std::make_unique<RawConverter>(metalDevice);
+    }
     return self;
 }
 
@@ -65,7 +68,7 @@ std::unique_ptr<RawConverter> _rawConverter;
 
     t_start = std::chrono::high_resolution_clock::now();
 
-    auto srgbImage = _rawConverter->demosaic(*rawImage, *demosaicParameters);
+    auto srgbImage = _rawConverter->demosaic(*rawImage, demosaicParameters.get());
 
     t_end = std::chrono::high_resolution_clock::now();
     elapsed_time_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();
