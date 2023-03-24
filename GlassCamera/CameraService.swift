@@ -497,12 +497,18 @@ public class CameraService: NSObject, Identifiable {
          */
 
         if self.setupResult != .configurationFailed {
-            let videoPreviewLayerOrientation: AVCaptureVideoOrientation = .portrait
+            // Take the device orientation into account
+            let videoPreviewLayerOrientation = AVCaptureVideoOrientation(deviceOrientation: UIDevice.current.orientation)
+
             self.isCameraButtonDisabled = true
 
             sessionQueue.async {
                 if let photoOutputConnection = self.photoOutput.connection(with: .video) {
-                    photoOutputConnection.videoOrientation = videoPreviewLayerOrientation
+                    if let videoPreviewLayerOrientation = videoPreviewLayerOrientation {
+                        photoOutputConnection.videoOrientation = videoPreviewLayerOrientation
+                    } else {
+                        photoOutputConnection.videoOrientation = .portrait
+                    }
                 }
 
                 let query = self.photoOutput.isAppleProRAWEnabled ?
@@ -523,6 +529,10 @@ public class CameraService: NSObject, Identifiable {
                         photoSettings.availableRawEmbeddedThumbnailPhotoCodecTypes.first else {
                         // Handle the failure to find an available thumbnail photo codec type.
                         fatalError("Failed configuring RAW tumbnail.")
+                    }
+
+                    if self.videoDeviceInput.device.isFlashAvailable {
+                        photoSettings.flashMode = self.flashMode
                     }
 
                     // Select the maximum photo dimensions as thumbnail dimensions if a full-size thumbnail is desired.

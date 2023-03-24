@@ -111,9 +111,19 @@ extension UIImage {
             let mutableData = CFDataCreateMutable(nil, 0),
             let destination = CGImageDestinationCreateWithData(mutableData, "public.heic" as CFString, 1, nil),
             let cgImage = cgImage
-        else { return nil }
-        CGImageDestinationAddImage(destination, cgImage, [kCGImageDestinationLossyCompressionQuality: compressionQuality, kCGImagePropertyOrientation: cgImageOrientation.rawValue] as [CFString : Any] as CFDictionary)
-        guard CGImageDestinationFinalize(destination) else { return nil }
+        else {
+            return nil
+        }
+
+        let options = [
+            kCGImageDestinationLossyCompressionQuality: compressionQuality,
+            kCGImagePropertyOrientation: cgImageOrientation.rawValue
+        ] as [CFString : Any] as CFDictionary
+
+        CGImageDestinationAddImage(destination, cgImage, options)
+        guard CGImageDestinationFinalize(destination) else {
+            return nil
+        }
         return mutableData as Data
     }
 }
@@ -122,8 +132,11 @@ extension CGImage {
     func heic(withMetadata metadata:NSDictionary?) -> Data? {
         guard let mutableData = CFDataCreateMutable(nil, 0),
             let destination = CGImageDestinationCreateWithData(mutableData, "public.heic" as CFString, 1, nil) else { return nil }
+
         CGImageDestinationAddImage(destination, self, metadata)
-        guard CGImageDestinationFinalize(destination) else { return nil }
+        guard CGImageDestinationFinalize(destination) else {
+            return nil
+        }
         return mutableData as Data
     }
 }
