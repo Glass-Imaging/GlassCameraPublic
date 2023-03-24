@@ -30,7 +30,7 @@
       shouldAutocreateTestPlan = "YES">
    </TestAction>
    <LaunchAction
-      buildConfiguration = "Release"
+      buildConfiguration = "Debug"
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       launchStyle = "0"
@@ -52,7 +52,7 @@
       </BuildableProductRunnable>
       <CommandLineArguments>
          <CommandLineArgument
-            argument = "/Users/fabio/work/Sonya6400/DSC00185_ISO_100.DNG"
+            argument = "/Users/fabio/work/Sonya6400/DSC00204_ISO_6400.DNG"
             isEnabled = "YES">
          </CommandLineArgument>
       </CommandLineArguments>

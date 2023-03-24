@@ -65,11 +65,11 @@ int main(int argc, const char * argv[]) {
         auto metalDevice = NS::RetainPtr(allMetalDevices->object<MTL::Device>(0));
 
         RawConverter rawConverter(metalDevice);
-        rawConverter.buildTextures(rawImage->size());
+        // rawConverter.buildTextures(rawImage->size());
 
         auto t_start = std::chrono::high_resolution_clock::now();
 
-        auto srgbImage = rawConverter.demosaic(*rawImage, *demosaicParameters);
+        auto srgbImage = rawConverter.demosaic(*rawImage, demosaicParameters.get());
 
         auto t_end = std::chrono::high_resolution_clock::now();
         double elapsed_time_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();

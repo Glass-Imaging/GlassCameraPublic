@@ -594,6 +594,143 @@ kernel void transformImage(texture2d<float> inputImage                  [[textur
     write_imagef(outputImage, imageCoordinates, float4(outputPixel, 0.0));
 }
 
+half tunnel(half x, half y, half angle, half sigma) {
+    half a = x * cos(angle) + y * sin(angle);
+    return exp(-(a * a) / sigma);
+}
+
+kernel void denoiseImage(texture2d<half> inputImage                     [[texture(0)]],
+                         texture2d<half> gradientImage                  [[texture(1)]],
+                         constant float3& var_a                         [[buffer(2)]],
+                         constant float3& var_b                         [[buffer(3)]],
+                         constant float3& thresholdMultipliers          [[buffer(4)]],
+                         constant float& chromaBoost                    [[buffer(5)]],
+                         constant float& gradientBoost                  [[buffer(6)]],
+                         constant float& gradientThreshold              [[buffer(7)]],
+                         texture2d<half, access::write> denoisedImage   [[texture(8)]],
+                         uint2 index                                    [[thread_position_in_grid]]) {
+    const int2 imageCoordinates = (int2) index;
+
+    const half3 inputYCC = read_imageh(inputImage, imageCoordinates).xyz;
+
+    half3 sigma = half3(sqrt(var_a + var_b * inputYCC.x));
+    half3 diffMultiplier = 1 / (half3(thresholdMultipliers) * sigma);
+
+    half2 gradient = read_imageh(gradientImage, imageCoordinates).xy;
+    half angle = atan2(gradient.y, gradient.x);
+    half magnitude = length(gradient);
+    half edge = smoothstep(4, 16, gradientThreshold * magnitude / sigma.x);
+
+    const int size = gradientBoost > 0 ? 4 : 2;
+
+    half3 filtered_pixel = 0;
+    half3 kernel_norm = 0;
+    for (int y = -size; y <= size; y++) {
+        for (int x = -size; x <= size; x++) {
+            half3 inputSampleYCC = read_imageh(inputImage, imageCoordinates + (int2){x, y}).xyz;
+            half2 gradientSample = read_imageh(gradientImage, imageCoordinates + (int2){x, y}).xy;
+
+            half3 inputDiff = (inputSampleYCC - inputYCC) * diffMultiplier;
+            half2 gradientDiff = (gradientSample - gradient) / sigma.x;
+
+            half directionWeight = mix(1, tunnel(x, y, angle, (half) 0.25), edge);
+            half gradientWeight = 1 - smoothstep(2, 8, length(gradientDiff));
+
+            half lumaWeight = 1 - step(1 + (half) gradientBoost * edge, abs(inputDiff.x));
+            half chromaWeight = 1 - step((half) chromaBoost, length(inputDiff));
+
+            half3 sampleWeight = (half3) {directionWeight * gradientWeight * lumaWeight, chromaWeight, chromaWeight};
+
+            filtered_pixel += sampleWeight * inputSampleYCC;
+            kernel_norm += sampleWeight;
+        }
+    }
+    half3 denoisedPixel = filtered_pixel / kernel_norm;
+
+    write_imageh(denoisedImage, imageCoordinates, half4(denoisedPixel, magnitude));
+}
+
+kernel void downsampleImageXYZ(texture2d<float> inputImage                  [[texture(0)]],
+                               texture2d<float, access::write> outputImage  [[texture(1)]],
+                               uint2 index                                  [[thread_position_in_grid]]) {
+    const int2 output_pos = (int2) index;
+    const float2 input_norm = 1.0 / float2(get_image_dim(outputImage));
+    const float2 input_pos = (float2(output_pos) + 0.5) * input_norm;
+
+    constexpr sampler linear_sampler(min_filter::linear,
+                                     mag_filter::linear,
+                                     mip_filter::linear);
+
+    // Sub-Pixel Sampling Location
+    const float2 s = 0.5 * input_norm;
+    float3 outputPixel = read_imagef(inputImage, linear_sampler, input_pos + (float2){-s.x, -s.y}).xyz;
+    outputPixel +=       read_imagef(inputImage, linear_sampler, input_pos + (float2){ s.x, -s.y}).xyz;
+    outputPixel +=       read_imagef(inputImage, linear_sampler, input_pos + (float2){-s.x,  s.y}).xyz;
+    outputPixel +=       read_imagef(inputImage, linear_sampler, input_pos + (float2){ s.x,  s.y}).xyz;
+    write_imagef(outputImage, output_pos, float4(0.25 * outputPixel, 0));
+}
+
+kernel void downsampleImageXY(texture2d<float> inputImage                    [[texture(0)]],
+                              texture2d<float, access::write> outputImage    [[texture(1)]],
+                              uint2 index                                    [[thread_position_in_grid]]) {
+    const int2 output_pos = (int2) index;
+    const float2 input_norm = 1.0 / float2(get_image_dim(outputImage));
+    const float2 input_pos = (float2(output_pos) + 0.5) * input_norm;
+
+    constexpr sampler linear_sampler(min_filter::linear,
+                                     mag_filter::linear,
+                                     mip_filter::linear);
+
+    // Sub-Pixel Sampling Location
+    const float2 s = 0.5 * input_norm;
+    float2 outputPixel = read_imagef(inputImage, linear_sampler, input_pos + (float2){-s.x, -s.y}).xy;
+    outputPixel +=       read_imagef(inputImage, linear_sampler, input_pos + (float2){ s.x, -s.y}).xy;
+    outputPixel +=       read_imagef(inputImage, linear_sampler, input_pos + (float2){-s.x,  s.y}).xy;
+    outputPixel +=       read_imagef(inputImage, linear_sampler, input_pos + (float2){ s.x,  s.y}).xy;
+    write_imagef(outputImage, output_pos, float4(0.25 * outputPixel, 0, 0));
+}
+
+kernel void subtractNoiseImage(texture2d<float> inputImage                      [[texture(0)]],
+                               texture2d<float> inputImage1                     [[texture(1)]],
+                               texture2d<float> inputImageDenoised1             [[texture(2)]],
+                               texture2d<float> gradientImage                   [[texture(3)]],
+                               constant float& luma_weight                      [[buffer(4)]],
+                               constant float& sharpening                       [[buffer(5)]],
+                               constant float2& nlf                             [[buffer(6)]],
+                               texture2d<float, access::write> outputImage      [[texture(7)]],
+                               uint2 index                                      [[thread_position_in_grid]]) {
+    const int2 output_pos = (int2) index;
+    const float2 inputNorm = 1.0 / float2(get_image_dim(outputImage));
+    const float2 input_pos = (float2(output_pos) + 0.5) * inputNorm;
+
+    constexpr sampler linear_sampler(min_filter::linear,
+                                     mag_filter::linear,
+                                     mip_filter::linear);
+
+    float4 inputPixel = read_imagef(inputImage, output_pos);
+
+    float3 inputPixel1 = read_imagef(inputImage1, linear_sampler, input_pos).xyz;
+    float3 inputPixelDenoised1 = read_imagef(inputImageDenoised1, linear_sampler, input_pos).xyz;
+
+    float3 denoisedPixel = inputPixel.xyz - (float3) { luma_weight, 1, 1 } * (inputPixel1 - inputPixelDenoised1);
+
+    float alpha = sharpening;
+    if (alpha > 1.0) {
+        float2 gradient = read_imagef(gradientImage, output_pos).xy;
+        float sigma = sqrt(nlf.x + nlf.y * inputPixelDenoised1.x);
+        float detail = smoothstep(sigma, 4 * sigma, length(gradient))
+                       * (1.0 - smoothstep(0.95, 1.0, denoisedPixel.x))          // Highlights ringing protection
+                       * (0.6 + 0.4 * smoothstep(0.0, 0.1, denoisedPixel.x));    // Shadows ringing protection
+        alpha = 1 + (alpha - 1) * detail;
+    }
+
+    // Sharpen all components
+    denoisedPixel = mix(inputPixelDenoised1, denoisedPixel, alpha);
+    denoisedPixel.x = max(denoisedPixel.x, 0.0);
+
+    write_imagef(outputImage, output_pos, float4(denoisedPixel, inputPixel.w));
+}
+
 kernel void convertTosRGB(texture2d<float> linearImage                  [[texture(0)]],
                           texture2d<float> ltmMaskImage                 [[texture(1)]],
                           texture2d<float, access::write> rgbImage      [[texture(2)]],

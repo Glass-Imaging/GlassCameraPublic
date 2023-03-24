@@ -68,6 +68,23 @@ void blendHighlightsImage(MetalContext* mtlContext,
 void transformImage(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_pixel_float>& linearImage,
                     gls::mtl_image_2d<gls::rgba_pixel_float>* rgbImage, const gls::Matrix<3, 3>& transform);
 
+void denoiseImage(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
+                  const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& gradientImage, const gls::Vector<3>& var_a,
+                  const gls::Vector<3>& var_b, const gls::Vector<3> thresholdMultipliers, float chromaBoost,
+                  float gradientBoost, float gradientThreshold, gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage);
+
+template <typename T>
+void resampleImage(MetalContext* mtlContext, const std::string& kernelName, const gls::mtl_image_2d<T>& inputImage,
+                   gls::mtl_image_2d<T>* outputImage);
+
+void subtractNoiseImage(MetalContext* mtlContext,
+                        const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
+                        const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage1,
+                        const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImageDenoised1,
+                        const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& gradientImage,
+                        float luma_weight, float sharpening, const gls::Vector<2>& nlf,
+                        gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage);
+
 void convertTosRGB(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_pixel_float>& linearImage,
                    const gls::mtl_image_2d<gls::luma_pixel_float>& ltmMaskImage,
                    gls::mtl_image_2d<gls::rgba_pixel_float>* rgbImage, const DemosaicParameters& demosaicParameters);

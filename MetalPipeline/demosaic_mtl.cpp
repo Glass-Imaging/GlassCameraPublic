@@ -219,3 +219,73 @@ void transformImage(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_
     kernel(mtlContext, /*gridSize=*/ MTL::Size(rgbImage->width, rgbImage->height, 1), linearImage.texture(),
            rgbImage->texture(), mtlTransform);
 }
+
+void denoiseImage(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
+                  const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& gradientImage, const gls::Vector<3>& var_a,
+                  const gls::Vector<3>& var_b, const gls::Vector<3> thresholdMultipliers, float chromaBoost,
+                  float gradientBoost, float gradientThreshold, gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage) {
+
+    auto kernel = Kernel<MTL::Texture*,  // inputImage
+                         MTL::Texture*,  // gradientImage
+                         simd::float3,   // var_a
+                         simd::float3,   // var_b
+                         simd::float3,   // thresholdMultipliers
+                         float,          // chromaBoost
+                         float,          // gradientBoost
+                         float,          // gradientThreshold
+                         MTL::Texture*   // outputImage
+                         >(mtlContext, "denoiseImage");
+
+    // Schedule the kernel on the GPU
+    kernel(mtlContext, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
+           inputImage.texture(), gradientImage.texture(),
+           simd::float3 { var_a[0], var_a[1], var_a[2] },
+           simd::float3 { var_b[0], var_b[1], var_b[2] },
+           simd::float3 { thresholdMultipliers[0], thresholdMultipliers[1], thresholdMultipliers[2] },
+           chromaBoost, gradientBoost, gradientThreshold, outputImage->texture());
+}
+
+template <typename T>
+void resampleImage(MetalContext* mtlContext, const std::string& kernelName, const gls::mtl_image_2d<T>& inputImage,
+                   gls::mtl_image_2d<T>* outputImage) {
+
+    auto kernel = Kernel<MTL::Texture*,  // inputImage
+                         MTL::Texture*>(mtlContext, kernelName);
+
+    // Schedule the kernel on the GPU
+    kernel(mtlContext, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
+           inputImage.texture(), outputImage->texture());
+}
+
+template void resampleImage(MetalContext* mtlContext, const std::string& kernelName,
+                            const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
+                            gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage);
+
+template void resampleImage(MetalContext* mtlContext, const std::string& kernelName,
+                            const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& inputImage,
+                            gls::mtl_image_2d<gls::luma_alpha_pixel_float>* outputImage);
+
+void subtractNoiseImage(MetalContext* mtlContext,
+                        const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
+                        const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage1,
+                        const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImageDenoised1,
+                        const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& gradientImage,
+                        float luma_weight, float sharpening, const gls::Vector<2>& nlf,
+                        gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage) {
+
+    auto kernel = Kernel<MTL::Texture*,  // inputImage
+                         MTL::Texture*,  // inputImage1
+                         MTL::Texture*,  // inputImageDenoised1
+                         MTL::Texture*,  // gradientImage
+                         float,          // luma_weight
+                         float,          // sharpening
+                         simd::float2,   // nlf
+                         MTL::Texture*   // outputImage
+                         >(mtlContext, "subtractNoiseImage");
+
+    // Schedule the kernel on the GPU
+    kernel(mtlContext, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
+           inputImage.texture(), inputImage1.texture(), inputImageDenoised1.texture(),
+           gradientImage.texture(), luma_weight, sharpening, simd::float2 { nlf[0], nlf[1] },
+           outputImage->texture());
+}
