@@ -65,7 +65,7 @@ int main(int argc, const char * argv[]) {
         auto metalDevice = NS::RetainPtr(allMetalDevices->object<MTL::Device>(0));
 
         RawConverter rawConverter(metalDevice);
-        rawConverter.buildTextures(rawImage->size());
+        rawConverter.allocateTextures(rawImage->size());
 
         auto t_start = std::chrono::high_resolution_clock::now();
 

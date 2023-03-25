@@ -93,7 +93,7 @@ static std::unique_ptr<RawConverter> _rawConverter = nullptr;
     std::cout << "DNG file read time: " << (int)elapsed_time_ms
                   << "ms for image of size: " << rawImage->width << " x " << rawImage->height << std::endl;
 
-    _rawConverter->buildTextures(rawImage->size());
+    _rawConverter->allocateTextures(rawImage->size());
 
     // Retrieve "Display P3" to XYZ transformation matrix
     const auto matrix = ICCProfileToXYZ(kCGColorSpaceDisplayP3);

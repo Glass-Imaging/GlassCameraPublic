@@ -70,7 +70,7 @@ public:
 
         LOG_INFO(TAG) << "Sonya6400 DenoiseParameters nlf_alpha: " << nlf_alpha << ", ISO: " << iso << std::endl;
 
-        float lerp = std::lerp(0.125f, 2.0f, nlf_alpha);
+        float lerp = 0.55 * std::lerp(0.125f, 2.0f, nlf_alpha);
         float lerp_c = 1;
 
         float lmult[5] = { 0.5, 1, 0.5, 0.25, 0.125 };

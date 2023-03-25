@@ -85,8 +85,17 @@ void subtractNoiseImage(MetalContext* mtlContext,
                         float luma_weight, float sharpening, const gls::Vector<2>& nlf,
                         gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage);
 
+void bayerToRawRGBA(MetalContext* mtlContext, const gls::mtl_image_2d<gls::luma_pixel_float>& rawImage,
+                    gls::mtl_image_2d<gls::rgba_pixel_float>* rgbaImage, BayerPattern bayerPattern);
+
+void rawRGBAToBayer(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_pixel_float>& rgbaImage,
+                    gls::mtl_image_2d<gls::luma_pixel_float>* rawImage, BayerPattern bayerPattern);
+
 void convertTosRGB(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_pixel_float>& linearImage,
                    const gls::mtl_image_2d<gls::luma_pixel_float>& ltmMaskImage,
                    gls::mtl_image_2d<gls::rgba_pixel_float>* rgbImage, const DemosaicParameters& demosaicParameters);
+
+void despeckleRawRGBAImage(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
+                           const gls::Vector<4> rawVariance, gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage);
 
 #endif /* demosaic_mtl_hpp */

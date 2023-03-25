@@ -35,6 +35,11 @@ class RawConverter {
     gls::mtl_image_2d<gls::rgba_pixel_float>::unique_ptr _linearRGBImageB;
     gls::mtl_image_2d<gls::luma_pixel_float>::unique_ptr _ltmMaskImage;
 
+    // RawConverter HighNoise textures
+    gls::mtl_image_2d<gls::rgba_pixel_float>::unique_ptr _rgbaRawImage;
+    gls::mtl_image_2d<gls::rgba_pixel_float>::unique_ptr _denoisedRgbaRawImage;
+    gls::mtl_image_2d<gls::luma_pixel_16>::unique_ptr _blueNoise;
+
     std::unique_ptr<PyramidProcessor<5>> pyramidProcessor;
 
 public:
@@ -42,7 +47,7 @@ public:
         _mtlContext(mtlDevice),
         _rawImageSize(rawImageSize) { }
 
-    void buildTextures(const gls::size& rawImageSize) {
+    void allocateTextures(const gls::size& rawImageSize) {
         assert(rawImageSize.width > 0 && rawImageSize.height > 0);
 
         if (_rawImageSize != rawImageSize) {
@@ -62,6 +67,19 @@ public:
             _rawImageSize = rawImageSize;
 
             pyramidProcessor = std::make_unique<PyramidProcessor<5>>(&_mtlContext, _rawImageSize.width, _rawImageSize.height);
+        }
+    }
+
+    void allocateHighNoiseTextures() {
+        int width = _rawImage->width;
+        int height = _rawImage->height;
+
+        if (!_rgbaRawImage || _rgbaRawImage->width != width / 2 || _rgbaRawImage->height != height / 2) {
+            auto mtlDevice = _mtlContext.device();
+
+            _rgbaRawImage = std::make_unique<gls::mtl_image_2d<gls::rgba_pixel_float>>(mtlDevice, width / 2, height / 2);
+            _denoisedRgbaRawImage =
+                std::make_unique<gls::mtl_image_2d<gls::rgba_pixel_float>>(mtlDevice, width / 2, height / 2);
         }
     }
 
@@ -108,7 +126,7 @@ public:
         const NoiseModel<5>* noiseModel = &demosaicParameters->noiseModel;
         const auto rawVariance = getRawVariance(noiseModel->rawNlf);
 
-        buildTextures(rawImage.size());
+        allocateTextures(rawImage.size());
 
         _rawImage->copyPixelsFrom(rawImage);
 
@@ -118,6 +136,19 @@ public:
                      demosaicParameters->black_level / 0xffff);
 
         rawImageSobel(&_mtlContext, *_scaledRawImage, _rawSobelImage.get());
+
+        bool high_noise_image = true;
+        if (high_noise_image) {
+            std::cout << "Despeckeling RAW Image" << std::endl;
+
+            allocateHighNoiseTextures();
+
+            bayerToRawRGBA(&_mtlContext, *_scaledRawImage, _rgbaRawImage.get(), demosaicParameters->bayerPattern);
+
+            despeckleRawRGBAImage(&_mtlContext, *_rgbaRawImage, noiseModel->rawNlf.second, _denoisedRgbaRawImage.get());
+
+            rawRGBAToBayer(&_mtlContext, *_denoisedRgbaRawImage, _scaledRawImage.get(), demosaicParameters->bayerPattern);
+        }
 
         gaussianBlurSobelImage(&_mtlContext, *_scaledRawImage, *_rawSobelImage, rawVariance[1], 1.5, 4.5, _rawGradientImage.get());
 

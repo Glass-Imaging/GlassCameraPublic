@@ -27,7 +27,7 @@ static const char* TAG = "DEMOSAIC";
 
 gls::Matrix<3, 3> cam_xyz_coeff(gls::Vector<3>* pre_mul, const gls::Matrix<3, 3>& cam_xyz) {
     // Compute sRGB -> XYZ -> Camera
-    auto rgb_cam = cam_xyz * xyz_rgb;
+    const auto rgb_cam = cam_xyz * xyz_rgb;
 
     // Normalize rgb_cam so that rgb_cam * (1,1,1) == (1,1,1).
     // This maximizes the uint16 dynamic range and makes sure
@@ -112,8 +112,8 @@ std::ostream& operator<<(std::ostream& os, const std::span<const float>& s) {
  24     Black           N 2/                0.310   0.316   3.1     #343434
  */
 
-void matrixFromColorChecker(const std::array<RawPatchStats, 24>& rawStats, gls::Matrix<3, 3>* cam_xyz,
-                            gls::Vector<3>* pre_mul) {
+void matrixFromColorChecker(const std::array<RawPatchStats, 24>& rawStats,
+                            gls::Matrix<3, 3>* cam_xyz, gls::Vector<3>* pre_mul) {
     // ColorChecker Chart under 6500-kelvin illumination
     static const gls::Matrix<24, 3> gmb_xyY = {{0.400, 0.350, 10.1},  // Dark Skin
                                                {0.377, 0.345, 35.8},  // Light Skin
@@ -147,14 +147,14 @@ void matrixFromColorChecker(const std::array<RawPatchStats, 24>& rawStats, gls::
         gmb_xyz[sq][2] = gmb_xyY[sq][2] * (1 - gmb_xyY[sq][0] - gmb_xyY[sq][1]) / gmb_xyY[sq][1];
     }
 
-    gls::Matrix<24, 3> inverse = pseudoinverse(gmb_xyz);
+    gls::Matrix<24, 3> xyz_gmb = pseudoinverse(gmb_xyz);
 
     for (int pass = 0; pass < 2; pass++) {
         for (int i = 0; i < 3 /* colors */; i++) {
             for (int j = 0; j < 3; j++) {
                 (*cam_xyz)[i][j] = 0;
                 for (int k = 0; k < 24; k++) {
-                    (*cam_xyz)[i][j] += rawStats[k].mean[i] * inverse[k][j];
+                    (*cam_xyz)[i][j] += rawStats[k].mean[i] * xyz_gmb[k][j];
                 }
             }
         }

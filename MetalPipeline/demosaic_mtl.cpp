@@ -289,3 +289,44 @@ void subtractNoiseImage(MetalContext* mtlContext,
            gradientImage.texture(), luma_weight, sharpening, simd::float2 { nlf[0], nlf[1] },
            outputImage->texture());
 }
+
+void bayerToRawRGBA(MetalContext* mtlContext, const gls::mtl_image_2d<gls::luma_pixel_float>& rawImage,
+                    gls::mtl_image_2d<gls::rgba_pixel_float>* rgbaImage, BayerPattern bayerPattern) {
+    assert(rawImage.width == 2 * rgbaImage->width && rawImage.height == 2 * rgbaImage->height);
+
+    auto kernel = Kernel<MTL::Texture*,  // rawImage
+                         MTL::Texture*,  // rgbaImage
+                         int             // bayerPattern
+                         >(mtlContext, "bayerToRawRGBA");
+
+    // Schedule the kernel on the GPU
+    kernel(mtlContext, /*gridSize=*/ MTL::Size(rgbaImage->width, rgbaImage->height, 1), rawImage.texture(),
+           rgbaImage->texture(), bayerPattern);
+}
+
+void rawRGBAToBayer(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_pixel_float>& rgbaImage,
+                    gls::mtl_image_2d<gls::luma_pixel_float>* rawImage, BayerPattern bayerPattern) {
+    assert(rawImage->width == 2 * rgbaImage.width && rawImage->height == 2 * rgbaImage.height);
+
+    auto kernel = Kernel<MTL::Texture*,  // rgbaImage
+                         MTL::Texture*,  // rawImage
+                         int             // bayerPattern
+                         >(mtlContext, "rawRGBAToBayer");
+
+    // Schedule the kernel on the GPU
+    kernel(mtlContext, /*gridSize=*/ MTL::Size(rgbaImage.width, rgbaImage.height, 1), rgbaImage.texture(),
+           rawImage->texture(), bayerPattern);
+}
+
+void despeckleRawRGBAImage(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
+                           const gls::Vector<4> rawVariance, gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage) {
+
+    auto kernel = Kernel<MTL::Texture*,  // inputImage
+                         simd::float4,   // rawVariance
+                         MTL::Texture*   // outputImage
+                         >(mtlContext, "despeckleRawRGBAImage");
+
+    // Schedule the kernel on the GPU
+    kernel(mtlContext, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1), inputImage.texture(),
+           simd::float4 { rawVariance[0], rawVariance[1], rawVariance[2], rawVariance[3] }, outputImage->texture());
+}

@@ -76,7 +76,7 @@ kernel void scaleRawData(texture2d<half> rawImage                       [[textur
     for (int c = 0; c < 4; c++) {
         int2 o = bayerOffsets[bayerPattern][c];
         write_imageh(scaledRawImage, imageCoordinates + o,
-                     max(scaleMul[c] * (read_imageh(rawImage, imageCoordinates + o).x - blackLevel), 0.0h));
+                     max(scaleMul[c] * (read_imageh(rawImage, imageCoordinates + o).x - blackLevel) * 0.9h + 0.1h, 0.0h));
     }
 }
 
@@ -731,6 +731,81 @@ kernel void subtractNoiseImage(texture2d<float> inputImage                      
     write_imagef(outputImage, output_pos, float4(denoisedPixel, inputPixel.w));
 }
 
+kernel void bayerToRawRGBA(texture2d<float> rawImage                    [[texture(0)]],
+                           texture2d<float, access::write> rgbaImage    [[texture(1)]],
+                           constant int& bayerPattern                   [[buffer(2)]],
+                           uint2 index                                  [[thread_position_in_grid]]) {
+    const int2 imageCoordinates = (int2) index;
+
+    const int2 r = bayerOffsets[bayerPattern][raw_red];
+    const int2 g = bayerOffsets[bayerPattern][raw_green];
+    const int2 b = bayerOffsets[bayerPattern][raw_blue];
+    const int2 g2 = bayerOffsets[bayerPattern][raw_green2];
+
+    float red    = read_imagef(rawImage, 2 * imageCoordinates + r).x;
+    float green  = read_imagef(rawImage, 2 * imageCoordinates + g).x;
+    float blue   = read_imagef(rawImage, 2 * imageCoordinates + b).x;
+    float green2 = read_imagef(rawImage, 2 * imageCoordinates + g2).x;
+
+    write_imagef(rgbaImage, imageCoordinates, (float4){red, green, blue, green2});
+}
+
+kernel void rawRGBAToBayer(texture2d<float> rgbaImage                   [[texture(0)]],
+                           texture2d<float, access::write> rawImage     [[texture(1)]],
+                           constant int& bayerPattern                   [[buffer(2)]],
+                           uint2 index                                  [[thread_position_in_grid]]) {
+    const int2 imageCoordinates = (int2) index;
+
+    float4 rgba = read_imagef(rgbaImage, imageCoordinates);
+
+    const int2 r = bayerOffsets[bayerPattern][raw_red];
+    const int2 g = bayerOffsets[bayerPattern][raw_green];
+    const int2 b = bayerOffsets[bayerPattern][raw_blue];
+    const int2 g2 = bayerOffsets[bayerPattern][raw_green2];
+
+    write_imagef(rawImage, 2 * imageCoordinates + r, rgba.x);
+    write_imagef(rawImage, 2 * imageCoordinates + g, rgba.y);
+    write_imagef(rawImage, 2 * imageCoordinates + b, rgba.z);
+    write_imagef(rawImage, 2 * imageCoordinates + g2, rgba.w);
+}
+
+half4 despeckle_3x3x4(texture2d<half> inputImage, float4 rawVariance, int2 imageCoordinates) {
+    half4 sample = 0, firstMax = 0, secondMax = 0;
+    half4 firstMin = (half) HALF_MAX, secondMin = (half) HALF_MAX;
+
+    for (int x = -1; x <= 1; x++) {
+        for (int y = -1; y <= 1; y++) {
+            half4 v = read_imageh(inputImage, imageCoordinates + (int2){x, y});
+
+            secondMax = select(max(v, secondMax), firstMax, v >= firstMax);
+            firstMax = max(v, firstMax);
+
+            secondMin = select(min(v, secondMin), firstMin, v <= firstMin);
+            firstMin = min(v, firstMin);
+
+            if (x == 0 && y == 0) {
+                sample = v;
+            }
+        }
+    }
+
+    half4 sigma = sqrt(half4(rawVariance) * sample);
+    half4 minVal = mix(secondMin, firstMin, smoothstep(2 * sigma, 8 * sigma, secondMin - firstMin));
+    half4 maxVal = mix(secondMax, firstMax, smoothstep(sigma, 4 * sigma, firstMax - secondMax));
+    return clamp(sample, minVal, maxVal);
+}
+
+kernel void despeckleRawRGBAImage(texture2d<half> inputImage                    [[texture(0)]],
+                                  constant float4& rawVariance                  [[buffer(1)]],
+                                  texture2d<half, access::write> denoisedImage  [[texture(2)]],
+                                  uint2 index                                   [[thread_position_in_grid]]) {
+    const int2 imageCoordinates = (int2) index;
+
+    half4 despeckledPixel = despeckle_3x3x4(inputImage, rawVariance, imageCoordinates);
+
+    write_imageh(denoisedImage, imageCoordinates, despeckledPixel);
+}
+
 kernel void convertTosRGB(texture2d<float> linearImage                  [[texture(0)]],
                           texture2d<float> ltmMaskImage                 [[texture(1)]],
                           texture2d<float, access::write> rgbImage      [[texture(2)]],
@@ -740,7 +815,7 @@ kernel void convertTosRGB(texture2d<float> linearImage                  [[textur
 {
     const int2 imageCoordinates = (int2) index;
 
-    float3 pixel_value = read_imagef(linearImage, imageCoordinates).xyz;
+    float3 pixel_value = (read_imagef(linearImage, imageCoordinates).xyz - 0.1) / 0.9;
 
     // Exposure Bias
     pixel_value *= parameters.exposureBias != 0 ? powr(2.0, parameters.exposureBias) : 1;
