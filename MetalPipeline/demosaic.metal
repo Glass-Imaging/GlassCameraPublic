@@ -806,6 +806,138 @@ kernel void despeckleRawRGBAImage(texture2d<half> inputImage                    
     write_imageh(denoisedImage, imageCoordinates, despeckledPixel);
 }
 
+/// ---- Median Filter 3x3 ----
+
+#define s(a, b)                         \
+  ({ typedef __typeof__ (a) type_of_a;  \
+     type_of_a temp = a;                \
+     a = min(a, b);                     \
+     b = max(temp, b); })
+
+#define minMax6(a0,a1,a2,a3,a4,a5) s(a0,a1);s(a2,a3);s(a4,a5);s(a0,a2);s(a1,a3);s(a0,a4);s(a3,a5);
+#define minMax5(a0,a1,a2,a3,a4) s(a0,a1);s(a2,a3);s(a0,a2);s(a1,a3);s(a0,a4);s(a3,a4);
+#define minMax4(a0,a1,a2,a3) s(a0,a1);s(a2,a3);s(a0,a2);s(a1,a3);
+#define minMax3(a0,a1,a2) s(a0,a1);s(a0,a2);s(a1,a2);
+
+#define fast_median3x3(inputImage, imageCoordinates)               \
+({                                                                 \
+    medianPixelType a0, a1, a2, a3, a4, a5;                        \
+                                                                   \
+    a0 = readImage(inputImage, imageCoordinates + int2(0, -1));    \
+    a1 = readImage(inputImage, imageCoordinates + int2(1, -1));    \
+    a2 = readImage(inputImage, imageCoordinates + int2(0, 0));     \
+    a3 = readImage(inputImage, imageCoordinates + int2(1, 0));     \
+    a4 = readImage(inputImage, imageCoordinates + int2(0, 1));     \
+    a5 = readImage(inputImage, imageCoordinates + int2(1, 1));     \
+    minMax6(a0, a1, a2, a3, a4, a5);                               \
+    a0 = readImage(inputImage, imageCoordinates + int2(-1, 1));    \
+    minMax5(a0, a1, a2, a3, a4);                                   \
+    a0 = readImage(inputImage, imageCoordinates + int2(-1, 0));    \
+    minMax4(a0, a1, a2, a3);                                       \
+    a0 = readImage(inputImage, imageCoordinates + int2(-1, -1));   \
+    minMax3(a0, a1, a2);                                           \
+    a1;                                                            \
+})
+
+#define readImage(image, pos)  read_imageh(image, pos).xy;
+
+kernel void medianFilterImage3x3x2(texture2d<half> inputImage                   [[texture(0)]],
+                                   texture2d<half, access::write> denoisedImage [[texture(1)]],
+                                   uint2 index                                  [[thread_position_in_grid]]) {
+    const int2 imageCoordinates = (int2) index;
+
+    typedef half2 medianPixelType;
+
+    half2 median = fast_median3x3(inputImage, imageCoordinates);
+
+    write_imageh(denoisedImage, imageCoordinates, half4(median, 0, 0));
+}
+
+#undef readImage
+
+#define readImage(image, pos)  read_imageh(image, pos).xyz;
+
+kernel void medianFilterImage3x3x3(texture2d<half> inputImage                   [[texture(0)]],
+                                   texture2d<half, access::write> filteredImage [[texture(1)]],
+                                   uint2 index                                  [[thread_position_in_grid]]) {
+    const int2 imageCoordinates = (int2) index;
+
+    typedef half3 medianPixelType;
+
+    half3 median = fast_median3x3(inputImage, imageCoordinates);
+
+    write_imageh(filteredImage, imageCoordinates, half4(median, 0));
+}
+
+#undef readImage
+
+#define readImage(image, pos)  read_imageh(image, pos);
+
+kernel void medianFilterImage3x3x4(texture2d<half> inputImage                   [[texture(0)]],
+                                   texture2d<half, access::write> filteredImage [[texture(1)]],
+                                   uint2 index                                  [[thread_position_in_grid]]) {
+    const int2 imageCoordinates = (int2) index;
+
+    typedef half4 medianPixelType;
+
+    half4 median = fast_median3x3(inputImage, imageCoordinates);
+
+    write_imageh(filteredImage, imageCoordinates, median);
+}
+
+#undef readImage
+
+#define readImage(image, pos)                              \
+    ({                                                     \
+        half3 p = read_imageh(image, pos).xyz;             \
+                                                           \
+        half v = p.x;                                      \
+        secMax = v <= firstMax && v > secMax ? v : secMax; \
+        secMax = v > firstMax ? firstMax : secMax;         \
+        firstMax = v > firstMax ? v : firstMax;            \
+                                                           \
+        secMin = v >= firstMin && v < secMin ? v : secMin; \
+        secMin = v < firstMin ? firstMin : secMin;         \
+        firstMin = v < firstMin ? v : firstMin;            \
+                                                           \
+        if (all(pos == imageCoordinates)) {                \
+            sample = v;                                    \
+        }                                                  \
+                                                           \
+        p.yz;                                              \
+    })
+
+kernel void despeckleLumaMedianChromaImage(texture2d<half> inputImage                   [[texture(0)]],
+                                           constant float3& var_a                       [[buffer(1)]],
+                                           constant float3& var_b                       [[buffer(2)]],
+                                           texture2d<half, access::write> denoisedImage [[texture(3)]],
+                                           uint2 index                                  [[thread_position_in_grid]]) {
+    const int2 imageCoordinates = (int2) index;
+
+    half sample = 0, firstMax = 0, secMax = 0;
+    half firstMin = (float) 0xffff, secMin = (float) 0xffff;
+
+    // Median filtering of the chroma
+    typedef half2 medianPixelType;
+    half2 median = fast_median3x3(inputImage, imageCoordinates);
+
+    half sigma = sqrt(var_a.x + var_b.x * sample);
+    half minVal = mix(secMin, firstMin, smoothstep(sigma, 4 * sigma, secMin - firstMin));
+    half maxVal = mix(secMax, firstMax, smoothstep(sigma, 4 * sigma, firstMax - secMax));
+
+    sample = clamp(sample, minVal, maxVal);
+
+    write_imageh(denoisedImage, imageCoordinates, half4(sample, median, 0));
+}
+
+#undef readImage
+
+#undef minMax6
+#undef minMax5
+#undef minMax4
+#undef minMax3
+#undef s
+
 kernel void convertTosRGB(texture2d<float> linearImage                  [[texture(0)]],
                           texture2d<float> ltmMaskImage                 [[texture(1)]],
                           texture2d<float, access::write> rgbImage      [[texture(2)]],

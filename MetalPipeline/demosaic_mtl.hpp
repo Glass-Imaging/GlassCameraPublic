@@ -98,4 +98,8 @@ void convertTosRGB(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_p
 void despeckleRawRGBAImage(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
                            const gls::Vector<4> rawVariance, gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage);
 
+void despeckleImage(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
+                    const gls::Vector<3>& var_a, const gls::Vector<3>& var_b,
+                    gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage);
+
 #endif /* demosaic_mtl_hpp */

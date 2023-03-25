@@ -330,3 +330,21 @@ void despeckleRawRGBAImage(MetalContext* mtlContext, const gls::mtl_image_2d<gls
     kernel(mtlContext, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1), inputImage.texture(),
            simd::float4 { rawVariance[0], rawVariance[1], rawVariance[2], rawVariance[3] }, outputImage->texture());
 }
+
+void despeckleImage(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
+                    const gls::Vector<3>& var_a, const gls::Vector<3>& var_b,
+                    gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage) {
+
+    auto kernel = Kernel<MTL::Texture*,  // inputImage
+                         simd::float3,   // var_a
+                         simd::float3,   // var_b
+                         MTL::Texture*   // outputImage
+                         >(mtlContext, "despeckleLumaMedianChromaImage");
+
+    simd::float3 cl_var_a = {var_a[0], var_a[1], var_a[2]};
+    simd::float3 cl_var_b = {var_b[0], var_b[1], var_b[2]};
+
+    // Schedule the kernel on the GPU
+    kernel(mtlContext, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
+           inputImage.texture(), cl_var_a, cl_var_b, outputImage->texture());
+}
