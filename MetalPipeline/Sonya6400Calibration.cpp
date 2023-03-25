@@ -131,12 +131,12 @@ public:
                 .contrast = 1.05,
                 .saturation = 1.0,
                 .toneCurveSlope = 3.5,
-                .localToneMapping = false
+                .localToneMapping = true
             },
             .ltmParameters = {
                 .eps = 0.01,
-                .shadows = 1.0, // 0.8,
-                .highlights = 1.0, // 1.5,
+                .shadows = 0.8,
+                .highlights = 1.5,
                 .detail = { 1, 1.2, 2.0 }
             }
         };

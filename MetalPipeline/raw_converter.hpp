@@ -22,6 +22,55 @@
 #include "demosaic_mtl.hpp"
 #include "pyramid_processor.hpp"
 
+class LocalToneMapping {
+    gls::mtl_image_2d<gls::luma_pixel_float>::unique_ptr ltmMaskImage;
+    gls::mtl_image_2d<gls::luma_alpha_pixel_float>::unique_ptr lfAbGfImage;
+    gls::mtl_image_2d<gls::luma_alpha_pixel_float>::unique_ptr lfAbGfMeanImage;
+    gls::mtl_image_2d<gls::luma_alpha_pixel_float>::unique_ptr mfAbGfImage;
+    gls::mtl_image_2d<gls::luma_alpha_pixel_float>::unique_ptr mfAbGfMeanImage;
+    gls::mtl_image_2d<gls::luma_alpha_pixel_float>::unique_ptr hfAbGfImage;
+    gls::mtl_image_2d<gls::luma_alpha_pixel_float>::unique_ptr hfAbGfMeanImage;
+
+   public:
+    LocalToneMapping(MetalContext* mtlContext) {
+        // Placeholder, only allocated if LTM is used
+        ltmMaskImage = std::make_unique<gls::mtl_image_2d<gls::luma_pixel_float>>(mtlContext->device(), 1, 1);
+    }
+
+    void allocateTextures(MetalContext* mtlContext, int width, int height) {
+        auto mtlDevice = mtlContext->device();
+
+        if (ltmMaskImage->width != width || ltmMaskImage->height != height) {
+            ltmMaskImage = std::make_unique<gls::mtl_image_2d<gls::luma_pixel_float>>(mtlDevice, width, height);
+            lfAbGfImage =
+                std::make_unique<gls::mtl_image_2d<gls::luma_alpha_pixel_float>>(mtlDevice, width / 16, height / 16);
+            lfAbGfMeanImage =
+                std::make_unique<gls::mtl_image_2d<gls::luma_alpha_pixel_float>>(mtlDevice, width / 16, height / 16);
+            mfAbGfImage =
+                std::make_unique<gls::mtl_image_2d<gls::luma_alpha_pixel_float>>(mtlDevice, width / 4, height / 4);
+            mfAbGfMeanImage =
+                std::make_unique<gls::mtl_image_2d<gls::luma_alpha_pixel_float>>(mtlDevice, width / 4, height / 4);
+            hfAbGfImage = std::make_unique<gls::mtl_image_2d<gls::luma_alpha_pixel_float>>(mtlDevice, width, height);
+            hfAbGfMeanImage = std::make_unique<gls::mtl_image_2d<gls::luma_alpha_pixel_float>>(mtlDevice, width, height);
+        }
+    }
+
+    void createMask(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_pixel_float>& image,
+                    const std::array<const gls::mtl_image_2d<gls::rgba_pixel_float>*, 3>& guideImage,
+                    const NoiseModel<5>& noiseModel, const DemosaicParameters& demosaicParameters) {
+        const std::array<const gls::mtl_image_2d<gls::luma_alpha_pixel_float>*, 3>& abImage = {
+            lfAbGfImage.get(), mfAbGfImage.get(), hfAbGfImage.get()};
+        const std::array<const gls::mtl_image_2d<gls::luma_alpha_pixel_float>*, 3>& abMeanImage = {
+            lfAbGfMeanImage.get(), mfAbGfMeanImage.get(), hfAbGfMeanImage.get()};
+
+        gls::Vector<2> nlf = {noiseModel.pyramidNlf[0].first[0], noiseModel.pyramidNlf[0].second[0]};
+        localToneMappingMask(mtlContext, image, guideImage, abImage, abMeanImage, demosaicParameters.ltmParameters,
+                             ycbcr_srgb, nlf, ltmMaskImage.get());
+    }
+
+    const gls::mtl_image_2d<gls::luma_pixel_float>& getMask() { return *ltmMaskImage; }
+};
+
 class RawConverter {
     MetalContext _mtlContext;
     gls::size _rawImageSize;
@@ -42,14 +91,18 @@ class RawConverter {
 
     std::unique_ptr<PyramidProcessor<5>> pyramidProcessor;
 
+    std::unique_ptr<LocalToneMapping> localToneMapping;
+
 public:
     RawConverter(NS::SharedPtr<MTL::Device> mtlDevice, gls::size rawImageSize = {0, 0}) :
         _mtlContext(mtlDevice),
-        _rawImageSize(rawImageSize) { }
+        _rawImageSize(rawImageSize) {
+            localToneMapping = std::make_unique<LocalToneMapping>(&_mtlContext);
+        }
 
-    void allocateTextures(const gls::size& rawImageSize);
+    void allocateTextures(const gls::size& imageSize);
 
-    void allocateHighNoiseTextures();
+    void allocateHighNoiseTextures(const gls::size& imageSize);
 
     gls::mtl_image_2d<gls::rgba_pixel_float>* denoise(const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
                                                       DemosaicParameters* demosaicParameters, bool calibrateFromImage);

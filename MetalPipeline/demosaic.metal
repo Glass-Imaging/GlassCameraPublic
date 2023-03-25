@@ -486,8 +486,8 @@ kernel void blendHighlightsImage(texture2d<float> inputImage                    
     }
 
 #if LENS_SHADING
-    float2 imageCenter = convert_float2(get_image_dim(inputImage) / 2);
-    float distance_from_center = length(convert_float2(imageCoordinates) - imageCenter) / length(imageCenter);
+    float2 imageCenter = float2(get_image_dim(inputImage) / 2);
+    float distance_from_center = length(float2(imageCoordinates) - imageCenter) / length(imageCenter);
     float lens_shading = 1 + LENS_SHADING_GAIN * distance_from_center * distance_from_center;
     pixel *= lens_shading;
 #endif
@@ -937,6 +937,150 @@ kernel void despeckleLumaMedianChromaImage(texture2d<half> inputImage           
 #undef minMax4
 #undef minMax3
 #undef s
+
+// Local Tone Mapping - guideImage can be a downsampled version of inputImage
+
+kernel void GuidedFilterABImage(texture2d<float, access::sample> guideImage     [[texture(0)]],
+                                texture2d<float, access::write> abImage         [[texture(1)]],
+                                constant float& eps                             [[buffer(2)]],
+                                uint2 index                                     [[thread_position_in_grid]]) {
+    const int2 imageCoordinates = (int2) index;
+    const float2 inputNorm = 1.0 / float2(get_image_dim(guideImage));
+    const float2 pos = float2(imageCoordinates) * inputNorm;
+
+    constexpr sampler linear_sampler(min_filter::linear,
+                                     mag_filter::linear,
+                                     mip_filter::linear);
+
+    float sum = 0;
+    float sumSq = 0;
+    for (int y = -2; y <= 2; y++) {
+        for (int x = -2; x <= 2; x++) {
+            float sample = read_imagef(guideImage, linear_sampler, pos + (float2(x, y) + 0.5f) * inputNorm).x;
+            sum += sample;
+            sumSq += sample * sample;
+        }
+    }
+    float mean = sum / 25;
+    float var = (sumSq - sum * sum / 25) / 25;
+
+    float a = var / (var + eps);
+    float b = mean * (1 - a);
+
+    write_imagef(abImage, imageCoordinates, float4(a, b, 0, 0));
+}
+
+// Fast 5x5 box filtering with linear subsampling
+typedef struct ConvolutionParameters {
+    float weight;
+    float2 offset;
+} ConvolutionParameters;
+
+constant ConvolutionParameters boxFilter5x5[9] = {
+    { 0.1600, { -1.5000, -1.5000 } },
+    { 0.1600, {  0.5000, -1.5000 } },
+    { 0.0800, {  2.0000, -1.5000 } },
+    { 0.1600, { -1.5000,  0.5000 } },
+    { 0.1600, {  0.5000,  0.5000 } },
+    { 0.0800, {  2.0000,  0.5000 } },
+    { 0.0800, { -1.5000,  2.0000 } },
+    { 0.0800, {  0.5000,  2.0000 } },
+    { 0.0400, {  2.0000,  2.0000 } },
+};
+
+kernel void BoxFilterGFImage(texture2d<float, access::sample> inputImage    [[texture(0)]],
+                             texture2d<float, access::write> outputImage    [[texture(1)]],
+                             uint2 index                                    [[thread_position_in_grid]]) {
+    const int2 imageCoordinates = (int2) index;
+    const float2 inputNorm = 1.0 / float2(get_image_dim(inputImage));
+    const float2 pos = float2(imageCoordinates) * inputNorm;
+
+    constexpr sampler linear_sampler(min_filter::linear,
+                                     mag_filter::linear,
+                                     mip_filter::linear);
+    float2 meanAB = 0;
+    for (int i = 0; i < 9; i++) {
+        constant ConvolutionParameters* cp = &boxFilter5x5[i];
+        meanAB += cp->weight * read_imagef(inputImage, linear_sampler, pos + (cp->offset + 0.5f) * inputNorm).xy;
+    }
+
+    write_imagef(outputImage, imageCoordinates, float4(meanAB, 0, 0));
+}
+
+float computeLtmMultiplier(float3 input, float2 gfAb, float eps, float shadows,
+                           float highlights, float detail, constant Matrix3x3 *ycbcr_srgb) {
+    // YCbCr -> RGB version of the input pixel, for highlights compression, ensure definite positiveness
+    float3 rgb = max((float3) (dot(ycbcr_srgb->m[0], input),
+                               dot(ycbcr_srgb->m[1], input),
+                               dot(ycbcr_srgb->m[2], input)), 0);
+
+    // The filtered image is an estimate of the illuminance
+    const float illuminance = gfAb.x * input.x + gfAb.y;
+    const float reflectance = input.x / illuminance;
+
+    const float highlightsClipping = min(length(sqrt(2 * rgb)), 1.0);
+    const float adjusted_shadows = mix(shadows, 1, highlightsClipping);
+    const float gamma = mix(adjusted_shadows, highlights, smoothstep(0.125, 0.75, illuminance));
+
+    // LTM curve computed in Log space
+    return pow(illuminance, gamma) * pow(reflectance, detail) / input.x;
+}
+
+typedef struct LTMParameters {
+    float eps;
+    float shadows;
+    float highlights;
+    float detail[3];
+} LTMParameters;
+
+kernel void localToneMappingMaskImage(texture2d<float> inputImage                   [[texture(0)]],
+                                      texture2d<float, access::sample> lfAbImage    [[texture(1)]],
+                                      texture2d<float, access::sample> mfAbImage    [[texture(2)]],
+                                      texture2d<float, access::sample> hfAbImage    [[texture(3)]],
+                                      texture2d<float, access::write> ltmMaskImage  [[texture(4)]],
+                                      constant LTMParameters& ltmParameters         [[buffer(5)]],
+                                      constant Matrix3x3& ycbcr_srgb                [[buffer(6)]],
+                                      constant float2& nlf                          [[buffer(7)]],
+                                      uint2 index                                   [[thread_position_in_grid]]) {
+    const int2 imageCoordinates = (int2) index;
+    const float2 inputNorm = 1.0 / float2(get_image_dim(ltmMaskImage));
+    const float2 pos = float2(imageCoordinates) * inputNorm;
+
+    constexpr sampler linear_sampler(min_filter::linear,
+                                     mag_filter::linear,
+                                     mip_filter::linear);
+
+    float3 input = read_imagef(inputImage, imageCoordinates).xyz;
+    float2 lfAbSample = read_imagef(lfAbImage, linear_sampler, pos + 0.5f * inputNorm).xy;
+
+    float ltmMultiplier = computeLtmMultiplier(input, lfAbSample, ltmParameters.eps,
+                                               ltmParameters.shadows, ltmParameters.highlights,
+                                               ltmParameters.detail[0], &ycbcr_srgb);
+
+    if (ltmParameters.detail[1] != 1) {
+        float2 mfAbSample = read_imagef(mfAbImage, linear_sampler, pos + 0.5f * inputNorm).xy;
+        ltmMultiplier *= computeLtmMultiplier(input, mfAbSample, ltmParameters.eps, 1, 1, ltmParameters.detail[1], &ycbcr_srgb);
+    }
+
+    if (ltmParameters.detail[2] != 1) {
+        float detail = ltmParameters.detail[2];
+
+        if (detail > 1.0) {
+            float dx = (read_imagef(inputImage, imageCoordinates + int2(1, 0)).x -
+                        read_imagef(inputImage, imageCoordinates - int2(1, 0)).x) / 2;
+            float dy = (read_imagef(inputImage, imageCoordinates + int2(0, 1)).x -
+                        read_imagef(inputImage, imageCoordinates - int2(0, 1)).x) / 2;
+
+            float noiseThreshold = sqrt(nlf.x + nlf.y * input.x);
+            detail = 1 + (detail - 1) * smoothstep(0.5 * noiseThreshold, 2 * noiseThreshold, length(float2(dx, dy)));
+        }
+
+        float2 hfAbSample = read_imagef(hfAbImage, linear_sampler, pos + 0.5f * inputNorm).xy;
+        ltmMultiplier *= computeLtmMultiplier(input, hfAbSample, ltmParameters.eps, 1, 1, detail, &ycbcr_srgb);
+    }
+
+    write_imagef(ltmMaskImage, imageCoordinates, float4(ltmMultiplier, 0, 0, 0));
+}
 
 kernel void convertTosRGB(texture2d<float> linearImage                  [[texture(0)]],
                           texture2d<float> ltmMaskImage                 [[texture(1)]],

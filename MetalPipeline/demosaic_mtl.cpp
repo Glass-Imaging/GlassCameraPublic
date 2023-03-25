@@ -348,3 +348,59 @@ void despeckleImage(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_
     kernel(mtlContext, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
            inputImage.texture(), cl_var_a, cl_var_b, outputImage->texture());
 }
+
+// Arrays order is LF, MF, HF
+void localToneMappingMask(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
+                          const std::array<const gls::mtl_image_2d<gls::rgba_pixel_float>*, 3>& guideImage,
+                          const std::array<const gls::mtl_image_2d<gls::luma_alpha_pixel_float>*, 3>& abImage,
+                          const std::array<const gls::mtl_image_2d<gls::luma_alpha_pixel_float>*, 3>& abMeanImage,
+                          const LTMParameters& ltmParameters, const gls::Matrix<3, 3>& ycbcr_srgb,
+                          const gls::Vector<2>& nlf, gls::mtl_image_2d<gls::luma_pixel_float>* outputImage) {
+    for (int i = 0; i < 3; i++) {
+        assert(guideImage[i]->width == abImage[i]->width && guideImage[i]->height == abImage[i]->height);
+        assert(guideImage[i]->width == abMeanImage[i]->width && guideImage[i]->height == abMeanImage[i]->height);
+    }
+
+    struct Matrix3x3 {
+        simd::float3 m[3];
+    } cl_ycbcr_srgb = {{{ycbcr_srgb[0][0], ycbcr_srgb[0][1], ycbcr_srgb[0][2]},
+                        {ycbcr_srgb[1][0], ycbcr_srgb[1][1], ycbcr_srgb[1][2]},
+                        {ycbcr_srgb[2][0], ycbcr_srgb[2][1], ycbcr_srgb[2][2]}}};
+
+    // const auto linear_sampler = cl::Sampler(glsContext->clContext(), true, CL_ADDRESS_CLAMP_TO_EDGE, CL_FILTER_LINEAR);
+
+    // Bind the kernel parameters
+    auto gfKernel = Kernel<MTL::Texture*,  // guideImage
+                           MTL::Texture*,  // abImage
+                           float           // eps
+                           >(mtlContext, "GuidedFilterABImage");
+
+    auto gfMeanKernel = Kernel<MTL::Texture*,  // inputImage
+                               MTL::Texture*   // outputImage
+                               >(mtlContext, "BoxFilterGFImage");
+
+    auto ltmKernel = Kernel<MTL::Texture*,  // inputImage
+                            MTL::Texture*,  // lfAbImage
+                            MTL::Texture*,  // mfAbImage
+                            MTL::Texture*,  // hfAbImage
+                            MTL::Texture*,  // ltmMaskImage
+                            LTMParameters,  // ltmParameters
+                            Matrix3x3,      // ycbcr_srgb
+                            simd::float2    // nlf
+                            >(mtlContext, "localToneMappingMaskImage");
+
+    // Schedule the kernel on the GPU
+    for (int i = 0; i < 3; i++) {
+        if (i == 0 || ltmParameters.detail[i] != 1) {
+            gfKernel(mtlContext, /*gridSize=*/ MTL::Size(guideImage[i]->width, guideImage[i]->height, 1),
+                     guideImage[i]->texture(), abImage[i]->texture(), ltmParameters.eps);
+
+            gfMeanKernel(mtlContext, /*gridSize=*/ MTL::Size(abImage[i]->width, abImage[i]->height, 1),
+                         abImage[i]->texture(), abMeanImage[i]->texture());
+        }
+    }
+
+    ltmKernel(mtlContext, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1), inputImage.texture(),
+              abMeanImage[0]->texture(), abMeanImage[1]->texture(), abMeanImage[2]->texture(),
+              outputImage->texture(), ltmParameters, cl_ycbcr_srgb, simd::float2 { nlf[0], nlf[1] });
+}

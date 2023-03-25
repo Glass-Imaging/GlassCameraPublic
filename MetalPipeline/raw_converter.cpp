@@ -15,32 +15,31 @@
 
 #include "raw_converter.hpp"
 
-void RawConverter::allocateTextures(const gls::size& rawImageSize) {
-    assert(rawImageSize.width > 0 && rawImageSize.height > 0);
+void RawConverter::allocateTextures(const gls::size& imageSize) {
+    assert(imageSize.width > 0 && imageSize.height > 0);
 
-    if (_rawImageSize != rawImageSize) {
+    if (_rawImageSize != imageSize) {
         std::cout << "Reallocating RawConverter textures" << std::endl;
 
         auto mtlDevice = _mtlContext.device();
 
-        _rawImage = std::make_unique<gls::mtl_image_2d<gls::luma_pixel_16>>(mtlDevice, rawImageSize);
-        _scaledRawImage = std::make_unique<gls::mtl_image_2d<gls::luma_pixel_float>>(mtlDevice, rawImageSize);
-        _rawSobelImage = std::make_unique<gls::mtl_image_2d<gls::rgba_pixel_float>>(mtlDevice, rawImageSize);
-        _rawGradientImage = std::make_unique<gls::mtl_image_2d<gls::luma_alpha_pixel_float>>(mtlDevice, rawImageSize);
-        _greenImage = std::make_unique<gls::mtl_image_2d<gls::luma_pixel_float>>(mtlDevice, rawImageSize);
-        _linearRGBImageA = std::make_unique<gls::mtl_image_2d<gls::rgba_pixel_float>>(mtlDevice, rawImageSize);
-        _linearRGBImageB = std::make_unique<gls::mtl_image_2d<gls::rgba_pixel_float>>(mtlDevice, rawImageSize);
-        _ltmMaskImage = std::make_unique<gls::mtl_image_2d<gls::luma_pixel_float>>(mtlDevice, gls::size {1, 1});
+        _rawImage = std::make_unique<gls::mtl_image_2d<gls::luma_pixel_16>>(mtlDevice, imageSize);
+        _scaledRawImage = std::make_unique<gls::mtl_image_2d<gls::luma_pixel_float>>(mtlDevice, imageSize);
+        _rawSobelImage = std::make_unique<gls::mtl_image_2d<gls::rgba_pixel_float>>(mtlDevice, imageSize);
+        _rawGradientImage = std::make_unique<gls::mtl_image_2d<gls::luma_alpha_pixel_float>>(mtlDevice, imageSize);
+        _greenImage = std::make_unique<gls::mtl_image_2d<gls::luma_pixel_float>>(mtlDevice, imageSize);
+        _linearRGBImageA = std::make_unique<gls::mtl_image_2d<gls::rgba_pixel_float>>(mtlDevice, imageSize);
+        _linearRGBImageB = std::make_unique<gls::mtl_image_2d<gls::rgba_pixel_float>>(mtlDevice, imageSize);
 
-        _rawImageSize = rawImageSize;
+        _rawImageSize = imageSize;
 
         pyramidProcessor = std::make_unique<PyramidProcessor<5>>(&_mtlContext, _rawImageSize.width, _rawImageSize.height);
     }
 }
 
-void RawConverter::allocateHighNoiseTextures() {
-    int width = _rawImage->width;
-    int height = _rawImage->height;
+void RawConverter::allocateHighNoiseTextures(const gls::size& imageSize) {
+    int width = imageSize.width;
+    int height = imageSize.height;
 
     if (!_rgbaRawImage || _rgbaRawImage->width != width / 2 || _rgbaRawImage->height != height / 2) {
         auto mtlDevice = _mtlContext.device();
@@ -61,16 +60,16 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::denoise(const gls::mtl_i
                    /*var_a=*/np.first,
                    /*var_b=*/np.second, _linearRGBImageB.get());
 
-    gls::mtl_image_2d<gls::rgba_pixel_float>* clDenoisedImage = pyramidProcessor->denoise(
+    gls::mtl_image_2d<gls::rgba_pixel_float>* denoisedImage = pyramidProcessor->denoise(
         &_mtlContext, &(demosaicParameters->denoiseParameters), *_linearRGBImageB, *_rawGradientImage,
         &(noiseModel->pyramidNlf), demosaicParameters->exposure_multiplier, calibrateFromImage);
 
-//        if (demosaicParameters->rgbConversionParameters.localToneMapping) {
-//            const std::array<const gls::mtl_image_2d<gls::rgba_pixel_float>*, 3>& guideImage = {
-//                pyramidProcessor->denoisedImagePyramid[4].get(), pyramidProcessor->denoisedImagePyramid[2].get(),
-//                pyramidProcessor->denoisedImagePyramid[0].get()};
-//            localToneMapping->createMask(&_mtlContext, *_denoisedImage, guideImage, *noiseModel, *demosaicParameters);
-//        }
+        if (demosaicParameters->rgbConversionParameters.localToneMapping) {
+            const std::array<const gls::mtl_image_2d<gls::rgba_pixel_float>*, 3>& guideImage = {
+                pyramidProcessor->denoisedImagePyramid[4].get(), pyramidProcessor->denoisedImagePyramid[2].get(),
+                pyramidProcessor->denoisedImagePyramid[0].get()};
+            localToneMapping->createMask(&_mtlContext, *denoisedImage, guideImage, *noiseModel, *demosaicParameters);
+        }
 
 //        // High ISO noise texture replacement
 //        if (clBlueNoise != nullptr) {
@@ -85,7 +84,7 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::denoise(const gls::mtl_i
 //            clDenoisedImage = clLinearRGBImageB.get();
 //        }
 
-    return clDenoisedImage;
+    return denoisedImage;
 }
 
 gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::image<gls::luma_pixel_16>& rawImage,
@@ -94,6 +93,10 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
     const auto rawVariance = getRawVariance(noiseModel->rawNlf);
 
     allocateTextures(rawImage.size());
+
+    if (demosaicParameters->rgbConversionParameters.localToneMapping) {
+        localToneMapping->allocateTextures(&_mtlContext, rawImage.width, rawImage.height);
+    }
 
     _rawImage->copyPixelsFrom(rawImage);
 
@@ -108,7 +111,7 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
     if (high_noise_image) {
         std::cout << "Despeckeling RAW Image" << std::endl;
 
-        allocateHighNoiseTextures();
+        allocateHighNoiseTextures(rawImage.size());
 
         bayerToRawRGBA(&_mtlContext, *_scaledRawImage, _rgbaRawImage.get(), demosaicParameters->bayerPattern);
 
@@ -143,7 +146,7 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
     const auto normalized_ycbcr_to_cam = inverse(cam_to_ycbcr) * demosaicParameters->exposure_multiplier;
     transformImage(&_mtlContext, *_denoisedImage, _linearRGBImageA.get(), normalized_ycbcr_to_cam);
 
-    convertTosRGB(&_mtlContext, *_linearRGBImageA, *_ltmMaskImage, _linearRGBImageA.get(), *demosaicParameters);
+    convertTosRGB(&_mtlContext, *_linearRGBImageA, localToneMapping->getMask(), _linearRGBImageA.get(), *demosaicParameters);
 
     _mtlContext.waitForCompletion();
 
