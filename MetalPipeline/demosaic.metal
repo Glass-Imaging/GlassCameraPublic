@@ -69,14 +69,22 @@ kernel void scaleRawData(texture2d<half> rawImage                       [[textur
                          constant int& bayerPattern                     [[buffer(2)]],
                          constant half4& scaleMul                       [[buffer(3)]],
                          constant half& blackLevel                      [[buffer(4)]],
+                         constant half& lensShadingCorrection           [[buffer(5)]],
                          uint2 index                                    [[thread_position_in_grid]])
 {
     const int2 imageCoordinates = 2 * (int2) index;
 
+    half lens_shading = 1;
+    if (lensShadingCorrection > 0) {
+        float2 imageCenter = float2(get_image_dim(rawImage) / 2);
+        float distance_from_center = length(float2(imageCoordinates) - imageCenter) / length(imageCenter);
+        lens_shading = 1 + lensShadingCorrection * distance_from_center * distance_from_center;
+    }
+
     for (int c = 0; c < 4; c++) {
         int2 o = bayerOffsets[bayerPattern][c];
         write_imageh(scaledRawImage, imageCoordinates + o,
-                     max(scaleMul[c] * (read_imageh(rawImage, imageCoordinates + o).x - blackLevel) * 0.9h + 0.1h, 0.0h));
+                     max(lens_shading * scaleMul[c] * (read_imageh(rawImage, imageCoordinates + o).x - blackLevel) * 0.9h + 0.1h, 0.0h));
     }
 }
 
@@ -485,13 +493,6 @@ kernel void blendHighlightsImage(texture2d<float> inputImage                    
                          dot(itrans[2], lab[0])) / 3;
     }
 
-#if LENS_SHADING
-    float2 imageCenter = float2(get_image_dim(inputImage) / 2);
-    float distance_from_center = length(float2(imageCoordinates) - imageCenter) / length(imageCenter);
-    float lens_shading = 1 + LENS_SHADING_GAIN * distance_from_center * distance_from_center;
-    pixel *= lens_shading;
-#endif
-
     write_imagef(outputImage, imageCoordinates, float4(pixel, 0.0));
 }
 
@@ -572,7 +573,7 @@ typedef struct RGBConversionParameters {
     float toneCurveSlope;
     float exposureBias;
     float blacks;
-    int localToneMapping;
+    bool localToneMapping;
 } RGBConversionParameters;
 
 typedef struct {

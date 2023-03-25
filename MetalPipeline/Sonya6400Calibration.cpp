@@ -126,8 +126,6 @@ public:
     DemosaicParameters buildDemosaicParameters() const override {
         return {
             .rgbConversionParameters = {
-                // .exposureBias = -1.0,
-                // .blacks = 0.1,
                 .contrast = 1.05,
                 .saturation = 1.0,
                 .toneCurveSlope = 3.5,

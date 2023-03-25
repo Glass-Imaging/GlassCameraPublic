@@ -41,7 +41,7 @@ typedef struct RGBConversionParameters {
     float toneCurveSlope = 3.5;
     float exposureBias = 0;
     float blacks = 0;
-    int localToneMapping = 0;
+    bool localToneMapping = false;
 } RGBConversionParameters;
 
 typedef std::pair<gls::Vector<4>, gls::Vector<4>> RawNLF;
@@ -91,11 +91,13 @@ typedef struct LTMParameters {
 typedef struct DemosaicParameters {
     // Basic Debayering Parameters
     BayerPattern bayerPattern;
-    float black_level;
-    float white_level;
-    float exposure_multiplier;
+    float black_level = 0;
+    float white_level = 1;
+    float exposure_multiplier = 1;
     gls::Vector<4> scale_mul;
     gls::Matrix<3, 3> rgb_cam;
+
+    float lensShadingCorrection = 0;
 
     // Noise Estimation and Reduction parameters
     NoiseModel<5> noiseModel;

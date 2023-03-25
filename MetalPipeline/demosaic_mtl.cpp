@@ -35,19 +35,20 @@ typedef ::simd_half4 half4;
 
 void scaleRawData(MetalContext* mtlContext, const gls::mtl_image_2d<gls::luma_pixel_16>& rawImage,
                   gls::mtl_image_2d<gls::luma_pixel_float>* scaledRawImage, BayerPattern bayerPattern,
-                  gls::Vector<4> scaleMul, float blackLevel) {
+                  gls::Vector<4> scaleMul, float blackLevel, float lensShadingCorrection) {
 
     auto kernel = Kernel<MTL::Texture*,     // rawImage
                          MTL::Texture*,     // scaledRawImage
                          int,               // bayerPattern
                          simd::half4,       // scaleMul
-                         half               // blackLevel
+                         half,              // blackLevel
+                         half               // lensShadingCorrection
                          >(mtlContext, "scaleRawData");
 
     kernel(mtlContext, /*gridSize=*/ MTL::Size(scaledRawImage->width / 2, scaledRawImage->height / 2, 1),
            rawImage.texture(), scaledRawImage->texture(), bayerPattern,
            simd::half4 { (half) scaleMul[0], (half) scaleMul[1], (half) scaleMul[2], (half) scaleMul[3] },
-           blackLevel);
+           blackLevel, lensShadingCorrection);
 }
 
 void rawImageSobel(MetalContext* mtlContext, const gls::mtl_image_2d<gls::luma_pixel_float>& rawImage,

@@ -103,7 +103,8 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
     scaleRawData(&_mtlContext, *_rawImage, _scaledRawImage.get(),
                  demosaicParameters->bayerPattern,
                  demosaicParameters->scale_mul,
-                 demosaicParameters->black_level / 0xffff);
+                 demosaicParameters->black_level / 0xffff,
+                 demosaicParameters->lensShadingCorrection);
 
     rawImageSobel(&_mtlContext, *_scaledRawImage, _rawSobelImage.get());
 
