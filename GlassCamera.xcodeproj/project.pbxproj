@@ -42,7 +42,6 @@
 		E5D4D8A327D183D900F1D944 /* CameraService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5D4D89E27D183D800F1D944 /* CameraService.swift */; };
 		E5D4D8A427D183D900F1D944 /* CameraService+Enums.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5D4D89F27D183D800F1D944 /* CameraService+Enums.swift */; };
 		E5D4D8A627D183F700F1D944 /* PhotoCaptureProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5D4D8A527D183F700F1D944 /* PhotoCaptureProcessor.swift */; };
-		E5D4D8A827D1841100F1D944 /* ImageResizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5D4D8A727D1841100F1D944 /* ImageResizer.swift */; };
 		E5FAE7AD29C50D2C00213AE6 /* gls_mtl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5FAE7AB29C50D2C00213AE6 /* gls_mtl.cpp */; };
 		E5FAE7E429C5420200213AE6 /* pipelineTest.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5FAE7E329C5420200213AE6 /* pipelineTest.cpp */; };
 		E5FAE7EB29C5425300213AE6 /* gls_mtl_image.hpp in Sources */ = {isa = PBXBuildFile; fileRef = E5FAE7A629C1368900213AE6 /* gls_mtl_image.hpp */; };
@@ -90,6 +89,7 @@
 		E522296B29CE421000D13A4F /* tinyicc.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = tinyicc.hpp; sourceTree = "<group>"; };
 		E522296C29D026DA00D13A4F /* iPhoneCalibration.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = iPhoneCalibration.cpp; sourceTree = "<group>"; };
 		E522296F29D02EEA00D13A4F /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.3.sdk/System/Library/Frameworks/CoreGraphics.framework; sourceTree = DEVELOPER_DIR; };
+		E57CA85929D04DFD006F5D3F /* float16.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = float16.hpp; sourceTree = "<group>"; };
 		E5C5BF4229BA833F00AAB593 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		E5C5BFA629BC5E4B00AAB593 /* GlassCamera-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "GlassCamera-Bridging-Header.h"; sourceTree = "<group>"; };
 		E5C5BFF229BD36B600AAB593 /* gls_color_science.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = gls_color_science.cpp; path = GlassImage/src/gls_color_science.cpp; sourceTree = "<group>"; };
@@ -139,7 +139,6 @@
 		E5D4D89E27D183D800F1D944 /* CameraService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CameraService.swift; sourceTree = "<group>"; };
 		E5D4D89F27D183D800F1D944 /* CameraService+Enums.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "CameraService+Enums.swift"; sourceTree = "<group>"; };
 		E5D4D8A527D183F700F1D944 /* PhotoCaptureProcessor.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PhotoCaptureProcessor.swift; sourceTree = "<group>"; };
-		E5D4D8A727D1841100F1D944 /* ImageResizer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ImageResizer.swift; sourceTree = "<group>"; };
 		E5FAE7A629C1368900213AE6 /* gls_mtl_image.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = gls_mtl_image.hpp; sourceTree = "<group>"; };
 		E5FAE7AB29C50D2C00213AE6 /* gls_mtl.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = gls_mtl.cpp; sourceTree = "<group>"; };
 		E5FAE7AC29C50D2C00213AE6 /* gls_mtl.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = gls_mtl.hpp; sourceTree = "<group>"; };
@@ -279,6 +278,7 @@
 				E5C6986929C926CD00F7062C /* ThreadPool.cpp */,
 				E5C6986829C926CD00F7062C /* ThreadPool.hpp */,
 				E522296B29CE421000D13A4F /* tinyicc.hpp */,
+				E57CA85929D04DFD006F5D3F /* float16.hpp */,
 			);
 			path = MetalPipeline;
 			sourceTree = "<group>";
@@ -318,7 +318,6 @@
 				E5D4D89F27D183D800F1D944 /* CameraService+Enums.swift */,
 				E5D4D89C27D183D800F1D944 /* CameraService+Extensions.swift */,
 				E5D4D8A527D183F700F1D944 /* PhotoCaptureProcessor.swift */,
-				E5D4D8A727D1841100F1D944 /* ImageResizer.swift */,
 				E5D4D89027D1798E00F1D944 /* Assets.xcassets */,
 				E5D4D89227D1798E00F1D944 /* Preview Content */,
 			);
@@ -452,7 +451,6 @@
 				E5C6984D29C906FC00F7062C /* raw_converter.cpp in Sources */,
 				E5D4D8A127D183D800F1D944 /* CameraService+Extensions.swift in Sources */,
 				E5D4D8A427D183D900F1D944 /* CameraService+Enums.swift in Sources */,
-				E5D4D8A827D1841100F1D944 /* ImageResizer.swift in Sources */,
 				E5D4D88D27D1798D00F1D944 /* GlassCameraApp.swift in Sources */,
 				E5C5BFFD29BD36B600AAB593 /* gls_logging.cpp in Sources */,
 				E5FAE7AD29C50D2C00213AE6 /* gls_mtl.cpp in Sources */,
@@ -631,6 +629,7 @@
 				);
 				INFOPLIST_FILE = GlassCamera/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.photography";
+				INFOPLIST_KEY_MetalCaptureEnabled = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "GlassCamera needs access to your camera to capture photo and video";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "GlassCamera captures photos and saves them into your photo library";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -649,6 +648,8 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.glass-imaging.GlassCamera";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRIP_INSTALLED_PRODUCT = NO;
+				STRIP_SWIFT_SYMBOLS = NO;
 				SUPPORTS_MACCATALYST = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "Objective-C/GlassCamera-Bridging-Header.h";
@@ -674,6 +675,7 @@
 				DEVELOPMENT_TEAM = 4A4DGXV9V7;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_TESTABILITY = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = (
 					"\"$(SRCROOT)/GlassImage/include\"",
@@ -681,6 +683,7 @@
 				);
 				INFOPLIST_FILE = GlassCamera/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.photography";
+				INFOPLIST_KEY_MetalCaptureEnabled = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "GlassCamera needs access to your camera to capture photo and video";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "GlassCamera captures photos and saves them into your photo library";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -697,9 +700,12 @@
 					"$(PROJECT_DIR)/catalystDependencies/lib",
 				);
 				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.glass-imaging.GlassCamera";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRIP_INSTALLED_PRODUCT = NO;
+				STRIP_SWIFT_SYMBOLS = NO;
 				SUPPORTS_MACCATALYST = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "Objective-C/GlassCamera-Bridging-Header.h";

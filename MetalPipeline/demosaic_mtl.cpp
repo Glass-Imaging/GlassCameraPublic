@@ -18,20 +18,7 @@
 #include <iostream>
 #include <simd/simd.h>
 
-typedef __fp16 float16_t;
-typedef __fp16 half;
-
-typedef __attribute__((__ext_vector_type__(2))) half simd_half2;
-typedef __attribute__((__ext_vector_type__(3))) half simd_half3;
-typedef __attribute__((__ext_vector_type__(4))) half simd_half4;
-
-namespace simd {
-
-typedef ::simd_half2 half2;
-typedef ::simd_half3 half3;
-typedef ::simd_half4 half4;
-
-}
+#include "float16.hpp"
 
 void scaleRawData(MetalContext* mtlContext, const gls::mtl_image_2d<gls::luma_pixel_16>& rawImage,
                   gls::mtl_image_2d<gls::luma_pixel_float>* scaledRawImage, BayerPattern bayerPattern,

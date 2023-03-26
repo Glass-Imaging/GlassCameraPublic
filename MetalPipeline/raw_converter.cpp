@@ -15,8 +15,6 @@
 
 #include "raw_converter.hpp"
 
-// gls::Matrix<3, 3> xyz_rgb;
-
 void RawConverter::allocateTextures(const gls::size& imageSize) {
     assert(imageSize.width > 0 && imageSize.height > 0);
 
@@ -114,8 +112,6 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
 
     bool high_noise_image = true;
     if (high_noise_image) {
-        std::cout << "Despeckeling RAW Image" << std::endl;
-
         allocateHighNoiseTextures(rawImage.size());
 
         bayerToRawRGBA(&_mtlContext, *_scaledRawImage, _rgbaRawImage.get(), demosaicParameters->bayerPattern);

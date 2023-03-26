@@ -20,7 +20,7 @@ import AVFoundation
 final class CameraModel: ObservableObject {
     private let service = CameraService()
 
-    @Published var photo: Photo!
+    @Published var photo: Thumbnail!
 
     @Published var showAlertError = false
 
@@ -37,7 +37,7 @@ final class CameraModel: ObservableObject {
     init() {
         self.session = service.session
 
-        service.$photo.sink { [weak self] (photo) in
+        service.$thumbnail.sink { [weak self] (photo) in
             guard let pic = photo else { return }
             self?.photo = pic
         }
@@ -104,8 +104,8 @@ struct CameraView: View {
 
     var capturedPhotoThumbnail: some View {
         Group {
-            if model.photo != nil {
-                Image(uiImage: model.photo.image!)
+            if let thumbnail = model.photo?.thumbnailImage {
+                Image(uiImage: thumbnail)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
                     .frame(width: 60, height: 60)

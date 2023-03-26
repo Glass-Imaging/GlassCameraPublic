@@ -20,13 +20,17 @@ import Photos
 import UIKit
 
 //  MARK: Class Camera Service, handles setup of AVFoundation needed for a basic camera app.
-public struct Photo: Identifiable, Equatable {
+public struct Thumbnail: Identifiable, Equatable {
     public var id: String
     public var originalData: Data
 
     public init(id: String = UUID().uuidString, originalData: Data) {
         self.id = id
         self.originalData = originalData
+    }
+
+    public var thumbnailImage: UIImage? {
+        return UIImage(data: originalData)!.preparingThumbnail(of: CGSize(width: 100, height: 100))
     }
 }
 
@@ -47,23 +51,6 @@ public struct AlertError {
     }
 }
 
-extension Photo {
-    public var compressedData: Data? {
-        ImageResizer(targetWidth: 800).resize(data: originalData)?.jpegData(compressionQuality: 0.5)
-    }
-    public var thumbnailData: Data? {
-        ImageResizer(targetWidth: 100).resize(data: originalData)?.jpegData(compressionQuality: 0.5)
-    }
-    public var thumbnailImage: UIImage? {
-        guard let data = thumbnailData else { return nil }
-        return UIImage(data: data)
-    }
-    public var image: UIImage? {
-        guard let data = compressedData else { return nil }
-        return UIImage(data: data)
-    }
-}
-
 public class CameraService: NSObject, Identifiable {
     typealias PhotoCaptureSessionID = String
 
@@ -76,7 +63,7 @@ public class CameraService: NSObject, Identifiable {
     @Published public var willCapturePhoto = false
     @Published public var isCameraButtonDisabled = false
     @Published public var isCameraUnavailable = false
-    @Published public var photo: Photo?
+    @Published public var thumbnail: Thumbnail?
 
     // MARK: Alert properties
 
@@ -574,7 +561,7 @@ public class CameraService: NSObject, Identifiable {
                 }, completionHandler: { (photoCaptureProcessor) in
                     // When the capture is complete, remove a reference to the photo capture delegate so it can be deallocated.
                     if let data = photoCaptureProcessor.capturedImage {
-                        self.photo = Photo(originalData: data)
+                        self.thumbnail = Thumbnail(originalData: data)
                     } else {
                         print("No photo data")
                     }

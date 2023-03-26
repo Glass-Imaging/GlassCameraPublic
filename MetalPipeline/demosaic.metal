@@ -58,6 +58,10 @@ half4 read_imageh(texture2d<half> image, int2 coord) {
     return image.read(static_cast<uint2>(coord));
 }
 
+half4 read_imageh(texture2d<half> image, sampler s, float2 coord) {
+    return image.sample(s, coord);
+}
+
 template <typename T, access a>
 int2 get_image_dim(texture2d<T, a> image) {
     return int2(image.get_width(), image.get_height());
@@ -941,10 +945,10 @@ kernel void despeckleLumaMedianChromaImage(texture2d<half> inputImage           
 
 // Local Tone Mapping - guideImage can be a downsampled version of inputImage
 
-kernel void GuidedFilterABImage(texture2d<float, access::sample> guideImage     [[texture(0)]],
-                                texture2d<float, access::write> abImage         [[texture(1)]],
-                                constant float& eps                             [[buffer(2)]],
-                                uint2 index                                     [[thread_position_in_grid]]) {
+kernel void GuidedFilterABImage(texture2d<float> guideImage                 [[texture(0)]],
+                                texture2d<float, access::write> abImage     [[texture(1)]],
+                                constant float& eps                         [[buffer(2)]],
+                                uint2 index                                 [[thread_position_in_grid]]) {
     const int2 imageCoordinates = (int2) index;
     const float2 inputNorm = 1.0 / float2(get_image_dim(guideImage));
     const float2 pos = float2(imageCoordinates) * inputNorm;
@@ -989,7 +993,7 @@ constant ConvolutionParameters boxFilter5x5[9] = {
     { 0.0400, {  2.0000,  2.0000 } },
 };
 
-kernel void BoxFilterGFImage(texture2d<float, access::sample> inputImage    [[texture(0)]],
+kernel void BoxFilterGFImage(texture2d<float> inputImage                    [[texture(0)]],
                              texture2d<float, access::write> outputImage    [[texture(1)]],
                              uint2 index                                    [[thread_position_in_grid]]) {
     const int2 imageCoordinates = (int2) index;
@@ -1035,9 +1039,9 @@ typedef struct LTMParameters {
 } LTMParameters;
 
 kernel void localToneMappingMaskImage(texture2d<float> inputImage                   [[texture(0)]],
-                                      texture2d<float, access::sample> lfAbImage    [[texture(1)]],
-                                      texture2d<float, access::sample> mfAbImage    [[texture(2)]],
-                                      texture2d<float, access::sample> hfAbImage    [[texture(3)]],
+                                      texture2d<float> lfAbImage                    [[texture(1)]],
+                                      texture2d<float> mfAbImage                    [[texture(2)]],
+                                      texture2d<float> hfAbImage                    [[texture(3)]],
                                       texture2d<float, access::write> ltmMaskImage  [[texture(4)]],
                                       constant LTMParameters& ltmParameters         [[buffer(5)]],
                                       constant Matrix3x3& ycbcr_srgb                [[buffer(6)]],

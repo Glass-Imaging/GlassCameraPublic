@@ -84,23 +84,21 @@ static std::unique_ptr<RawConverter> _rawConverter = nullptr;
         gls::image<gls::luma_pixel_16>::read_dng_file(input_path, &dng_metadata, &exif_metadata);
     auto demosaicParameters = unpackiPhoneRawImage(*rawImage, _rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
 
-    auto t_end = std::chrono::high_resolution_clock::now();
-    double elapsed_time_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();
+    auto t_dng_end = std::chrono::high_resolution_clock::now();
+    double elapsed_time_ms = std::chrono::duration<double, std::milli>(t_dng_end - t_start).count();
 
-    std::cout << "DNG file read time: " << (int)elapsed_time_ms
-                  << "ms for image of size: " << rawImage->width << " x " << rawImage->height << std::endl;
+    std::cout << "DNG file read time: " << (int)elapsed_time_ms << std::endl;
 
     _rawConverter->allocateTextures(rawImage->size());
 
-    t_start = std::chrono::high_resolution_clock::now();
+    auto t_metal_start = std::chrono::high_resolution_clock::now();
 
     auto srgbImage = _rawConverter->demosaic(*rawImage, demosaicParameters.get());
 
-    t_end = std::chrono::high_resolution_clock::now();
-    elapsed_time_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();
+    auto t_metal_end = std::chrono::high_resolution_clock::now();
+    elapsed_time_ms = std::chrono::duration<double, std::milli>(t_metal_end - t_metal_start).count();
 
-    std::cout << "Metal Pipeline Execution Time: " << (int)elapsed_time_ms
-                  << "ms for image of size: " << rawImage->width << " x " << rawImage->height << std::endl;
+    std::cout << "Metal Pipeline Execution Time: " << (int)elapsed_time_ms << std::endl;
 
     auto position = input_path.find_last_of(".dng");
     assert(position != std::string::npos);
@@ -109,7 +107,10 @@ static std::unique_ptr<RawConverter> _rawConverter = nullptr;
     const auto srgbImageCpu = srgbImage->mapImage();
     saveImage<gls::rgb_pixel>(*srgbImageCpu, output_path, _rawConverter->icc_profile_data());
 
-    std::cout << "It all went very well..." << std::endl;
+    auto t_end = std::chrono::high_resolution_clock::now();
+    elapsed_time_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();
+
+    std::cout << "Total Pipeline Execution Time: " << (int)elapsed_time_ms << std::endl;
 
     return [NSString stringWithUTF8String:output_path.c_str()];
 }
