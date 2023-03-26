@@ -6,15 +6,16 @@
 //
 
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <simd/simd.h>
 
 #include "demosaic_mtl.hpp"
 #include "gls_tiff_metadata.hpp"
 #include "raw_converter.hpp"
+#include "tinyicc.hpp"
 
-std::unique_ptr<DemosaicParameters> unpackSonya6400RawImage(const gls::image<gls::luma_pixel_16>& inputImage,
-                                                            gls::tiff_metadata* dng_metadata, gls::tiff_metadata* exif_metadata);
+#include "CameraCalibration.hpp"
 
 template <typename T>
 void dumpGradientImage(const gls::mtl_image_2d<T>& image, const std::string& path) {
@@ -39,7 +40,9 @@ void dumpGradientImage(const gls::mtl_image_2d<T>& image, const std::string& pat
     out.write_png_file(path);
 }
 
-void saveImage(const gls::image<gls::rgba_pixel_float>& image, const std::string& path) {
+void saveImage(const gls::image<gls::rgba_pixel_float>& image,
+               const std::string& path,
+               const std::vector<uint8_t> *icc_profile_data = nullptr) {
     gls::image<gls::rgb_pixel> saveImage(image.width, image.height);
     saveImage.apply([&](gls::rgb_pixel* p, int x, int y) {
         const auto& pi = image[y][x];
@@ -49,22 +52,43 @@ void saveImage(const gls::image<gls::rgba_pixel_float>& image, const std::string
             (uint8_t) (255 * pi.blue)
         };
     });
-    saveImage.write_png_file(path);
+    saveImage.write_png_file(path, /*skip_alpha=*/true, icc_profile_data);
+}
+
+static std::vector<unsigned char> read_binary_file(const std::string filename) {
+    std::ifstream file(filename, std::ios::binary);
+    file.unsetf(std::ios::skipws);
+
+    std::streampos file_size;
+    file.seekg(0, std::ios::end);
+    file_size = file.tellg();
+    file.seekg(0, std::ios::beg);
+
+    std::vector<unsigned char> vec;
+    vec.reserve(file_size);
+    vec.insert(vec.begin(),
+               std::istream_iterator<unsigned char>(file),
+               std::istream_iterator<unsigned char>());
+    return (vec);
 }
 
 int main(int argc, const char * argv[]) {
+    // Read ICC color profile data
+    auto icc_profile_data = read_binary_file("/System/Library/ColorSync/Profiles/Display P3.icc");
+
+    auto allMetalDevices = NS::TransferPtr(MTL::CopyAllDevices());
+    auto metalDevice = NS::RetainPtr(allMetalDevices->object<MTL::Device>(0));
+
+    RawConverter rawConverter(metalDevice, &icc_profile_data);
+
     if (argc > 1) {
         auto input_path = std::filesystem::path(argv[1]);
 
         gls::tiff_metadata dng_metadata, exif_metadata;
         const auto rawImage =
         gls::image<gls::luma_pixel_16>::read_dng_file(input_path.string(), &dng_metadata, &exif_metadata);
-        auto demosaicParameters = unpackSonya6400RawImage(*rawImage, &dng_metadata, &exif_metadata);
+        auto demosaicParameters = unpackiPhoneRawImage(*rawImage, rawConverter.xyz_rgb(), &dng_metadata, &exif_metadata);
 
-        auto allMetalDevices = NS::TransferPtr(MTL::CopyAllDevices());
-        auto metalDevice = NS::RetainPtr(allMetalDevices->object<MTL::Device>(0));
-
-        RawConverter rawConverter(metalDevice);
         rawConverter.allocateTextures(rawImage->size());
 
         auto t_start = std::chrono::high_resolution_clock::now();
@@ -77,8 +101,10 @@ int main(int argc, const char * argv[]) {
         std::cout << "Metal Pipeline Execution Time: " << (int)elapsed_time_ms
                       << "ms for image of size: " << rawImage->width << " x " << rawImage->height << std::endl;
 
+        const auto output_path = input_path.replace_extension(".png");
+
         const auto srgbImageCpu = srgbImage->mapImage();
-        saveImage(*srgbImageCpu, "/Users/fabio/srgbImage.png");
+        saveImage(*srgbImageCpu, output_path.string(), &icc_profile_data);
 
         std::cout << "It all went very well..." << std::endl;
         return 0;

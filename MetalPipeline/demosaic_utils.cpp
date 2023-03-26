@@ -18,6 +18,8 @@
 #include <numeric>
 
 #include "ThreadPool.hpp"
+#include "tinyicc.hpp"
+
 #include "demosaic.hpp"
 #include "gls_color_science.hpp"
 #include "gls_image.hpp"
@@ -25,16 +27,64 @@
 
 static const char* TAG = "DEMOSAIC";
 
-gls::Matrix<3, 3> cam_xyz_coeff(gls::Vector<3>* pre_mul, const gls::Matrix<3, 3>& cam_xyz) {
-    // Compute sRGB -> XYZ -> Camera
-    const auto rgb_cam = cam_xyz * xyz_rgb;
+gls::Matrix<3, 3> xyz_matrix(const TinyICC::Profile& icc_profile) {
+    gls::Matrix<3, 3> matrix;
 
-    // Normalize rgb_cam so that rgb_cam * (1,1,1) == (1,1,1).
+    for (const auto& t : icc_profile.tags_) {
+        union {
+            uint32_t data;
+            uint8_t c[4];
+        } tag, typ;
+
+        tag.data = t.first;
+        typ.data = t.second.type_;
+
+        if (t.first == 'rXYZ' || t.first == 'gXYZ' || t.first == 'bXYZ') {
+            const auto xyz_data = icc_profile.parseXYZTag(t.second);
+
+            if (t.first == 'rXYZ') {
+                matrix[0] = xyz_data;
+            } else if (t.first == 'gXYZ') {
+                matrix[1] = xyz_data;
+            } else if (t.first == 'bXYZ') {
+                matrix[2] = xyz_data;
+            }
+        }
+    }
+
+    // Transpose matrix
+    for (int j = 0; j < 3; j++) {
+        for (int i = j + 1; i < 3; i++) {
+            const auto t = matrix[i][j];
+            matrix[i][j] = matrix[j][i];
+            matrix[j][i] = t;
+        }
+    }
+
+    return matrix;
+}
+
+gls::Matrix<3, 3> icc_profile_xyz_matrix(const std::vector<uint8_t>& icc_profile_data) {
+    gls::Matrix<3, 3> matrix;
+    TinyICC::Profile icc_profile;
+
+    if (loadFromMem(icc_profile, icc_profile_data.data(), icc_profile_data.size())) {
+        return xyz_matrix(icc_profile);
+    }
+
+    throw std::runtime_error("Can't parse ICC profile data.");
+}
+
+gls::Matrix<3, 3> cam_xyz_coeff(gls::Vector<3>* pre_mul, const gls::Matrix<3, 3>& cam_xyz, const gls::Matrix<3, 3>& xyz_rgb) {
+    // Compute sRGB -> XYZ -> Camera
+    const auto cam_rgb = cam_xyz * xyz_rgb;
+
+    // Normalize cam_rgb so that cam_rgb * (1,1,1) == (1,1,1).
     // This maximizes the uint16 dynamic range and makes sure
     // that highlight clipping is white in both camera and target
     // color spaces, so that clipping doesn't turn pink
 
-    auto cam_white = rgb_cam * gls::Vector<3>({1, 1, 1});
+    auto cam_white = cam_rgb * gls::Vector<3>({1, 1, 1});
 
     gls::Matrix<3, 3> mPreMul = {{1 / cam_white[0], 0, 0}, {0, 1 / cam_white[1], 0}, {0, 0, 1 / cam_white[2]}};
 
@@ -42,12 +92,12 @@ gls::Matrix<3, 3> cam_xyz_coeff(gls::Vector<3>* pre_mul, const gls::Matrix<3, 3>
         if (cam_white[i] > 0.00001) {
             (*pre_mul)[i] = 1 / cam_white[i];
         } else {
-            throw std::range_error("");
+            throw std::range_error("Singular Matrix");
         }
     }
 
     // Return Camera -> sRGB
-    return inverse(mPreMul * rgb_cam);
+    return inverse(mPreMul * cam_rgb);
 }
 
 gls::rectangle alignToQuad(const gls::rectangle& rect) {
@@ -159,7 +209,7 @@ void matrixFromColorChecker(const std::array<RawPatchStats, 24>& rawStats,
             }
         }
 
-        cam_xyz_coeff(pre_mul, *cam_xyz);
+        cam_xyz_coeff(pre_mul, *cam_xyz, xyz_sRGB);
     }
 
     // Normalize the matrix
@@ -216,8 +266,8 @@ void white_balance(const gls::image<gls::luma_pixel_16>& rawImage, gls::Vector<3
 }
 
 float unpackDNGMetadata(const gls::image<gls::luma_pixel_16>& rawImage, gls::tiff_metadata* dng_metadata,
-                        DemosaicParameters* demosaicParameters, bool auto_white_balance,
-                        const gls::rectangle* gmb_position, bool rotate_180, float* highlights) {
+                        DemosaicParameters* demosaicParameters, const gls::Matrix<3, 3>& xyz_rgb,
+                        bool auto_white_balance, const gls::rectangle* gmb_position, bool rotate_180, float* highlights) {
     const auto color_matrix1 = getVector<float>(*dng_metadata, TIFFTAG_COLORMATRIX1);
     const auto color_matrix2 = getVector<float>(*dng_metadata, TIFFTAG_COLORMATRIX2);
 
@@ -256,11 +306,11 @@ float unpackDNGMetadata(const gls::image<gls::luma_pixel_16>& rawImage, gls::tif
             demosaicParameters->bayerPattern, *gmb_position, rotate_180);
 
         // Obtain the rgb_cam matrix and pre_mul
-        demosaicParameters->rgb_cam = cam_xyz_coeff(&pre_mul, cam_xyz);
+        demosaicParameters->rgb_cam = cam_xyz_coeff(&pre_mul, cam_xyz, xyz_rgb);
     } else {
         cam_xyz = color_matrix;
         // Obtain the rgb_cam matrix and pre_mul
-        demosaicParameters->rgb_cam = cam_xyz_coeff(&pre_mul, cam_xyz);
+        demosaicParameters->rgb_cam = cam_xyz_coeff(&pre_mul, cam_xyz, xyz_rgb);
 
         // If cam_mul is available use that instead of pre_mul
         if (!as_shot_neutral.empty() && !auto_white_balance) {
@@ -280,7 +330,7 @@ float unpackDNGMetadata(const gls::image<gls::luma_pixel_16>& rawImage, gls::tif
                                                  (demosaicParameters->white_level - demosaicParameters->black_level);
         }
 
-        auto cam_to_ycbcr = cam_ycbcr(demosaicParameters->rgb_cam);
+        auto cam_to_ycbcr = cam_ycbcr(demosaicParameters->rgb_cam, xyz_rgb);
         gls::Vector<3> cam_mul =
             autoWhiteBalance(rawImage, cam_to_ycbcr, demosaicParameters->scale_mul, demosaicParameters->white_level,
                              demosaicParameters->black_level, demosaicParameters->bayerPattern, highlights);
@@ -649,7 +699,7 @@ gls::Vector<3> extractNlfFromColorChecker(gls::image<gls::rgba_pixel_float>* yCb
     return nlf_parameters;
 }
 
-gls::Matrix<3, 3> cam_ycbcr(const gls::Matrix<3, 3>& rgb_cam) {
+gls::Matrix<3, 3> cam_ycbcr(const gls::Matrix<3, 3>& rgb_cam, const gls::Matrix<3, 3>& xyz_rgb) {
     // Convert image to YCbCr for Luma/Chroma Denoising, use the camera's primaries to derive the transform
     const auto cam_y = xyz_rgb[1] * rgb_cam;
     const auto KR = cam_y[0];

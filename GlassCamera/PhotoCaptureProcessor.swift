@@ -235,7 +235,9 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
                         print("PNG image bit depth: ", png_image!.cgImage!.bitsPerComponent)
 
                         // procesedImage = png_image!.heic(compressionQuality: 0.9)
-                        procesedImage = encodeImageToHeif(CIImage(image: png_image!)!, compressionQuality: 0.9, use10BitRepresentation: true)
+                        procesedImage = encodeImageToHeif(CIImage(image: png_image!)!,
+                                                          compressionQuality: 0.8,
+                                                          use10BitRepresentation: png_image!.cgImage!.bitsPerComponent > 8)
 
                         // Remove PNG file.
                         removeFile(at: URL(fileURLWithPath: pngImagePath))

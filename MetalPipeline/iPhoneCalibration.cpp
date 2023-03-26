@@ -26,7 +26,7 @@
 static const char* TAG = "DEMOSAIC";
 
 template <size_t levels = 5>
-class Sonya6400Calibration : public CameraCalibration<levels> {
+class iPhoneCalibration : public CameraCalibration<levels> {
     static const std::array<NoiseModel<levels>, 11> NLFData;
 
 public:
@@ -66,9 +66,9 @@ public:
     }
 
     std::pair<float, std::array<DenoiseParameters, levels>> getDenoiseParameters(int iso) const override {
-        const float nlf_alpha = std::clamp((log2(iso) - log2(100)) / (log2(102400) - log2(100)), 0.0, 1.0);
+        const float nlf_alpha = std::clamp((log2(8 * iso) - log2(100)) / (log2(102400) - log2(100)), 0.0, 1.0);
 
-        LOG_INFO(TAG) << "Sonya6400 DenoiseParameters nlf_alpha: " << nlf_alpha << ", ISO: " << iso << std::endl;
+        LOG_INFO(TAG) << "iPhone DenoiseParameters nlf_alpha: " << nlf_alpha << ", ISO: " << iso << std::endl;
 
         float lerp = 0.55 * std::lerp(0.125f, 2.0f, nlf_alpha);
         float lerp_c = 1;
@@ -133,19 +133,20 @@ public:
             },
             .ltmParameters = {
                 .eps = 0.01,
-                .shadows = 0.8,
-                .highlights = 1.5,
+                .shadows = 0.6,
+                .highlights = 2.0,
                 .detail = { 1, 1.2, 2.0 }
-            }
+            },
+            .lensShadingCorrection = 1
         };
     }
 };
 
-std::unique_ptr<DemosaicParameters> unpackSonya6400RawImage(const gls::image<gls::luma_pixel_16>& inputImage,
+std::unique_ptr<DemosaicParameters> unpackiPhoneRawImage(const gls::image<gls::luma_pixel_16>& inputImage,
                                                             const gls::Matrix<3, 3>& xyz_rgb,
                                                             gls::tiff_metadata* dng_metadata,
                                                             gls::tiff_metadata* exif_metadata) {
-    Sonya6400Calibration calibration;
+    iPhoneCalibration calibration;
     auto demosaicParameters = calibration.getDemosaicParameters(inputImage, xyz_rgb, dng_metadata, exif_metadata);
 
     unpackDNGMetadata(inputImage, dng_metadata, demosaicParameters.get(), xyz_rgb, /*auto_white_balance=*/false, nullptr, false);
@@ -157,7 +158,7 @@ std::unique_ptr<DemosaicParameters> unpackSonya6400RawImage(const gls::image<gls
 // --- NLFData ---
 
 template<>
-const std::array<NoiseModel<5>, 11> Sonya6400Calibration<5>::NLFData = {{
+const std::array<NoiseModel<5>, 11> iPhoneCalibration<5>::NLFData = {{
     // ISO 100
     {
         {{1.000e-08, 1.000e-08, 1.000e-08, 1.000e-08}, {3.681e-04, 3.448e-04, 2.846e-04, 3.447e-04}},

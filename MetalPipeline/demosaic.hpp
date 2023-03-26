@@ -130,22 +130,6 @@ const gls::Matrix<3, 3> xyz_sRGB = {
     { 0.0193, 0.1192, 0.9505 }
 };
 
-// Display P3, see: http://endavid.com/index.php?entry=79
-const gls::Matrix<3, 3> xyz_DisplayP3 = {
-    {  0.5151, 0.2920, 0.1571 },
-    {  0.2412, 0.6922, 0.0666 },
-    { -0.0011, 0.0419, 0.7841 }
-};
-
-// Adobe RGB, see: https://en.wikipedia.org/wiki/Adobe_RGB_color_space
-const gls::Matrix<3, 3> xyz_AdobeRGB = {
-    { 0.57667, 0.18556, 0.18823 },
-    { 0.29734, 0.62736, 0.07529 },
-    { 0.02703, 0.07069, 0.99134 }
-};
-
-const auto xyz_rgb = xyz_sRGB;
-
 // clang-format on
 
 inline uint16_t clamp_uint16(int x) { return x < 0 ? 0 : x > 0xffff ? 0xffff : x; }
@@ -203,19 +187,22 @@ gls::image<gls::rgb_pixel>::unique_ptr runPipeline(const gls::image<gls::luma_pi
 gls::image<gls::rgb_pixel>::unique_ptr runFastPipeline(const gls::image<gls::luma_pixel_16>& rawImage,
                                                        const DemosaicParameters& demosaicParameters);
 
-gls::Matrix<3, 3> cam_xyz_coeff(gls::Vector<3>* pre_mul, const gls::Matrix<3, 3>& cam_xyz);
+gls::Matrix<3, 3> cam_xyz_coeff(gls::Vector<3>* pre_mul, const gls::Matrix<3, 3>& cam_xyz, const gls::Matrix<3, 3>& xyz_rgb);
 
 void colorcheck(const gls::image<gls::luma_pixel_16>& rawImage, BayerPattern bayerPattern, uint32_t black,
                 std::array<gls::rectangle, 24> gmb_samples);
 
 float unpackDNGMetadata(const gls::image<gls::luma_pixel_16>& rawImage, gls::tiff_metadata* dng_metadata,
-                        DemosaicParameters* demosaicParameters, bool auto_white_balance,
-                        const gls::rectangle* gmb_position, bool rotate_180, float* highlights = nullptr);
+                        DemosaicParameters* demosaicParameters, const gls::Matrix<3, 3>& xyz_rgb,
+                        bool auto_white_balance, const gls::rectangle* gmb_position, bool rotate_180,
+                        float* highlights = nullptr);
 
-gls::Matrix<3, 3> cam_ycbcr(const gls::Matrix<3, 3>& rgb_cam);
+gls::Matrix<3, 3> cam_ycbcr(const gls::Matrix<3, 3>& rgb_cam, const gls::Matrix<3, 3>& xyz_rgb);
 
 gls::Vector<3> extractNlfFromColorChecker(gls::image<gls::rgba_pixel_float>* yCbCrImage,
                                           const gls::rectangle gmb_position, bool rotate_180, int scale);
+
+gls::Matrix<3, 3> icc_profile_xyz_matrix(const std::vector<uint8_t>& icc_profile_data);
 
 extern const gls::Matrix<3, 3> srgb_ycbcr;
 extern const gls::Matrix<3, 3> ycbcr_srgb;

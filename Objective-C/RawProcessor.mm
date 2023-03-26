@@ -15,47 +15,42 @@
 #include "gls_tiff_metadata.hpp"
 #include "raw_converter.hpp"
 
-#include "tinyicc.hpp"
+#include "CameraCalibration.hpp"
 
-std::unique_ptr<DemosaicParameters> unpackSonya6400RawImage(const gls::image<gls::luma_pixel_16>& inputImage,
-                                                            gls::tiff_metadata* dng_metadata, gls::tiff_metadata* exif_metadata);
+template <typename pixel_type>
+void saveImage(const gls::image<gls::rgba_pixel_float>& image, const std::string& path,
+               const std::vector<uint8_t>* icc_profile_data) {
+    gls::image<pixel_type> saveImage(image.width, image.height);
+    saveImage.apply([&](pixel_type* p, int x, int y) {
+        float scale = std::numeric_limits<typename pixel_type::value_type>::max();
 
-void saveImage(const gls::image<gls::rgba_pixel_float>& image, const std::string& path) {
-    gls::image<gls::rgb_pixel_16> saveImage(image.width, image.height);
-    saveImage.apply([&](gls::rgb_pixel_16* p, int x, int y) {
         const auto& pi = image[y][x];
         *p = {
-            (uint8_t) (0xffff * pi.red),
-            (uint8_t) (0xffff * pi.green),
-            (uint8_t) (0xffff * pi.blue)
+            (uint8_t) (scale * pi.red),
+            (uint8_t) (scale * pi.green),
+            (uint8_t) (scale * pi.blue)
         };
     });
-    saveImage.write_png_file(path);
+    saveImage.write_png_file(path, /*skip_alpha=*/true, icc_profile_data);
 }
 
-std::unique_ptr<std::array<std::array<float, 3>, 3>> ICCProfileToXYZ(const CFStringRef colorSpaceName) {
-    std::unique_ptr<std::array<std::array<float, 3>, 3>> matrix = nullptr;
+std::vector<uint8_t> ICCProfileData(const CFStringRef colorSpaceName) {
+    CGColorSpaceRef colorSpace = CGColorSpaceCreateWithName(colorSpaceName);
+    if (colorSpace) {
+        CGColorSpaceRetain(colorSpace);
+        CFDataRef data = CGColorSpaceCopyICCData(colorSpace);
 
-    CGColorSpaceRef displayP3 = CGColorSpaceCreateWithName(colorSpaceName);
-    CGColorSpaceRetain(displayP3);
-    CFDataRef data = CGColorSpaceCopyICCData(displayP3);
-    if ( !data ) {
-        std::cout<<"Cannot get CGColorSpaceCopyICCProfile()"<<std::endl;
-    } else {
         const UInt8* icc_data = CFDataGetBytePtr(data);
         const CFIndex icc_length = CFDataGetLength(data);
 
-        TinyICC::Profile icc_profile;
+        auto icc_profile_data = std::vector<uint8_t>((uint8_t*) icc_data, (uint8_t*) icc_data + icc_length);
 
-        if (loadFromMem(icc_profile, icc_data, icc_length)) {
-            matrix = std::make_unique<std::array<std::array<float, 3>, 3>>();
-            *matrix = icc_profile.xyz_matrix();
-        }
+        CGColorSpaceRelease(colorSpace);
 
-        CGColorSpaceRelease(displayP3);
+        return icc_profile_data;
     }
 
-    return matrix;
+    throw std::runtime_error("Cannot get CGColorSpaceCopyICCProfile()");
 }
 
 @implementation RawProcessor : NSObject
@@ -70,9 +65,11 @@ static std::unique_ptr<RawConverter> _rawConverter = nullptr;
     if (_rawConverter == nullptr) {
         std::cout << "Allocating new RawConvwerter instance." << std::endl;
 
+        auto icc_profile_data = ICCProfileData(kCGColorSpaceDisplayP3);
+
         // Create RawConverter object
         auto metalDevice = NS::RetainPtr(MTL::CreateSystemDefaultDevice());
-        _rawConverter = std::make_unique<RawConverter>(metalDevice);
+        _rawConverter = std::make_unique<RawConverter>(metalDevice, &icc_profile_data);
     }
     return self;
 }
@@ -85,7 +82,7 @@ static std::unique_ptr<RawConverter> _rawConverter = nullptr;
     gls::tiff_metadata dng_metadata, exif_metadata;
     const auto rawImage =
         gls::image<gls::luma_pixel_16>::read_dng_file(input_path, &dng_metadata, &exif_metadata);
-    auto demosaicParameters = unpackSonya6400RawImage(*rawImage, &dng_metadata, &exif_metadata);
+    auto demosaicParameters = unpackiPhoneRawImage(*rawImage, _rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
 
     auto t_end = std::chrono::high_resolution_clock::now();
     double elapsed_time_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();
@@ -94,18 +91,6 @@ static std::unique_ptr<RawConverter> _rawConverter = nullptr;
                   << "ms for image of size: " << rawImage->width << " x " << rawImage->height << std::endl;
 
     _rawConverter->allocateTextures(rawImage->size());
-
-    // Retrieve "Display P3" to XYZ transformation matrix
-    const auto matrix = ICCProfileToXYZ(kCGColorSpaceDisplayP3);
-    if (matrix) {
-        std::cout << "Display P3 -> XYZ matrix: " << std::endl;
-        for (int j = 0; j < 3; j++) {
-            for (int i = 0; i < 3; i++) {
-                std::cout << (*matrix)[j][i] << " ";
-            }
-            std::cout << std::endl;
-        }
-    }
 
     t_start = std::chrono::high_resolution_clock::now();
 
@@ -122,7 +107,7 @@ static std::unique_ptr<RawConverter> _rawConverter = nullptr;
     const auto output_path = input_path.replace(position - 3, 4, ".png");
 
     const auto srgbImageCpu = srgbImage->mapImage();
-    saveImage(*srgbImageCpu, output_path);
+    saveImage<gls::rgb_pixel>(*srgbImageCpu, output_path, _rawConverter->icc_profile_data());
 
     std::cout << "It all went very well..." << std::endl;
 

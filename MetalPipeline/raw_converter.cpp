@@ -15,6 +15,8 @@
 
 #include "raw_converter.hpp"
 
+// gls::Matrix<3, 3> xyz_rgb;
+
 void RawConverter::allocateTextures(const gls::size& imageSize) {
     assert(imageSize.width > 0 && imageSize.height > 0);
 
@@ -33,7 +35,7 @@ void RawConverter::allocateTextures(const gls::size& imageSize) {
 
         _rawImageSize = imageSize;
 
-        pyramidProcessor = std::make_unique<PyramidProcessor<5>>(&_mtlContext, _rawImageSize.width, _rawImageSize.height);
+        _pyramidProcessor = std::make_unique<PyramidProcessor<5>>(&_mtlContext, _rawImageSize.width, _rawImageSize.height);
     }
 }
 
@@ -60,15 +62,15 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::denoise(const gls::mtl_i
                    /*var_a=*/np.first,
                    /*var_b=*/np.second, _linearRGBImageB.get());
 
-    gls::mtl_image_2d<gls::rgba_pixel_float>* denoisedImage = pyramidProcessor->denoise(
+    gls::mtl_image_2d<gls::rgba_pixel_float>* denoisedImage = _pyramidProcessor->denoise(
         &_mtlContext, &(demosaicParameters->denoiseParameters), *_linearRGBImageB, *_rawGradientImage,
         &(noiseModel->pyramidNlf), demosaicParameters->exposure_multiplier, calibrateFromImage);
 
         if (demosaicParameters->rgbConversionParameters.localToneMapping) {
             const std::array<const gls::mtl_image_2d<gls::rgba_pixel_float>*, 3>& guideImage = {
-                pyramidProcessor->denoisedImagePyramid[4].get(), pyramidProcessor->denoisedImagePyramid[2].get(),
-                pyramidProcessor->denoisedImagePyramid[0].get()};
-            localToneMapping->createMask(&_mtlContext, *denoisedImage, guideImage, *noiseModel, *demosaicParameters);
+                _pyramidProcessor->denoisedImagePyramid[4].get(), _pyramidProcessor->denoisedImagePyramid[2].get(),
+                _pyramidProcessor->denoisedImagePyramid[0].get()};
+            _localToneMapping->createMask(&_mtlContext, *denoisedImage, guideImage, *noiseModel, *demosaicParameters);
         }
 
 //        // High ISO noise texture replacement
@@ -95,7 +97,7 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
     allocateTextures(rawImage.size());
 
     if (demosaicParameters->rgbConversionParameters.localToneMapping) {
-        localToneMapping->allocateTextures(&_mtlContext, rawImage.width, rawImage.height);
+        _localToneMapping->allocateTextures(&_mtlContext, rawImage.width, rawImage.height);
     }
 
     _rawImage->copyPixelsFrom(rawImage);
@@ -107,6 +109,8 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
                  demosaicParameters->lensShadingCorrection);
 
     rawImageSobel(&_mtlContext, *_scaledRawImage, _rawSobelImage.get());
+
+    gaussianBlurSobelImage(&_mtlContext, *_scaledRawImage, *_rawSobelImage, rawVariance[1], 1.5, 4.5, _rawGradientImage.get());
 
     bool high_noise_image = true;
     if (high_noise_image) {
@@ -120,8 +124,6 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
 
         rawRGBAToBayer(&_mtlContext, *_denoisedRgbaRawImage, _scaledRawImage.get(), demosaicParameters->bayerPattern);
     }
-
-    gaussianBlurSobelImage(&_mtlContext, *_scaledRawImage, *_rawSobelImage, rawVariance[1], 1.5, 4.5, _rawGradientImage.get());
 
     interpolateGreen(&_mtlContext, *_scaledRawImage, *_rawGradientImage, _greenImage.get(),
                      demosaicParameters->bayerPattern, rawVariance[1]);
@@ -137,7 +139,7 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
     // --- Image Denoising ---
 
     // Convert linear image to YCbCr for denoising
-    const auto cam_to_ycbcr = cam_ycbcr(demosaicParameters->rgb_cam);
+    const auto cam_to_ycbcr = cam_ycbcr(demosaicParameters->rgb_cam, xyz_rgb());
 
     transformImage(&_mtlContext, *_linearRGBImageA, _linearRGBImageA.get(), cam_to_ycbcr);
 
@@ -147,7 +149,7 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
     const auto normalized_ycbcr_to_cam = inverse(cam_to_ycbcr) * demosaicParameters->exposure_multiplier;
     transformImage(&_mtlContext, *_denoisedImage, _linearRGBImageA.get(), normalized_ycbcr_to_cam);
 
-    convertTosRGB(&_mtlContext, *_linearRGBImageA, localToneMapping->getMask(), _linearRGBImageA.get(), *demosaicParameters);
+    convertTosRGB(&_mtlContext, *_linearRGBImageA, _localToneMapping->getMask(), _linearRGBImageA.get(), *demosaicParameters);
 
     _mtlContext.waitForCompletion();
 

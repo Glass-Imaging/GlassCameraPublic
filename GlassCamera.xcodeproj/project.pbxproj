@@ -9,6 +9,8 @@
 /* Begin PBXBuildFile section */
 		E522296829CD646600D13A4F /* pyramid_processor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E522296629CD646600D13A4F /* pyramid_processor.cpp */; };
 		E522296929CD646600D13A4F /* pyramid_processor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E522296629CD646600D13A4F /* pyramid_processor.cpp */; };
+		E522296D29D026DA00D13A4F /* iPhoneCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E522296C29D026DA00D13A4F /* iPhoneCalibration.cpp */; };
+		E522296E29D026DA00D13A4F /* iPhoneCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E522296C29D026DA00D13A4F /* iPhoneCalibration.cpp */; };
 		E5C5BFF929BD36B600AAB593 /* gls_color_science.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C5BFF229BD36B600AAB593 /* gls_color_science.cpp */; };
 		E5C5BFFA29BD36B600AAB593 /* gls_image_png.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C5BFF329BD36B600AAB593 /* gls_image_png.cpp */; };
 		E5C5BFFB29BD36B600AAB593 /* gls_image_tiff.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C5BFF429BD36B600AAB593 /* gls_image_tiff.cpp */; };
@@ -86,6 +88,8 @@
 		E522296629CD646600D13A4F /* pyramid_processor.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = pyramid_processor.cpp; sourceTree = "<group>"; };
 		E522296729CD646600D13A4F /* pyramid_processor.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = pyramid_processor.hpp; sourceTree = "<group>"; };
 		E522296B29CE421000D13A4F /* tinyicc.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = tinyicc.hpp; sourceTree = "<group>"; };
+		E522296C29D026DA00D13A4F /* iPhoneCalibration.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = iPhoneCalibration.cpp; sourceTree = "<group>"; };
+		E522296F29D02EEA00D13A4F /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.3.sdk/System/Library/Frameworks/CoreGraphics.framework; sourceTree = DEVELOPER_DIR; };
 		E5C5BF4229BA833F00AAB593 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		E5C5BFA629BC5E4B00AAB593 /* GlassCamera-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "GlassCamera-Bridging-Header.h"; sourceTree = "<group>"; };
 		E5C5BFF229BD36B600AAB593 /* gls_color_science.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = gls_color_science.cpp; path = GlassImage/src/gls_color_science.cpp; sourceTree = "<group>"; };
@@ -205,6 +209,7 @@
 		E5C5BFAA29BC630C00AAB593 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				E522296F29D02EEA00D13A4F /* CoreGraphics.framework */,
 				E5FAE82629C592C600213AE6 /* libjpeg_ios.a */,
 				E5FAE82429C592C600213AE6 /* libpng_ios.a */,
 				E5FAE82529C592C600213AE6 /* libtiff_ios.a */,
@@ -270,6 +275,7 @@
 				E5C6986129C925A600F7062C /* CameraCalibration.hpp */,
 				E5C6986229C925A600F7062C /* CameraCalibration.cpp */,
 				E5C6986C29C926F100F7062C /* Sonya6400Calibration.cpp */,
+				E522296C29D026DA00D13A4F /* iPhoneCalibration.cpp */,
 				E5C6986929C926CD00F7062C /* ThreadPool.cpp */,
 				E5C6986829C926CD00F7062C /* ThreadPool.hpp */,
 				E522296B29CE421000D13A4F /* tinyicc.hpp */,
@@ -429,6 +435,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				E5C5BFFC29BD36B600AAB593 /* gls_image_jpeg.cpp in Sources */,
+				E522296D29D026DA00D13A4F /* iPhoneCalibration.cpp in Sources */,
 				E5C6986A29C926CD00F7062C /* ThreadPool.cpp in Sources */,
 				E5C6987229C96F8B00F7062C /* demosaic_mtl.cpp in Sources */,
 				E5C6986329C925A600F7062C /* CameraCalibration.cpp in Sources */,
@@ -461,6 +468,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				E5C6986E29C926F100F7062C /* Sonya6400Calibration.cpp in Sources */,
+				E522296E29D026DA00D13A4F /* iPhoneCalibration.cpp in Sources */,
 				E5C6986B29C926CD00F7062C /* ThreadPool.cpp in Sources */,
 				E5C6986F29C92E9600F7062C /* demosaic.metal in Sources */,
 				E5FAE7EB29C5425300213AE6 /* gls_mtl_image.hpp in Sources */,
@@ -714,6 +722,7 @@
 					"\"$(SRCROOT)/metal-cpp\"",
 					"\"$(SRCROOT)/GlassImage/include\"",
 				);
+				INFOPLIST_KEY_MetalCaptureEnabled = YES;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					/opt/homebrew/lib,
@@ -738,11 +747,13 @@
 					"\"$(SRCROOT)/metal-cpp\"",
 					"\"$(SRCROOT)/GlassImage/include\"",
 				);
+				INFOPLIST_KEY_MetalCaptureEnabled = YES;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					/opt/homebrew/lib,
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.1;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;

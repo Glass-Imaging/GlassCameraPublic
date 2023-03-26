@@ -109,43 +109,6 @@ class Profile {
             printf("\n");
         }
     }
-
-    std::array<std::array<float, 3>, 3> xyz_matrix() {
-        std::array<std::array<float, 3>, 3> matrix;
-
-        for (const auto& t : tags_) {
-            union {
-                uint32_t data;
-                uint8_t c[4];
-            } tag, typ;
-
-            tag.data = t.first;
-            typ.data = t.second.type_;
-
-            if (t.first == 'rXYZ' || t.first == 'gXYZ' || t.first == 'bXYZ') {
-                const auto xyz_data = parseXYZTag(t.second);
-
-                if (t.first == 'rXYZ') {
-                    matrix[0] = xyz_data;
-                } else if (t.first == 'gXYZ') {
-                    matrix[1] = xyz_data;
-                } else if (t.first == 'bXYZ') {
-                    matrix[2] = xyz_data;
-                }
-            }
-        }
-
-        // Transpose matrix
-        for (int j = 0; j < 3; j++) {
-            for (int i = j+1; i < 3; i++) {
-                const auto t = matrix[i][j];
-                matrix[i][j] = matrix[j][i];
-                matrix[j][i] = t;
-            }
-        }
-
-        return matrix;
-    }
 };
 
 class Stream {
@@ -219,7 +182,7 @@ class Stream {
     }
 };
 
-bool loadFromMem(Profile& p, const uint8_t* buffer, const size_t size) {
+inline static bool loadFromMem(Profile& p, const uint8_t* buffer, const size_t size) {
     Stream stream(buffer, size);
     p.profileSize_ = stream.uint32();
     p.cmmType_ = stream.uint32();
@@ -259,7 +222,7 @@ bool loadFromMem(Profile& p, const uint8_t* buffer, const size_t size) {
     return true;
 }
 
-std::array<float, 3> Profile::parseXYZTag(const Profile::Tag& t) {
+inline std::array<float, 3> Profile::parseXYZTag(const Profile::Tag& t) {
     auto stream = Stream(t.data_.data(), t.data_.size());
 
     const auto zero = stream.s15Fixed16();

@@ -23,15 +23,17 @@
 static const char* TAG = "DEMOSAIC";
 
 template <size_t levels>
-std::unique_ptr<DemosaicParameters> CameraCalibration<levels>::getDemosaicParameters(
-    const gls::image<gls::luma_pixel_16>& inputImage, gls::tiff_metadata* dng_metadata,
-    gls::tiff_metadata* exif_metadata) const {
+std::unique_ptr<DemosaicParameters>
+    CameraCalibration<levels>::getDemosaicParameters(const gls::image<gls::luma_pixel_16>& inputImage,
+                                                     const gls::Matrix<3, 3>& xyz_rgb,
+                                                     gls::tiff_metadata* dng_metadata,
+                                                     gls::tiff_metadata* exif_metadata) const {
     auto demosaicParameters = std::make_unique<DemosaicParameters>();
 
     *demosaicParameters = buildDemosaicParameters();
 
-    unpackDNGMetadata(inputImage, dng_metadata, demosaicParameters.get(), /*auto_white_balance=*/false,
-                      /* &gmb_position */ nullptr, /*rotate_180=*/false);
+    unpackDNGMetadata(inputImage, dng_metadata, demosaicParameters.get(), xyz_rgb,
+                      /*auto_white_balance=*/false, /* &gmb_position */ nullptr, /*rotate_180=*/false);
 
     uint32_t iso = 0;
     std::vector<uint16_t> iso_16;
@@ -55,5 +57,5 @@ std::unique_ptr<DemosaicParameters> CameraCalibration<levels>::getDemosaicParame
 }
 
 template std::unique_ptr<DemosaicParameters> CameraCalibration<5>::getDemosaicParameters(
-    const gls::image<gls::luma_pixel_16>& inputImage, gls::tiff_metadata* dng_metadata,
-    gls::tiff_metadata* exif_metadata) const;
+    const gls::image<gls::luma_pixel_16>& inputImage, const gls::Matrix<3, 3>& xyz_rgb,
+    gls::tiff_metadata* dng_metadata, gls::tiff_metadata* exif_metadata) const;

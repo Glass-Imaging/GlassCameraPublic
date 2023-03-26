@@ -89,16 +89,33 @@ class RawConverter {
     gls::mtl_image_2d<gls::rgba_pixel_float>::unique_ptr _denoisedRgbaRawImage;
     gls::mtl_image_2d<gls::luma_pixel_16>::unique_ptr _blueNoise;
 
-    std::unique_ptr<PyramidProcessor<5>> pyramidProcessor;
+    std::unique_ptr<PyramidProcessor<5>> _pyramidProcessor;
 
-    std::unique_ptr<LocalToneMapping> localToneMapping;
+    std::unique_ptr<LocalToneMapping> _localToneMapping;
+
+    std::unique_ptr<std::vector<uint8_t>> _icc_profile_data;
+    gls::Matrix<3, 3> _xyz_rgb;
 
 public:
-    RawConverter(NS::SharedPtr<MTL::Device> mtlDevice, gls::size rawImageSize = {0, 0}) :
+    RawConverter(NS::SharedPtr<MTL::Device> mtlDevice, const std::vector<uint8_t>* icc_profile_data = nullptr) :
         _mtlContext(mtlDevice),
-        _rawImageSize(rawImageSize) {
-            localToneMapping = std::make_unique<LocalToneMapping>(&_mtlContext);
+        _rawImageSize(gls::size {0, 0}) {
+            _localToneMapping = std::make_unique<LocalToneMapping>(&_mtlContext);
+
+            if (icc_profile_data) {
+                _icc_profile_data = std::make_unique<std::vector<uint8_t>>(*icc_profile_data);
+
+                _xyz_rgb = icc_profile_xyz_matrix(*_icc_profile_data);
+            }
         }
+
+    const std::vector<uint8_t>* icc_profile_data() const {
+        return _icc_profile_data.get();
+    }
+
+    const gls::Matrix<3, 3>& xyz_rgb() const {
+        return _xyz_rgb;
+    }
 
     void allocateTextures(const gls::size& imageSize);
 
