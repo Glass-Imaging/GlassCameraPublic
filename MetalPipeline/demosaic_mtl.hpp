@@ -33,7 +33,7 @@ static inline std::array<gls::Vector<2>, 3> getRawVariance(const RawNLF& rawNLF)
 
 void scaleRawData(MetalContext* mtlContext, const gls::mtl_image_2d<gls::luma_pixel_16>& rawImage,
                   gls::mtl_image_2d<gls::luma_pixel_float>* scaledRawImage, BayerPattern bayerPattern,
-                  gls::Vector<4> scaleMul, float blackLevel, float lensShadingCorrection);
+                  gls::Vector<4> scaleMul, float blackLevel);
 
 void rawImageSobel(MetalContext* mtlContext, const gls::mtl_image_2d<gls::luma_pixel_float>& rawImage,
                    gls::mtl_image_2d<gls::rgba_pixel_float>* gradientImage);

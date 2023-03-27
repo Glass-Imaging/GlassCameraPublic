@@ -129,6 +129,7 @@ public:
                 .contrast = 1.05,
                 .saturation = 1.0,
                 .toneCurveSlope = 3.5,
+                .lensShadingCorrection = 2,
                 .localToneMapping = true
             },
             .ltmParameters = {
@@ -136,8 +137,7 @@ public:
                 .shadows = 0.6,
                 .highlights = 2.0,
                 .detail = { 1, 1.2, 2.0 }
-            },
-            .lensShadingCorrection = 1
+            }
         };
     }
 };

@@ -41,6 +41,7 @@ typedef struct RGBConversionParameters {
     float toneCurveSlope = 3.5;
     float exposureBias = 0;
     float blacks = 0;
+    float lensShadingCorrection = 0;
     bool localToneMapping = false;
 } RGBConversionParameters;
 
@@ -96,8 +97,6 @@ typedef struct DemosaicParameters {
     float exposure_multiplier = 1;
     gls::Vector<4> scale_mul;
     gls::Matrix<3, 3> rgb_cam;
-
-    float lensShadingCorrection = 0;
 
     // Noise Estimation and Reduction parameters
     NoiseModel<5> noiseModel;

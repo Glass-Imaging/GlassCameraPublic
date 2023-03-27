@@ -73,22 +73,14 @@ kernel void scaleRawData(texture2d<half> rawImage                       [[textur
                          constant int& bayerPattern                     [[buffer(2)]],
                          constant half4& scaleMul                       [[buffer(3)]],
                          constant half& blackLevel                      [[buffer(4)]],
-                         constant half& lensShadingCorrection           [[buffer(5)]],
                          uint2 index                                    [[thread_position_in_grid]])
 {
     const int2 imageCoordinates = 2 * (int2) index;
 
-    half lens_shading = 1;
-    if (lensShadingCorrection > 0) {
-        float2 imageCenter = float2(get_image_dim(rawImage) / 2);
-        float distance_from_center = length(float2(imageCoordinates) - imageCenter) / length(imageCenter);
-        lens_shading = 1 + lensShadingCorrection * distance_from_center * distance_from_center;
-    }
-
     for (int c = 0; c < 4; c++) {
         int2 o = bayerOffsets[bayerPattern][c];
         write_imageh(scaledRawImage, imageCoordinates + o,
-                     max(lens_shading * scaleMul[c] * (read_imageh(rawImage, imageCoordinates + o).x - blackLevel) * 0.9h + 0.1h, 0.0h));
+                     max(scaleMul[c] * (read_imageh(rawImage, imageCoordinates + o).x - blackLevel) * 0.9h + 0.1h, 0.0h));
     }
 }
 
@@ -577,6 +569,7 @@ typedef struct RGBConversionParameters {
     float toneCurveSlope;
     float exposureBias;
     float blacks;
+    float lensShadingCorrection;
     bool localToneMapping;
 } RGBConversionParameters;
 
@@ -1097,6 +1090,17 @@ kernel void convertTosRGB(texture2d<float> linearImage                  [[textur
     const int2 imageCoordinates = (int2) index;
 
     float3 pixel_value = (read_imagef(linearImage, imageCoordinates).xyz - 0.1) / 0.9;
+
+    if (parameters.lensShadingCorrection > 0) {
+        // Don't boost bright areas
+        float highlightsPriority = 1 - smoothstep(0.5, 1.0, length(pixel_value) / sqrt(3.0));
+
+        float2 imageCenter = float2(get_image_dim(linearImage) / 2);
+        float distance_from_center = length(float2(imageCoordinates) - imageCenter) / length(imageCenter);
+        float gain = 1.0 - 0.1 * parameters.lensShadingCorrection;
+        float lens_shading = gain * (1 + highlightsPriority * parameters.lensShadingCorrection * distance_from_center * distance_from_center);
+        pixel_value *= lens_shading;
+    }
 
     // Exposure Bias
     pixel_value *= parameters.exposureBias != 0 ? powr(2.0, parameters.exposureBias) : 1;
