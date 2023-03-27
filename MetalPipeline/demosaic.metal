@@ -108,7 +108,7 @@ kernel void rawImageSobel(texture2d<half> inputImage                    [[textur
 float4 sampledConvolution(texture2d<float> inputImage,
                           int2 imageCoordinates, float2 inputNorm,
                           int samples, constant float *weights) {
-    const float2 inputPos = ((float2) imageCoordinates) * inputNorm;
+    const float2 inputPos = (float2(imageCoordinates)) * inputNorm;
 
     constexpr sampler linear_sampler(min_filter::linear,
                                      mag_filter::linear,
@@ -242,7 +242,7 @@ kernel void interpolateGreen(texture2d<float> rawImage                  [[textur
         float gmin = min(min(g_left, g_right), min(g_up, g_down));
         green = clamp(green, min_overshoot * gmin, max_overshoot * gmax);
 
-        write_imagef(greenImage, imageCoordinates, clamp(green, 0.0, 1.0));
+        write_imagef(greenImage, imageCoordinates, green);
     } else {
         // Green pixel locations
         write_imagef(greenImage, imageCoordinates, read_imagef(rawImage, imageCoordinates).x);
@@ -319,9 +319,9 @@ void interpolateRedBluePixel(texture2d<float> rawImage,
     float c2min = min(min(c2_top_left, c2_top_right), min(c2_bottom_left, c2_bottom_right));
     c2 = clamp(c2, c2min, c2max);
 
-    float3 output = red_pixel ? (float3) { c1, green, c2 } : (float3) { c2, green, c1 };
+    float3 output = red_pixel ? float3(c1, green, c2) : float3(c2, green, c1);
 
-    write_imagef(rgbImage, imageCoordinates, float4(clamp(output, 0.0, 1.0), 0));
+    write_imagef(rgbImage, imageCoordinates, float4(output, 0));
 }
 
 kernel void interpolateRedBlue(texture2d<float> rawImage                [[texture(0)]],
@@ -343,9 +343,9 @@ kernel void interpolateRedBlue(texture2d<float> rawImage                [[textur
     interpolateRedBluePixel(rawImage, greenImage, gradientImage, rgbImage, redVariance, blueVariance, false, imageCoordinates + b);
 
     write_imagef(rgbImage, imageCoordinates + g,
-                 (float4) {0, read_imagef(greenImage, imageCoordinates + g).x, 0, 0});
+                 float4(0, read_imagef(greenImage, imageCoordinates + g).x, 0, 0));
     write_imagef(rgbImage, imageCoordinates + g2,
-                 (float4) {0, read_imagef(greenImage, imageCoordinates + g2).x, 0, 0});
+                 float4(0, read_imagef(greenImage, imageCoordinates + g2).x, 0, 0));
 }
 #undef GREEN
 
@@ -476,17 +476,17 @@ kernel void blendHighlightsImage(texture2d<float> inputImage                    
         float3 lab[2];
         float sum[2];
         for (int i = 0; i < 2; i++) {
-            lab[i] = (float3)(dot(trans[0], cam[i]),
-                              dot(trans[1], cam[i]),
-                              dot(trans[2], cam[i]));
+            lab[i] = float3(dot(trans[0], cam[i]),
+                            dot(trans[1], cam[i]),
+                            dot(trans[2], cam[i]));
             sum[i] = dot(lab[i].yz, lab[i].yz);
         }
         float chratio = sum[0] > 0 ? sqrt(sum[1] / sum[0]) : 1;
         lab[0].yz *= chratio;
 
-        pixel = (float3)(dot(itrans[0], lab[0]),
-                         dot(itrans[1], lab[0]),
-                         dot(itrans[2], lab[0])) / 3;
+        pixel = float3(dot(itrans[0], lab[0]),
+                       dot(itrans[1], lab[0]),
+                       dot(itrans[2], lab[0])) / 3;
     }
 
     write_imagef(outputImage, imageCoordinates, float4(pixel, 0.0));
@@ -518,7 +518,7 @@ float3 sharpen(float3 pixel_value, float amount, float radius, texture2d<float> 
 
     float3 blurred_pixel = gaussianBlur(radius, inputImage, imageCoordinates);
 
-    return mix(blurred_pixel, pixel_value, fmax(sharpening, 1.0));
+    return mix(blurred_pixel, pixel_value, max(sharpening, 1.0));
 }
 
 /// ---- Tone Curve ----
@@ -584,11 +584,11 @@ kernel void transformImage(texture2d<float> inputImage                  [[textur
     const int2 imageCoordinates = (int2) index;
 
     float3 inputValue = read_imagef(inputImage, imageCoordinates).xyz;
-    float3 outputPixel = (float3) {
+    float3 outputPixel = float3(
         dot(transform.m[0], inputValue),
         dot(transform.m[1], inputValue),
         dot(transform.m[2], inputValue)
-    };
+    );
     write_imagef(outputImage, imageCoordinates, float4(outputPixel, 0.0));
 }
 
@@ -661,10 +661,10 @@ kernel void downsampleImageXYZ(texture2d<float> inputImage                  [[te
 
     // Sub-Pixel Sampling Location
     const float2 s = 0.5 * input_norm;
-    float3 outputPixel = read_imagef(inputImage, linear_sampler, input_pos + (float2){-s.x, -s.y}).xyz;
-    outputPixel +=       read_imagef(inputImage, linear_sampler, input_pos + (float2){ s.x, -s.y}).xyz;
-    outputPixel +=       read_imagef(inputImage, linear_sampler, input_pos + (float2){-s.x,  s.y}).xyz;
-    outputPixel +=       read_imagef(inputImage, linear_sampler, input_pos + (float2){ s.x,  s.y}).xyz;
+    float3 outputPixel = read_imagef(inputImage, linear_sampler, input_pos + float2(-s.x, -s.y)).xyz;
+    outputPixel +=       read_imagef(inputImage, linear_sampler, input_pos + float2( s.x, -s.y)).xyz;
+    outputPixel +=       read_imagef(inputImage, linear_sampler, input_pos + float2(-s.x,  s.y)).xyz;
+    outputPixel +=       read_imagef(inputImage, linear_sampler, input_pos + float2( s.x,  s.y)).xyz;
     write_imagef(outputImage, output_pos, float4(0.25 * outputPixel, 0));
 }
 
@@ -681,10 +681,10 @@ kernel void downsampleImageXY(texture2d<float> inputImage                    [[t
 
     // Sub-Pixel Sampling Location
     const float2 s = 0.5 * input_norm;
-    float2 outputPixel = read_imagef(inputImage, linear_sampler, input_pos + (float2){-s.x, -s.y}).xy;
-    outputPixel +=       read_imagef(inputImage, linear_sampler, input_pos + (float2){ s.x, -s.y}).xy;
-    outputPixel +=       read_imagef(inputImage, linear_sampler, input_pos + (float2){-s.x,  s.y}).xy;
-    outputPixel +=       read_imagef(inputImage, linear_sampler, input_pos + (float2){ s.x,  s.y}).xy;
+    float2 outputPixel = read_imagef(inputImage, linear_sampler, input_pos + float2(-s.x, -s.y)).xy;
+    outputPixel +=       read_imagef(inputImage, linear_sampler, input_pos + float2( s.x, -s.y)).xy;
+    outputPixel +=       read_imagef(inputImage, linear_sampler, input_pos + float2(-s.x,  s.y)).xy;
+    outputPixel +=       read_imagef(inputImage, linear_sampler, input_pos + float2( s.x,  s.y)).xy;
     write_imagef(outputImage, output_pos, float4(0.25 * outputPixel, 0, 0));
 }
 
@@ -710,7 +710,7 @@ kernel void subtractNoiseImage(texture2d<float> inputImage                      
     float3 inputPixel1 = read_imagef(inputImage1, linear_sampler, input_pos).xyz;
     float3 inputPixelDenoised1 = read_imagef(inputImageDenoised1, linear_sampler, input_pos).xyz;
 
-    float3 denoisedPixel = inputPixel.xyz - (float3) { luma_weight, 1, 1 } * (inputPixel1 - inputPixelDenoised1);
+    float3 denoisedPixel = inputPixel.xyz - float3(luma_weight, 1, 1) * (inputPixel1 - inputPixelDenoised1);
 
     float alpha = sharpening;
     if (alpha > 1.0) {
@@ -745,7 +745,7 @@ kernel void bayerToRawRGBA(texture2d<float> rawImage                    [[textur
     float blue   = read_imagef(rawImage, 2 * imageCoordinates + b).x;
     float green2 = read_imagef(rawImage, 2 * imageCoordinates + g2).x;
 
-    write_imagef(rgbaImage, imageCoordinates, (float4){red, green, blue, green2});
+    write_imagef(rgbaImage, imageCoordinates, float4(red, green, blue, green2));
 }
 
 kernel void rawRGBAToBayer(texture2d<float> rgbaImage                   [[texture(0)]],
@@ -1008,9 +1008,9 @@ kernel void BoxFilterGFImage(texture2d<float> inputImage                    [[te
 float computeLtmMultiplier(float3 input, float2 gfAb, float eps, float shadows,
                            float highlights, float detail, constant Matrix3x3 *ycbcr_srgb) {
     // YCbCr -> RGB version of the input pixel, for highlights compression, ensure definite positiveness
-    float3 rgb = max((float3) (dot(ycbcr_srgb->m[0], input),
-                               dot(ycbcr_srgb->m[1], input),
-                               dot(ycbcr_srgb->m[2], input)), 0);
+    float3 rgb = max(float3(dot(ycbcr_srgb->m[0], input),
+                            dot(ycbcr_srgb->m[1], input),
+                            dot(ycbcr_srgb->m[2], input)), 0);
 
     // The filtered image is an estimate of the illuminance
     const float illuminance = gfAb.x * input.x + gfAb.y;
@@ -1112,11 +1112,11 @@ kernel void convertTosRGB(texture2d<float> linearImage                  [[textur
     pixel_value = parameters.contrast != 1.0 ? contrastBoost(pixel_value, parameters.contrast) : pixel_value;
 
     // Conversion to target color space, ensure definite positiveness
-    float3 rgb = max((float3) {
+    float3 rgb = max(float3(
         dot(transform.m[0], pixel_value),
         dot(transform.m[1], pixel_value),
         dot(transform.m[2], pixel_value)
-    }, 0);
+    ), 0);
 
     // Local Tone Mapping
     if (parameters.localToneMapping) {
@@ -1125,7 +1125,7 @@ kernel void convertTosRGB(texture2d<float> linearImage                  [[textur
         if (ltmBoost > 1) {
             // Modified Naik and Murthy’s method for preserving hue/saturation under luminance changes
             const float luma = 0.2126 * rgb.x + 0.7152 * rgb.y + 0.0722 * rgb.z; // BT.709-2 (sRGB) luma primaries
-            rgb = mix(rgb * ltmBoost, luma < 1 ? 1 - (1.0 - rgb) * (1 - ltmBoost * luma) / (1 - luma) : rgb, min(2 * pow(luma, 0.5), 1.0));
+            rgb = mix(1 - (1.0 - rgb) * (1 - ltmBoost * luma) / (1 - luma), rgb * ltmBoost, smoothstep(0.5, 0.8, luma));
         } else if (ltmBoost < 1) {
             rgb *= ltmBoost;
         }
