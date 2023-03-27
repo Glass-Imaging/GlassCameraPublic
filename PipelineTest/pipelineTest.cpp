@@ -72,6 +72,58 @@ static std::vector<unsigned char> read_binary_file(const std::string filename) {
     return (vec);
 }
 
+void demosaicFile(RawConverter* rawConverter, std::filesystem::path input_path) {
+    std::cout << "Processing File: " << input_path.filename() << std::endl;
+
+    gls::tiff_metadata dng_metadata, exif_metadata;
+    const auto rawImage =
+    gls::image<gls::luma_pixel_16>::read_dng_file(input_path.string(), &dng_metadata, &exif_metadata);
+    auto demosaicParameters = unpackiPhoneRawImage(*rawImage, rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
+
+    rawConverter->allocateTextures(rawImage->size());
+
+    auto t_start = std::chrono::high_resolution_clock::now();
+
+    auto srgbImage = rawConverter->demosaic(*rawImage, demosaicParameters.get());
+
+    auto t_end = std::chrono::high_resolution_clock::now();
+    double elapsed_time_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();
+
+    std::cout << "Metal Pipeline Execution Time: " << (int)elapsed_time_ms
+                  << "ms for image of size: " << rawImage->width << " x " << rawImage->height << std::endl;
+
+    const auto output_path = input_path.replace_extension(".png");
+
+    const auto srgbImageCpu = srgbImage->mapImage();
+    saveImage(*srgbImageCpu, output_path.string(), rawConverter->icc_profile_data());
+}
+
+void demosaicDirectory(RawConverter* rawConverter, std::filesystem::path input_path) {
+    std::cout << "Processing Directory: " << input_path.filename() << std::endl;
+
+    auto input_dir = std::filesystem::directory_entry(input_path).is_directory() ? input_path : input_path.parent_path();
+    std::vector<std::filesystem::path> directory_listing;
+    std::copy(std::filesystem::directory_iterator(input_dir), std::filesystem::directory_iterator(),
+              std::back_inserter(directory_listing));
+    std::sort(directory_listing.begin(), directory_listing.end());
+
+    for (const auto& input_path : directory_listing) {
+        if (input_path.filename().string().starts_with(".")) {
+            continue;
+        }
+
+        if (std::filesystem::directory_entry(input_path).is_regular_file()) {
+            const auto extension = input_path.extension();
+            if ((extension != ".dng" && extension != ".DNG")) {
+                continue;
+            }
+            demosaicFile(rawConverter, input_path);
+        } else if (std::filesystem::directory_entry(input_path).is_directory()) {
+            demosaicDirectory(rawConverter, input_path);
+        }
+    }
+}
+
 int main(int argc, const char * argv[]) {
     // Read ICC color profile data
     auto icc_profile_data = read_binary_file("/System/Library/ColorSync/Profiles/Display P3.icc");
@@ -84,29 +136,10 @@ int main(int argc, const char * argv[]) {
     if (argc > 1) {
         auto input_path = std::filesystem::path(argv[1]);
 
-        gls::tiff_metadata dng_metadata, exif_metadata;
-        const auto rawImage =
-        gls::image<gls::luma_pixel_16>::read_dng_file(input_path.string(), &dng_metadata, &exif_metadata);
-        auto demosaicParameters = unpackiPhoneRawImage(*rawImage, rawConverter.xyz_rgb(), &dng_metadata, &exif_metadata);
+        // demosaicFile(&rawConverter, input_path);
 
-        rawConverter.allocateTextures(rawImage->size());
+        demosaicDirectory(&rawConverter, input_path);
 
-        auto t_start = std::chrono::high_resolution_clock::now();
-
-        auto srgbImage = rawConverter.demosaic(*rawImage, demosaicParameters.get());
-
-        auto t_end = std::chrono::high_resolution_clock::now();
-        double elapsed_time_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();
-
-        std::cout << "Metal Pipeline Execution Time: " << (int)elapsed_time_ms
-                      << "ms for image of size: " << rawImage->width << " x " << rawImage->height << std::endl;
-
-        const auto output_path = input_path.replace_extension(".png");
-
-        const auto srgbImageCpu = srgbImage->mapImage();
-        saveImage(*srgbImageCpu, output_path.string(), &icc_profile_data);
-
-        std::cout << "It all went very well..." << std::endl;
         return 0;
     } else {
         std::cout << "We need a file name..." << std::endl;

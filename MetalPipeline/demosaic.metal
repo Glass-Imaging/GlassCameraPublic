@@ -343,9 +343,9 @@ kernel void interpolateRedBlue(texture2d<float> rawImage                [[textur
     interpolateRedBluePixel(rawImage, greenImage, gradientImage, rgbImage, redVariance, blueVariance, false, imageCoordinates + b);
 
     write_imagef(rgbImage, imageCoordinates + g,
-                 (float4) {0, clamp(read_imagef(greenImage, imageCoordinates + g).x, 0.0, 1.0), 0, 0});
+                 (float4) {0, read_imagef(greenImage, imageCoordinates + g).x, 0, 0});
     write_imagef(rgbImage, imageCoordinates + g2,
-                 (float4) {0, clamp(read_imagef(greenImage, imageCoordinates + g2).x, 0.0, 1.0), 0, 0});
+                 (float4) {0, read_imagef(greenImage, imageCoordinates + g2).x, 0, 0});
 }
 #undef GREEN
 
