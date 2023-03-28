@@ -18,6 +18,8 @@ import AVFoundation
 import SwiftUI
 
 public struct CameraPreview: UIViewRepresentable {
+    static let focusViewRadius = 25.0
+
     public class VideoPreviewView: UIView {
         public override class var layerClass: AnyClass {
             AVCaptureVideoPreviewLayer.self
@@ -28,10 +30,10 @@ public struct CameraPreview: UIViewRepresentable {
         }
 
         let focusView: UIView = {
-            let focusView = UIView(frame: CGRect(x: 0, y: 0, width: 50, height: 50))
+            let focusView = UIView(frame: CGRect(x: 0, y: 0, width: 2 * focusViewRadius, height: 2 * focusViewRadius))
             focusView.layer.borderColor = UIColor.white.cgColor
             focusView.layer.borderWidth = 1.5
-            focusView.layer.cornerRadius = 25
+            focusView.layer.cornerRadius = focusViewRadius
             focusView.layer.opacity = 0
             focusView.backgroundColor = .clear
             return focusView
@@ -41,7 +43,11 @@ public struct CameraPreview: UIViewRepresentable {
             let layerPoint = gestureRecognizer.location(in: gestureRecognizer.view)
             let devicePoint = videoPreviewLayer.captureDevicePointConverted(fromLayerPoint: layerPoint)
 
-            self.focusView.layer.frame = CGRect(origin: layerPoint, size: CGSize(width: 50, height: 50))
+            // Center the focusView circle where the user tapped
+            self.focusView.layer.frame = CGRect(origin: CGPoint(x: layerPoint.x - focusViewRadius,
+                                                                y: layerPoint.y - focusViewRadius),
+                                                size: CGSize(width: 2 * focusViewRadius,
+                                                             height: 2 * focusViewRadius))
 
             NotificationCenter.default.post(.init(name: .init("UserDidRequestNewFocusPoint"), object: nil, userInfo: ["devicePoint": devicePoint] as [AnyHashable: Any]))
 
@@ -83,12 +89,5 @@ public struct CameraPreview: UIViewRepresentable {
 
     public func updateUIView(_ uiView: VideoPreviewView, context: Context) {
 
-    }
-}
-
-struct CameraPreview_Previews: PreviewProvider {
-    static var previews: some View {
-        CameraPreview(session: AVCaptureSession())
-            .frame(height: 300)
     }
 }

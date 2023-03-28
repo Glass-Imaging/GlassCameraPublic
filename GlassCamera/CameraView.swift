@@ -116,6 +116,8 @@ struct CameraView: View {
                     .frame(width: 60, height: 60, alignment: .center)
                     .foregroundColor(.black)
             }
+        }.onTapGesture {
+            UIApplication.shared.open(URL(string:"photos-redirect://")!)
         }
     }
 
@@ -198,11 +200,5 @@ struct CameraView: View {
                 }
             }
         }
-    }
-}
-
-struct ContentView_Previews: PreviewProvider {
-    static var previews: some View {
-        CameraView()
     }
 }
