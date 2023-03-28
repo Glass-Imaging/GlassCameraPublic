@@ -22,19 +22,20 @@
 
 void scaleRawData(MetalContext* mtlContext, const gls::mtl_image_2d<gls::luma_pixel_16>& rawImage,
                   gls::mtl_image_2d<gls::luma_pixel_float>* scaledRawImage, BayerPattern bayerPattern,
-                  gls::Vector<4> scaleMul, float blackLevel) {
+                  gls::Vector<4> scaleMul, float blackLevel, float lensShadingCorrection) {
 
     auto kernel = Kernel<MTL::Texture*,     // rawImage
                          MTL::Texture*,     // scaledRawImage
                          int,               // bayerPattern
                          simd::half4,       // scaleMul
-                         half               // blackLevel
+                         half,              // blackLevel
+                         half               // lensShadingCorrection
                          >(mtlContext, "scaleRawData");
 
     kernel(mtlContext, /*gridSize=*/ MTL::Size(scaledRawImage->width / 2, scaledRawImage->height / 2, 1),
            rawImage.texture(), scaledRawImage->texture(), bayerPattern,
            simd::half4 { (half) scaleMul[0], (half) scaleMul[1], (half) scaleMul[2], (half) scaleMul[3] },
-           blackLevel);
+           blackLevel, lensShadingCorrection);
 }
 
 void rawImageSobel(MetalContext* mtlContext, const gls::mtl_image_2d<gls::luma_pixel_float>& rawImage,
@@ -164,29 +165,6 @@ void blendHighlightsImage(MetalContext* mtlContext,
 
     kernel(mtlContext, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
            inputImage.texture(), clip, outputImage->texture());
-}
-
-void convertTosRGB(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_pixel_float>& linearImage,
-                   const gls::mtl_image_2d<gls::luma_pixel_float>& ltmMaskImage,
-                   gls::mtl_image_2d<gls::rgba_pixel_float>* rgbImage, const DemosaicParameters& demosaicParameters) {
-    const auto& transform = demosaicParameters.rgb_cam;
-
-    struct Matrix3x3 {
-        simd::float3 m[3];
-    } mtlTransform = {{{transform[0][0], transform[0][1], transform[0][2]},
-                       {transform[1][0], transform[1][1], transform[1][2]},
-                       {transform[2][0], transform[2][1], transform[2][2]}}};
-
-    // Bind the kernel parameters
-    auto kernel = Kernel<MTL::Texture*,           // linearImage
-                         MTL::Texture*,           // ltmMaskImage
-                         MTL::Texture*,           // rgbImage
-                         Matrix3x3,               // transform
-                         RGBConversionParameters  // demosaicParameters
-                         >(mtlContext, "convertTosRGB");
-
-    kernel(mtlContext, /*gridSize=*/ MTL::Size(rgbImage->width, rgbImage->height, 1), linearImage.texture(),
-           ltmMaskImage.texture(), rgbImage->texture(), mtlTransform, demosaicParameters.rgbConversionParameters);
 }
 
 void transformImage(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_pixel_float>& linearImage,
@@ -381,4 +359,27 @@ void localToneMappingMask(MetalContext* mtlContext, const gls::mtl_image_2d<gls:
     ltmKernel(mtlContext, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1), inputImage.texture(),
               abMeanImage[0]->texture(), abMeanImage[1]->texture(), abMeanImage[2]->texture(),
               outputImage->texture(), ltmParameters, simd::float2 { nlf[0], nlf[1] });
+}
+
+void convertTosRGB(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_pixel_float>& linearImage,
+                   const gls::mtl_image_2d<gls::luma_pixel_float>& ltmMaskImage,
+                   gls::mtl_image_2d<gls::rgba_pixel_float>* rgbImage, const DemosaicParameters& demosaicParameters) {
+    const auto& transform = demosaicParameters.rgb_cam;
+
+    struct Matrix3x3 {
+        simd::float3 m[3];
+    } mtlTransform = {{{transform[0][0], transform[0][1], transform[0][2]},
+                       {transform[1][0], transform[1][1], transform[1][2]},
+                       {transform[2][0], transform[2][1], transform[2][2]}}};
+
+    // Bind the kernel parameters
+    auto kernel = Kernel<MTL::Texture*,           // linearImage
+                         MTL::Texture*,           // ltmMaskImage
+                         MTL::Texture*,           // rgbImage
+                         Matrix3x3,               // transform
+                         RGBConversionParameters  // demosaicParameters
+                         >(mtlContext, "convertTosRGB");
+
+    kernel(mtlContext, /*gridSize=*/ MTL::Size(rgbImage->width, rgbImage->height, 1), linearImage.texture(),
+           ltmMaskImage.texture(), rgbImage->texture(), mtlTransform, demosaicParameters.rgbConversionParameters);
 }

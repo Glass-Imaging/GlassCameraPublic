@@ -40,16 +40,18 @@ void dumpGradientImage(const gls::mtl_image_2d<T>& image, const std::string& pat
     out.write_png_file(path);
 }
 
-void saveImage(const gls::image<gls::rgba_pixel_float>& image,
-               const std::string& path,
-               const std::vector<uint8_t> *icc_profile_data = nullptr) {
-    gls::image<gls::rgb_pixel> saveImage(image.width, image.height);
-    saveImage.apply([&](gls::rgb_pixel* p, int x, int y) {
+template <typename pixel_type>
+void saveImage(const gls::image<gls::rgba_pixel_float>& image, const std::string& path,
+               const std::vector<uint8_t>* icc_profile_data) {
+    gls::image<pixel_type> saveImage(image.width, image.height);
+    saveImage.apply([&](pixel_type* p, int x, int y) {
+        float scale = std::numeric_limits<typename pixel_type::value_type>::max();
+
         const auto& pi = image[y][x];
         *p = {
-            (uint8_t) (255 * pi.red),
-            (uint8_t) (255 * pi.green),
-            (uint8_t) (255 * pi.blue)
+            (uint8_t) (scale * pi.red),
+            (uint8_t) (scale * pi.green),
+            (uint8_t) (scale * pi.blue)
         };
     });
     saveImage.write_png_file(path, /*skip_alpha=*/true, icc_profile_data);
@@ -92,10 +94,10 @@ void demosaicFile(RawConverter* rawConverter, std::filesystem::path input_path) 
     std::cout << "Metal Pipeline Execution Time: " << (int)elapsed_time_ms
                   << "ms for image of size: " << rawImage->width << " x " << rawImage->height << std::endl;
 
-    const auto output_path = input_path.replace_extension(".png");
+    const auto output_path = input_path.replace_extension("_b.png");
 
     const auto srgbImageCpu = srgbImage->mapImage();
-    saveImage(*srgbImageCpu, output_path.string(), rawConverter->icc_profile_data());
+    saveImage<gls::rgb_pixel_16>(*srgbImageCpu, output_path.string(), rawConverter->icc_profile_data());
 }
 
 void demosaicDirectory(RawConverter* rawConverter, std::filesystem::path input_path) {

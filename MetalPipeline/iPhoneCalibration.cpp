@@ -66,7 +66,7 @@ public:
     }
 
     std::pair<float, std::array<DenoiseParameters, levels>> getDenoiseParameters(int iso) const override {
-        const float nlf_alpha = std::clamp((log2(8 * iso) - log2(100)) / (log2(102400) - log2(100)), 0.0, 1.0);
+        const float nlf_alpha = std::clamp((log2(4 * iso) - log2(100)) / (log2(102400) - log2(100)), 0.0, 1.0);
 
         LOG_INFO(TAG) << "iPhone DenoiseParameters nlf_alpha: " << nlf_alpha << ", ISO: " << iso << std::endl;
 
@@ -125,17 +125,17 @@ public:
 
     DemosaicParameters buildDemosaicParameters() const override {
         return {
+            .lensShadingCorrection = 1.6,
             .rgbConversionParameters = {
                 .contrast = 1.05,
                 .saturation = 1.0,
                 .toneCurveSlope = 3.5,
-                .lensShadingCorrection = 1.5,
                 .localToneMapping = true
             },
             .ltmParameters = {
                 .eps = 0.01,
-                .shadows = 0.8,
-                .highlights = 1.5,
+                .shadows = 0.6,
+                .highlights = 1.75,
                 .detail = { 1, 1.2, 2.0 }
             }
         };

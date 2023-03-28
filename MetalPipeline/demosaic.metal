@@ -73,14 +73,23 @@ kernel void scaleRawData(texture2d<half> rawImage                       [[textur
                          constant int& bayerPattern                     [[buffer(2)]],
                          constant half4& scaleMul                       [[buffer(3)]],
                          constant half& blackLevel                      [[buffer(4)]],
+                         constant half& lensShadingCorrection           [[buffer(5)]],
                          uint2 index                                    [[thread_position_in_grid]])
 {
     const int2 imageCoordinates = 2 * (int2) index;
 
+    half lens_shading = 1;
+    if (lensShadingCorrection > 0) {
+        float2 imageCenter = float2(get_image_dim(rawImage) / 2);
+        float distance_from_center = length(float2(imageCoordinates) - imageCenter) / length(imageCenter);
+        // FIXME: the attenuation is a fuzz factor
+        lens_shading = 0.8 + lensShadingCorrection * distance_from_center * distance_from_center;
+    }
+
     for (int c = 0; c < 4; c++) {
         int2 o = bayerOffsets[bayerPattern][c];
         write_imageh(scaledRawImage, imageCoordinates + o,
-                     max(scaleMul[c] * (read_imageh(rawImage, imageCoordinates + o).x - blackLevel) * 0.9h + 0.1h, 0.0h));
+                     max(lens_shading * scaleMul[c] * (read_imageh(rawImage, imageCoordinates + o).x - blackLevel) * 0.9h + 0.1h, 0.0h));
     }
 }
 
@@ -521,7 +530,7 @@ float3 sharpen(float3 pixel_value, float amount, float radius, texture2d<float> 
     return mix(blurred_pixel, pixel_value, max(sharpening, 1.0));
 }
 
-/// ---- Tone Curve ----
+// ---- Tone Curve ----
 
 float3 sigmoid(float3 x, float s) {
     return 0.5 * (tanh(s * x - 0.3 * s) + 1);
@@ -532,7 +541,6 @@ float sigmoid(float x, float s) {
 }
 
 // This tone curve is designed to mostly match the default curve from DNG files
-// TODO: it would be nice to have separate control on highlights and shhadows contrast
 
 float3 toneCurve(float3 x, float s) {
     return (sigmoid(powr(0.95 * x, 0.5), s) - sigmoid(0.0, s)) / (sigmoid(1.0, s) - sigmoid(0.0, s));
@@ -569,7 +577,6 @@ typedef struct RGBConversionParameters {
     float toneCurveSlope;
     float exposureBias;
     float blacks;
-    float lensShadingCorrection;
     bool localToneMapping;
 } RGBConversionParameters;
 
@@ -1011,12 +1018,15 @@ float computeLtmMultiplier(float3 input, float2 gfAb, float eps, float shadows,
     const float illuminance = gfAb.x * input.x + gfAb.y;
     const float reflectance = input.x / illuminance;
 
-    // Transition between shadows and highlights around the midtones
-    const float gamma = mix(shadows, highlights, smoothstep(0.0625, 0.5, illuminance));
-
     // LTM curve computed in Log space
-    return pow(illuminance, gamma) * pow(reflectance, detail) / input.x;
+    float midtones = 0.2;
+    float adjusted_illuminance = illuminance <= midtones ?
+        midtones * pow(illuminance / midtones, shadows) :                                           // Shadows adjustment
+        (1 - midtones) * pow((illuminance - midtones) / (1 - midtones), highlights) + midtones;     // Highlights adjustment
+
+    return adjusted_illuminance * pow(reflectance, detail) / input.x;
 }
+
 
 typedef struct LTMParameters {
     float eps;
@@ -1050,7 +1060,8 @@ kernel void localToneMappingMaskImage(texture2d<float> inputImage               
 
     if (ltmParameters.detail[1] != 1) {
         float2 mfAbSample = read_imagef(mfAbImage, linear_sampler, pos + 0.5f * inputNorm).xy;
-        ltmMultiplier *= computeLtmMultiplier(input, mfAbSample, ltmParameters.eps, 1, 1, ltmParameters.detail[1]);
+        ltmMultiplier *= computeLtmMultiplier(input, mfAbSample, ltmParameters.eps,
+                                              ltmParameters.shadows, 1, ltmParameters.detail[1]);
     }
 
     if (ltmParameters.detail[2] != 1) {
@@ -1067,7 +1078,8 @@ kernel void localToneMappingMaskImage(texture2d<float> inputImage               
         }
 
         float2 hfAbSample = read_imagef(hfAbImage, linear_sampler, pos + 0.5f * inputNorm).xy;
-        ltmMultiplier *= computeLtmMultiplier(input, hfAbSample, ltmParameters.eps, 1, 1, detail);
+        ltmMultiplier *= computeLtmMultiplier(input, hfAbSample, ltmParameters.eps,
+                                              ltmParameters.shadows, 1, detail);
     }
 
     write_imagef(ltmMaskImage, imageCoordinates, float4(ltmMultiplier, 0, 0, 0));
@@ -1082,18 +1094,8 @@ kernel void convertTosRGB(texture2d<float> linearImage                  [[textur
 {
     const int2 imageCoordinates = (int2) index;
 
+    // FIXME: Compute the black and white levels dynamically
     float3 pixel_value = (read_imagef(linearImage, imageCoordinates).xyz - 0.1) / 0.9;
-
-    if (parameters.lensShadingCorrection > 0) {
-        // Don't boost bright areas
-        float highlightsPriority = 1 - smoothstep(0.5, 1.0, length(pixel_value) / sqrt(3.0));
-
-        float2 imageCenter = float2(get_image_dim(linearImage) / 2);
-        float distance_from_center = length(float2(imageCoordinates) - imageCenter) / length(imageCenter);
-        float gain = 1.0 - 0.1 * parameters.lensShadingCorrection;
-        float lens_shading = gain * (1 + highlightsPriority * parameters.lensShadingCorrection * distance_from_center * distance_from_center);
-        pixel_value *= lens_shading;
-    }
 
     // Exposure Bias
     pixel_value *= parameters.exposureBias != 0 ? powr(2.0, parameters.exposureBias) : 1;
@@ -1119,7 +1121,9 @@ kernel void convertTosRGB(texture2d<float> linearImage                  [[textur
             // Modified Naik and Murthy’s method for preserving hue/saturation under luminance changes
             const float luma = 0.2126 * rgb.x + 0.7152 * rgb.y + 0.0722 * rgb.z; // BT.709-2 (sRGB) luma primaries
             // rgb = mix(1 - (1.0 - rgb) * (1 - ltmBoost * luma) / (1 - luma), rgb * ltmBoost, smoothstep(0.125, 0.25, luma));
-            rgb = mix(rgb * ltmBoost, mix(1 - (1.0 - rgb) * (1 - ltmBoost * luma) / (1 - luma), rgb * ltmBoost, smoothstep(0.5, 0.8, luma)), min(2 * pow(luma, 0.5), 1.0));
+            rgb = mix(rgb * ltmBoost,
+                      mix(1 - (1.0 - rgb) * (1 - ltmBoost * luma) / (1 - luma), rgb * ltmBoost, smoothstep(0.5, 0.8, luma)),
+                      min(2 * pow(luma, 0.5), 1.0));
         } else if (ltmBoost < 1) {
             rgb *= ltmBoost;
         }
