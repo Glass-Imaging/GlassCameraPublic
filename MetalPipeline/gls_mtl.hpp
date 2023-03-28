@@ -16,10 +16,11 @@
 #ifndef gls_mtl_hpp
 #define gls_mtl_hpp
 
-#include <string>
 #include <exception>
 #include <functional>
 #include <map>
+#include <vector>
+#include <string>
 
 #include <Metal/Metal.hpp>
 
