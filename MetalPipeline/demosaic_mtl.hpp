@@ -106,7 +106,7 @@ void localToneMappingMask(MetalContext* mtlContext, const gls::mtl_image_2d<gls:
                           const std::array<const gls::mtl_image_2d<gls::rgba_pixel_float>*, 3>& guideImage,
                           const std::array<const gls::mtl_image_2d<gls::luma_alpha_pixel_float>*, 3>& abImage,
                           const std::array<const gls::mtl_image_2d<gls::luma_alpha_pixel_float>*, 3>& abMeanImage,
-                          const LTMParameters& ltmParameters, const gls::Matrix<3, 3>& ycbcr_srgb,
-                          const gls::Vector<2>& nlf, gls::mtl_image_2d<gls::luma_pixel_float>* outputImage);
+                          const LTMParameters& ltmParameters, const gls::Vector<2>& nlf,
+                          gls::mtl_image_2d<gls::luma_pixel_float>* outputImage);
 
 #endif /* demosaic_mtl_hpp */

@@ -134,8 +134,8 @@ public:
             },
             .ltmParameters = {
                 .eps = 0.01,
-                .shadows = 0.6,
-                .highlights = 2.0,
+                .shadows = 0.7,
+                .highlights = 1.5,
                 .detail = { 1, 1.2, 2.0 }
             }
         };

@@ -65,7 +65,7 @@ class LocalToneMapping {
 
         gls::Vector<2> nlf = {noiseModel.pyramidNlf[0].first[0], noiseModel.pyramidNlf[0].second[0]};
         localToneMappingMask(mtlContext, image, guideImage, abImage, abMeanImage, demosaicParameters.ltmParameters,
-                             ycbcr_srgb, nlf, ltmMaskImage.get());
+                             nlf, ltmMaskImage.get());
     }
 
     const gls::mtl_image_2d<gls::luma_pixel_float>& getMask() { return *ltmMaskImage; }

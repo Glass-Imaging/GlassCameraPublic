@@ -1006,19 +1006,13 @@ kernel void BoxFilterGFImage(texture2d<float> inputImage                    [[te
 }
 
 float computeLtmMultiplier(float3 input, float2 gfAb, float eps, float shadows,
-                           float highlights, float detail, constant Matrix3x3 *ycbcr_srgb) {
-    // YCbCr -> RGB version of the input pixel, for highlights compression, ensure definite positiveness
-    float3 rgb = max(float3(dot(ycbcr_srgb->m[0], input),
-                            dot(ycbcr_srgb->m[1], input),
-                            dot(ycbcr_srgb->m[2], input)), 0);
-
+                           float highlights, float detail) {
     // The filtered image is an estimate of the illuminance
     const float illuminance = gfAb.x * input.x + gfAb.y;
     const float reflectance = input.x / illuminance;
 
-    const float highlightsClipping = min(length(sqrt(2 * rgb)), 1.0);
-    const float adjusted_shadows = mix(shadows, 1, highlightsClipping);
-    const float gamma = mix(adjusted_shadows, highlights, smoothstep(0.125, 0.75, illuminance));
+    // Transition between shadows and highlights around the midtones
+    const float gamma = mix(shadows, highlights, smoothstep(0.0625, 0.5, illuminance));
 
     // LTM curve computed in Log space
     return pow(illuminance, gamma) * pow(reflectance, detail) / input.x;
@@ -1037,8 +1031,7 @@ kernel void localToneMappingMaskImage(texture2d<float> inputImage               
                                       texture2d<float> hfAbImage                    [[texture(3)]],
                                       texture2d<float, access::write> ltmMaskImage  [[texture(4)]],
                                       constant LTMParameters& ltmParameters         [[buffer(5)]],
-                                      constant Matrix3x3& ycbcr_srgb                [[buffer(6)]],
-                                      constant float2& nlf                          [[buffer(7)]],
+                                      constant float2& nlf                          [[buffer(6)]],
                                       uint2 index                                   [[thread_position_in_grid]]) {
     const int2 imageCoordinates = (int2) index;
     const float2 inputNorm = 1.0 / float2(get_image_dim(ltmMaskImage));
@@ -1053,11 +1046,11 @@ kernel void localToneMappingMaskImage(texture2d<float> inputImage               
 
     float ltmMultiplier = computeLtmMultiplier(input, lfAbSample, ltmParameters.eps,
                                                ltmParameters.shadows, ltmParameters.highlights,
-                                               ltmParameters.detail[0], &ycbcr_srgb);
+                                               ltmParameters.detail[0]);
 
     if (ltmParameters.detail[1] != 1) {
         float2 mfAbSample = read_imagef(mfAbImage, linear_sampler, pos + 0.5f * inputNorm).xy;
-        ltmMultiplier *= computeLtmMultiplier(input, mfAbSample, ltmParameters.eps, 1, 1, ltmParameters.detail[1], &ycbcr_srgb);
+        ltmMultiplier *= computeLtmMultiplier(input, mfAbSample, ltmParameters.eps, 1, 1, ltmParameters.detail[1]);
     }
 
     if (ltmParameters.detail[2] != 1) {
@@ -1074,7 +1067,7 @@ kernel void localToneMappingMaskImage(texture2d<float> inputImage               
         }
 
         float2 hfAbSample = read_imagef(hfAbImage, linear_sampler, pos + 0.5f * inputNorm).xy;
-        ltmMultiplier *= computeLtmMultiplier(input, hfAbSample, ltmParameters.eps, 1, 1, detail, &ycbcr_srgb);
+        ltmMultiplier *= computeLtmMultiplier(input, hfAbSample, ltmParameters.eps, 1, 1, detail);
     }
 
     write_imagef(ltmMaskImage, imageCoordinates, float4(ltmMultiplier, 0, 0, 0));
@@ -1125,7 +1118,8 @@ kernel void convertTosRGB(texture2d<float> linearImage                  [[textur
         if (ltmBoost > 1) {
             // Modified Naik and Murthy’s method for preserving hue/saturation under luminance changes
             const float luma = 0.2126 * rgb.x + 0.7152 * rgb.y + 0.0722 * rgb.z; // BT.709-2 (sRGB) luma primaries
-            rgb = mix(1 - (1.0 - rgb) * (1 - ltmBoost * luma) / (1 - luma), rgb * ltmBoost, smoothstep(0.5, 0.8, luma));
+            // rgb = mix(1 - (1.0 - rgb) * (1 - ltmBoost * luma) / (1 - luma), rgb * ltmBoost, smoothstep(0.125, 0.25, luma));
+            rgb = mix(rgb * ltmBoost, mix(1 - (1.0 - rgb) * (1 - ltmBoost * luma) / (1 - luma), rgb * ltmBoost, smoothstep(0.5, 0.8, luma)), min(2 * pow(luma, 0.5), 1.0));
         } else if (ltmBoost < 1) {
             rgb *= ltmBoost;
         }
