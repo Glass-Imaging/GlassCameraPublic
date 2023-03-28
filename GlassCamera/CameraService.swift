@@ -498,10 +498,9 @@ public class CameraService: NSObject, Identifiable {
                     }
                 }
 
-                // Select Bayer mode without ProRaw
                 let query = self.photoOutput.isAppleProRAWEnabled ?
-                    { AVCapturePhotoOutput.isBayerRAWPixelFormat($0) } :
-                    { AVCapturePhotoOutput.isAppleProRAWPixelFormat($0) }
+                    { !AVCapturePhotoOutput.isAppleProRAWPixelFormat($0) } :
+                    { AVCapturePhotoOutput.isBayerRAWPixelFormat($0) }
 
                 var photoSettings: AVCapturePhotoSettings
 
