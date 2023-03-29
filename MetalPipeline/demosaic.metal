@@ -1146,9 +1146,10 @@ kernel void convertTosRGB(texture2d<float> linearImage                  [[textur
     const int2 imageCoordinates = (int2) index;
 
     float black_level = 4 * histogram_data.black_level / (float) (0xffff);
+    float white_level = 1; // 4 * histogram_data.white_level / (float) (0xffff);
 
     // FIXME: Compute the black and white levels dynamically
-    float3 pixel_value = (read_imagef(linearImage, imageCoordinates).xyz - black_level) / 0.9;
+    float3 pixel_value = (read_imagef(linearImage, imageCoordinates).xyz - black_level) / (white_level - black_level);
 
     // Exposure Bias
     pixel_value *= parameters.exposureBias != 0 ? powr(2.0, parameters.exposureBias) : 1;
