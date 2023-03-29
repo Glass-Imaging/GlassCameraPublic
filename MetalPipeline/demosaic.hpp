@@ -94,6 +94,7 @@ typedef struct DemosaicParameters {
     float black_level = 0;
     float white_level = 1;
     float exposure_multiplier = 1;
+    float raw_exposure_multiplier = 1;
     float lensShadingCorrection = 0;
     gls::Vector<4> scale_mul;
     gls::Matrix<3, 3> rgb_cam;

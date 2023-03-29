@@ -94,6 +94,10 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
 
     allocateTextures(rawImage.size());
 
+    auto histogramData = (RawConverter::histogram_data*) _histogramBuffer->contents();
+    std::fill(histogramData->histogram.begin(), histogramData->histogram.end(), 0);
+    histogramData->black_level = histogramData->white_level = 0;
+
     if (demosaicParameters->rgbConversionParameters.localToneMapping) {
         _localToneMapping->allocateTextures(&_mtlContext, rawImage.width, rawImage.height);
     }
@@ -103,7 +107,7 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
     scaleRawData(&_mtlContext, *_rawImage, _scaledRawImage.get(),
                  demosaicParameters->bayerPattern,
                  demosaicParameters->scale_mul,
-                 demosaicParameters->black_level / 0xffff,
+                 demosaicParameters->black_level,
                  demosaicParameters->lensShadingCorrection);
 
     rawImageSobel(&_mtlContext, *_scaledRawImage, _rawSobelImage.get());
@@ -141,11 +145,16 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
 
     const auto _denoisedImage = denoise(*_linearRGBImageA, demosaicParameters, /*calibrateFromImage*/ false);
 
+    histogramImage(&_mtlContext, *_denoisedImage, _histogramBuffer.get());
+
+    histogramStatistics(&_mtlContext, _histogramBuffer.get(), _denoisedImage->size());
+
     // Convert result back to camera RGB
     const auto normalized_ycbcr_to_cam = inverse(cam_to_ycbcr) * demosaicParameters->exposure_multiplier;
     transformImage(&_mtlContext, *_denoisedImage, _linearRGBImageA.get(), normalized_ycbcr_to_cam);
 
-    convertTosRGB(&_mtlContext, *_linearRGBImageA, _localToneMapping->getMask(), _linearRGBImageA.get(), *demosaicParameters);
+    convertTosRGB(&_mtlContext, *_linearRGBImageA, _localToneMapping->getMask(), *demosaicParameters,
+                  _histogramBuffer.get(), _linearRGBImageA.get());
 
     _mtlContext.waitForCompletion();
 

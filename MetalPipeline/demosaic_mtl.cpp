@@ -201,7 +201,6 @@ void denoiseImage(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_pi
                          MTL::Texture*   // outputImage
                          >(mtlContext, "denoiseImage");
 
-    // Schedule the kernel on the GPU
     kernel(mtlContext, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
            inputImage.texture(), gradientImage.texture(),
            simd::float3 { var_a[0], var_a[1], var_a[2] },
@@ -217,7 +216,6 @@ void resampleImage(MetalContext* mtlContext, const std::string& kernelName, cons
     auto kernel = Kernel<MTL::Texture*,  // inputImage
                          MTL::Texture*>(mtlContext, kernelName);
 
-    // Schedule the kernel on the GPU
     kernel(mtlContext, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
            inputImage.texture(), outputImage->texture());
 }
@@ -248,7 +246,6 @@ void subtractNoiseImage(MetalContext* mtlContext,
                          MTL::Texture*   // outputImage
                          >(mtlContext, "subtractNoiseImage");
 
-    // Schedule the kernel on the GPU
     kernel(mtlContext, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
            inputImage.texture(), inputImage1.texture(), inputImageDenoised1.texture(),
            gradientImage.texture(), luma_weight, sharpening, simd::float2 { nlf[0], nlf[1] },
@@ -264,7 +261,6 @@ void bayerToRawRGBA(MetalContext* mtlContext, const gls::mtl_image_2d<gls::luma_
                          int             // bayerPattern
                          >(mtlContext, "bayerToRawRGBA");
 
-    // Schedule the kernel on the GPU
     kernel(mtlContext, /*gridSize=*/ MTL::Size(rgbaImage->width, rgbaImage->height, 1), rawImage.texture(),
            rgbaImage->texture(), bayerPattern);
 }
@@ -278,7 +274,6 @@ void rawRGBAToBayer(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_
                          int             // bayerPattern
                          >(mtlContext, "rawRGBAToBayer");
 
-    // Schedule the kernel on the GPU
     kernel(mtlContext, /*gridSize=*/ MTL::Size(rgbaImage.width, rgbaImage.height, 1), rgbaImage.texture(),
            rawImage->texture(), bayerPattern);
 }
@@ -291,7 +286,6 @@ void despeckleRawRGBAImage(MetalContext* mtlContext, const gls::mtl_image_2d<gls
                          MTL::Texture*   // outputImage
                          >(mtlContext, "despeckleRawRGBAImage");
 
-    // Schedule the kernel on the GPU
     kernel(mtlContext, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1), inputImage.texture(),
            simd::float4 { rawVariance[0], rawVariance[1], rawVariance[2], rawVariance[3] }, outputImage->texture());
 }
@@ -309,7 +303,6 @@ void despeckleImage(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_
     simd::float3 cl_var_a = {var_a[0], var_a[1], var_a[2]};
     simd::float3 cl_var_b = {var_b[0], var_b[1], var_b[2]};
 
-    // Schedule the kernel on the GPU
     kernel(mtlContext, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
            inputImage.texture(), cl_var_a, cl_var_b, outputImage->texture());
 }
@@ -345,7 +338,6 @@ void localToneMappingMask(MetalContext* mtlContext, const gls::mtl_image_2d<gls:
                             simd::float2    // nlf
                             >(mtlContext, "localToneMappingMaskImage");
 
-    // Schedule the kernel on the GPU
     for (int i = 0; i < 3; i++) {
         if (i == 0 || ltmParameters.detail[i] != 1) {
             gfKernel(mtlContext, /*gridSize=*/ MTL::Size(guideImage[i]->width, guideImage[i]->height, 1),
@@ -361,9 +353,29 @@ void localToneMappingMask(MetalContext* mtlContext, const gls::mtl_image_2d<gls:
               outputImage->texture(), ltmParameters, simd::float2 { nlf[0], nlf[1] });
 }
 
+void histogramImage(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
+                    MTL::Buffer* histogramBuffer) {
+    auto kernel = Kernel<MTL::Texture*,  // inputImage
+                         MTL::Buffer*    // histogramBuffer
+                         >(mtlContext, "histogramImage");
+
+    kernel(mtlContext, /*gridSize=*/ MTL::Size(inputImage.width, inputImage.height, 1),
+           inputImage.texture(), histogramBuffer);
+}
+
+void histogramStatistics(MetalContext* mtlContext, MTL::Buffer* histogramBuffer, const gls::size& imageDimensions) {
+    auto kernel = Kernel<MTL::Buffer*,  // histogramBuffer
+                         simd::uint2    // imageDimensions
+                         >(mtlContext, "histogramStatistics");
+
+    kernel(mtlContext, /*gridSize=*/ MTL::Size(1, 1, 1),
+           histogramBuffer, simd::uint2 {(unsigned) imageDimensions.width, (unsigned) imageDimensions.height});
+}
+
 void convertTosRGB(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_pixel_float>& linearImage,
                    const gls::mtl_image_2d<gls::luma_pixel_float>& ltmMaskImage,
-                   gls::mtl_image_2d<gls::rgba_pixel_float>* rgbImage, const DemosaicParameters& demosaicParameters) {
+                   const DemosaicParameters& demosaicParameters, MTL::Buffer* histogramBuffer,
+                   gls::mtl_image_2d<gls::rgba_pixel_float>* rgbImage) {
     const auto& transform = demosaicParameters.rgb_cam;
 
     struct Matrix3x3 {
@@ -377,9 +389,10 @@ void convertTosRGB(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_p
                          MTL::Texture*,           // ltmMaskImage
                          MTL::Texture*,           // rgbImage
                          Matrix3x3,               // transform
-                         RGBConversionParameters  // demosaicParameters
+                         RGBConversionParameters, // demosaicParameters
+                         MTL::Buffer*             // histogramBuffer
                          >(mtlContext, "convertTosRGB");
 
     kernel(mtlContext, /*gridSize=*/ MTL::Size(rgbImage->width, rgbImage->height, 1), linearImage.texture(),
-           ltmMaskImage.texture(), rgbImage->texture(), mtlTransform, demosaicParameters.rgbConversionParameters);
+           ltmMaskImage.texture(), rgbImage->texture(), mtlTransform, demosaicParameters.rgbConversionParameters, histogramBuffer);
 }

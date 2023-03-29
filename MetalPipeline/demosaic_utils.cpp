@@ -287,8 +287,12 @@ float unpackDNGMetadata(const gls::image<gls::luma_pixel_16>& rawImage, gls::tif
     const auto white_level_vec = getVector<uint32_t>(*dng_metadata, TIFFTAG_WHITELEVEL);
     const auto cfa_pattern = getVector<uint8_t>(*dng_metadata, TIFFTAG_CFAPATTERN);
 
-    demosaicParameters->black_level = black_level_vec.empty() ? 0 : black_level_vec[0];
+    demosaicParameters->black_level = black_level_vec.empty() ? 0 : black_level_vec[0] / 0xffff;
     demosaicParameters->white_level = white_level_vec.empty() ? 0xffff : white_level_vec[0];
+
+    std::cout << "exposure_multiplier: " << exposure_multiplier << std::endl;
+
+    demosaicParameters->raw_exposure_multiplier = exposure_multiplier;
     demosaicParameters->exposure_multiplier = std::min(exposure_multiplier, 1.0f);
 
     demosaicParameters->bayerPattern = std::memcmp(cfa_pattern.data(), "\00\01\01\02", 4) == 0   ? BayerPattern::rggb

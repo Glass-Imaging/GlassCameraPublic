@@ -90,6 +90,7 @@
 		E522296C29D026DA00D13A4F /* iPhoneCalibration.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = iPhoneCalibration.cpp; sourceTree = "<group>"; };
 		E522296F29D02EEA00D13A4F /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.3.sdk/System/Library/Frameworks/CoreGraphics.framework; sourceTree = DEVELOPER_DIR; };
 		E57CA85929D04DFD006F5D3F /* float16.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = float16.hpp; sourceTree = "<group>"; };
+		E57CA85A29D3D472006F5D3F /* sciplot */ = {isa = PBXFileReference; lastKnownFileType = folder; path = sciplot; sourceTree = "<group>"; };
 		E5C5BF4229BA833F00AAB593 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		E5C5BFA629BC5E4B00AAB593 /* GlassCamera-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "GlassCamera-Bridging-Header.h"; sourceTree = "<group>"; };
 		E5C5BFF229BD36B600AAB593 /* gls_color_science.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = gls_color_science.cpp; path = GlassImage/src/gls_color_science.cpp; sourceTree = "<group>"; };
@@ -286,6 +287,7 @@
 		E5D4D88027D1798D00F1D944 = {
 			isa = PBXGroup;
 			children = (
+				E57CA85A29D3D472006F5D3F /* sciplot */,
 				E5C5C00029BD37F600AAB593 /* metal-cpp */,
 				E5C5C01229BD3DAE00AAB593 /* MetalPipeline */,
 				E5C5BFF129BD369900AAB593 /* GlassImage */,
@@ -727,6 +729,7 @@
 				HEADER_SEARCH_PATHS = (
 					"\"$(SRCROOT)/metal-cpp\"",
 					"\"$(SRCROOT)/GlassImage/include\"",
+					"\"$(SRCROOT)/sciplot\"",
 				);
 				INFOPLIST_KEY_MetalCaptureEnabled = YES;
 				LIBRARY_SEARCH_PATHS = (
@@ -752,6 +755,7 @@
 				HEADER_SEARCH_PATHS = (
 					"\"$(SRCROOT)/metal-cpp\"",
 					"\"$(SRCROOT)/GlassImage/include\"",
+					"\"$(SRCROOT)/sciplot\"",
 				);
 				INFOPLIST_KEY_MetalCaptureEnabled = YES;
 				LIBRARY_SEARCH_PATHS = (

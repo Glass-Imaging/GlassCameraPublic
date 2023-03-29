@@ -17,6 +17,27 @@
 
 #include "CameraCalibration.hpp"
 
+#include <sciplot/sciplot.hpp>
+using namespace sciplot;
+
+void plotHistogram(const std::array<uint32_t, 0x10000>& histogram, const std::string& image_name) {
+    Vec vec(histogram.size());
+    Vec x = linspace(0.0, 4.0, 0x10000);
+
+    for (int i = 0; i < histogram.size(); i++) {
+        vec[i] = histogram[i];
+    }
+
+    Plot2D plot;
+    plot.drawCurve(x, vec).label("luma");
+
+    Figure fig = {{plot}};
+    Canvas canvas = {{fig}};
+    canvas.title(image_name);
+
+    canvas.show();
+}
+
 template <typename T>
 void dumpGradientImage(const gls::mtl_image_2d<T>& image, const std::string& path) {
     gls::image<gls::rgb_pixel> out(image.width, image.height);
@@ -98,6 +119,10 @@ void demosaicFile(RawConverter* rawConverter, std::filesystem::path input_path) 
 
     const auto srgbImageCpu = srgbImage->mapImage();
     saveImage<gls::rgb_pixel_16>(*srgbImageCpu, output_path.string(), rawConverter->icc_profile_data());
+
+    auto histogramData = rawConverter->histogramData();
+    // plotHistogram(histogramData->histogram, input_path.filename().string());
+    std::cout << "black_level: " << histogramData->black_level << ", white_level: " << histogramData->white_level << std::endl;
 }
 
 void demosaicDirectory(RawConverter* rawConverter, std::filesystem::path input_path) {

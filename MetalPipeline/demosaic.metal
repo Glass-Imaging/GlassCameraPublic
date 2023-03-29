@@ -1085,17 +1085,64 @@ kernel void localToneMappingMaskImage(texture2d<float> inputImage               
     write_imagef(ltmMaskImage, imageCoordinates, float4(ltmMultiplier, 0, 0, 0));
 }
 
+struct histogram_data {
+    array<atomic<uint32_t>, 0x10000> histogram;
+    uint32_t black_level;
+    uint32_t white_level;
+};
+
+kernel void histogramImage(texture2d<float> inputImage          [[texture(0)]],
+                           device histogram_data& histogram_data [[buffer(1)]],
+                           uint2 index                          [[thread_position_in_grid]]) {
+    const int2 imageCoordinates = (int2) index;
+
+    float3 pixelValue = read_imagef(inputImage, imageCoordinates).xyz;
+
+    int histogram_index = clamp((int) (0xffff * pixelValue.x / 4), 0, 0xffff);
+
+    atomic_fetch_add_explicit(&histogram_data.histogram[histogram_index], 1, memory_order_relaxed);
+}
+
+kernel void histogramStatistics(device histogram_data& histogram_data [[buffer(0)]],
+                                constant uint2& image_dimensions      [[buffer(1)]],
+                                uint2 index                           [[thread_position_in_grid]]) {
+    if (index.x == 0 && index.y == 0) {
+        device array<uint32_t, 0x10000>* plain_histogram = (device array<uint32_t, 0x10000>*) &histogram_data.histogram;
+
+        const uint32_t image_size = image_dimensions.x * image_dimensions.y;
+        uint32_t sum = 0;
+        for (int i = 0; i < 0x10000; i++) {
+            sum += (*plain_histogram)[i];
+            if (sum >= 0.001 * image_size) {
+                histogram_data.black_level = i - 1;
+                break;
+            }
+        }
+        sum = 0;
+        for (int i = 0xffff; i >= 0; i--) {
+            sum += (*plain_histogram)[i];
+            if (sum >= 0.001 * image_size) {
+                histogram_data.white_level = i;
+                break;
+            }
+        }
+    }
+}
+
 kernel void convertTosRGB(texture2d<float> linearImage                  [[texture(0)]],
                           texture2d<float> ltmMaskImage                 [[texture(1)]],
                           texture2d<float, access::write> rgbImage      [[texture(2)]],
                           constant Matrix3x3& transform                 [[buffer(3)]],
                           constant RGBConversionParameters& parameters  [[buffer(4)]],
+                          constant histogram_data& histogram_data       [[buffer(5)]],
                           uint2 index                                   [[thread_position_in_grid]])
 {
     const int2 imageCoordinates = (int2) index;
 
+    float black_level = 4 * histogram_data.black_level / (float) (0xffff);
+
     // FIXME: Compute the black and white levels dynamically
-    float3 pixel_value = (read_imagef(linearImage, imageCoordinates).xyz - 0.1) / 0.9;
+    float3 pixel_value = (read_imagef(linearImage, imageCoordinates).xyz - black_level) / 0.9;
 
     // Exposure Bias
     pixel_value *= parameters.exposureBias != 0 ? powr(2.0, parameters.exposureBias) : 1;

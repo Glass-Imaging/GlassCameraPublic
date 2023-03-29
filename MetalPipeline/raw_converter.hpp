@@ -89,6 +89,8 @@ class RawConverter {
     gls::mtl_image_2d<gls::rgba_pixel_float>::unique_ptr _denoisedRgbaRawImage;
     gls::mtl_image_2d<gls::luma_pixel_16>::unique_ptr _blueNoise;
 
+    NS::SharedPtr<MTL::Buffer> _histogramBuffer;
+
     std::unique_ptr<PyramidProcessor<5>> _pyramidProcessor;
 
     std::unique_ptr<LocalToneMapping> _localToneMapping;
@@ -97,10 +99,21 @@ class RawConverter {
     gls::Matrix<3, 3> _xyz_rgb;
 
 public:
+    struct histogram_data {
+        std::array<uint32_t, 0x10000> histogram;
+        uint32_t black_level;
+        uint32_t white_level;
+    };
+
     RawConverter(NS::SharedPtr<MTL::Device> mtlDevice, const std::vector<uint8_t>* icc_profile_data = nullptr) :
         _mtlContext(mtlDevice),
         _rawImageSize(gls::size {0, 0}) {
             _localToneMapping = std::make_unique<LocalToneMapping>(&_mtlContext);
+
+            _histogramBuffer = NS::TransferPtr(mtlDevice->newBuffer(sizeof(histogram_data),
+                                                                    MTL::ResourceStorageModeShared));
+
+            assert(_histogramBuffer->length() == sizeof(histogram_data));
 
             if (icc_profile_data) {
                 _icc_profile_data = std::make_unique<std::vector<uint8_t>>(*icc_profile_data);
@@ -115,6 +128,16 @@ public:
 
     const gls::Matrix<3, 3>& xyz_rgb() const {
         return _xyz_rgb;
+    }
+
+    MTL::Buffer* histogramBuffer() {
+        return _histogramBuffer.get();
+    }
+
+    histogram_data* histogramData() {
+        auto buffer = histogramBuffer();
+        assert(buffer->length() == sizeof(histogram_data));
+        return (histogram_data*) buffer->contents();
     }
 
     void allocateTextures(const gls::size& imageSize);

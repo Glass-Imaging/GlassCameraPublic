@@ -93,7 +93,8 @@ void rawRGBAToBayer(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_
 
 void convertTosRGB(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_pixel_float>& linearImage,
                    const gls::mtl_image_2d<gls::luma_pixel_float>& ltmMaskImage,
-                   gls::mtl_image_2d<gls::rgba_pixel_float>* rgbImage, const DemosaicParameters& demosaicParameters);
+                   const DemosaicParameters& demosaicParameters, MTL::Buffer* histogramBuffer,
+                   gls::mtl_image_2d<gls::rgba_pixel_float>* rgbImage);
 
 void despeckleRawRGBAImage(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
                            const gls::Vector<4> rawVariance, gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage);
@@ -101,6 +102,11 @@ void despeckleRawRGBAImage(MetalContext* mtlContext, const gls::mtl_image_2d<gls
 void despeckleImage(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
                     const gls::Vector<3>& var_a, const gls::Vector<3>& var_b,
                     gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage);
+
+void histogramImage(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
+                    MTL::Buffer* histogramBuffer);
+
+void histogramStatistics(MetalContext* mtlContext, MTL::Buffer* histogramBuffer, const gls::size& imageDimensions);
 
 void localToneMappingMask(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
                           const std::array<const gls::mtl_image_2d<gls::rgba_pixel_float>*, 3>& guideImage,
