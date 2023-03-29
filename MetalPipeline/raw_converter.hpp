@@ -57,14 +57,14 @@ class LocalToneMapping {
 
     void createMask(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_pixel_float>& image,
                     const std::array<const gls::mtl_image_2d<gls::rgba_pixel_float>*, 3>& guideImage,
-                    const NoiseModel<5>& noiseModel, const DemosaicParameters& demosaicParameters) {
+                    const NoiseModel<5>& noiseModel, const LTMParameters& ltmParameters) {
         const std::array<const gls::mtl_image_2d<gls::luma_alpha_pixel_float>*, 3>& abImage = {
             lfAbGfImage.get(), mfAbGfImage.get(), hfAbGfImage.get()};
         const std::array<const gls::mtl_image_2d<gls::luma_alpha_pixel_float>*, 3>& abMeanImage = {
             lfAbGfMeanImage.get(), mfAbGfMeanImage.get(), hfAbGfMeanImage.get()};
 
         gls::Vector<2> nlf = {noiseModel.pyramidNlf[0].first[0], noiseModel.pyramidNlf[0].second[0]};
-        localToneMappingMask(mtlContext, image, guideImage, abImage, abMeanImage, demosaicParameters.ltmParameters,
+        localToneMappingMask(mtlContext, image, guideImage, abImage, abMeanImage, ltmParameters,
                              nlf, ltmMaskImage.get());
     }
 

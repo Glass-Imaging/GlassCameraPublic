@@ -16,6 +16,11 @@
 #include <metal_stdlib>
 using namespace metal;
 
+//#define half float
+//#define half2 float2
+//#define half3 float3
+//#define half4 float4
+
 enum BayerPattern {
     grbg = 0,
     gbrg = 1,
@@ -89,7 +94,7 @@ kernel void scaleRawData(texture2d<half> rawImage                       [[textur
     for (int c = 0; c < 4; c++) {
         int2 o = bayerOffsets[bayerPattern][c];
         write_imageh(scaledRawImage, imageCoordinates + o,
-                     max(lens_shading * scaleMul[c] * (read_imageh(rawImage, imageCoordinates + o).x - blackLevel) * 0.9h + 0.1h, 0.0h));
+                     max(lens_shading * scaleMul[c] * (read_imageh(rawImage, imageCoordinates + o).x - blackLevel) * 0.9 + 0.1, 0.0));
     }
 }
 
@@ -628,8 +633,9 @@ kernel void denoiseImage(texture2d<half> inputImage                     [[textur
 
     const int size = gradientBoost > 0 ? 4 : 2;
 
-    half3 filtered_pixel = 0;
-    half3 kernel_norm = 0;
+    // Use high precision accumulator
+    float3 filtered_pixel = 0;
+    float3 kernel_norm = 0;
     for (int y = -size; y <= size; y++) {
         for (int x = -size; x <= size; x++) {
             half3 inputSampleYCC = read_imageh(inputImage, imageCoordinates + (int2){x, y}).xyz;
@@ -646,11 +652,11 @@ kernel void denoiseImage(texture2d<half> inputImage                     [[textur
 
             half3 sampleWeight = (half3) {directionWeight * gradientWeight * lumaWeight, chromaWeight, chromaWeight};
 
-            filtered_pixel += sampleWeight * inputSampleYCC;
-            kernel_norm += sampleWeight;
+            filtered_pixel += float3(sampleWeight * inputSampleYCC);
+            kernel_norm += float3(sampleWeight);
         }
     }
-    half3 denoisedPixel = filtered_pixel / kernel_norm;
+    half3 denoisedPixel = half3(filtered_pixel / kernel_norm);
 
     write_imageh(denoisedImage, imageCoordinates, half4(denoisedPixel, magnitude));
 }

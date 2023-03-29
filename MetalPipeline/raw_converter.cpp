@@ -64,11 +64,17 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::denoise(const gls::mtl_i
         &_mtlContext, &(demosaicParameters->denoiseParameters), *_linearRGBImageB, *_rawGradientImage,
         &(noiseModel->pyramidNlf), demosaicParameters->exposure_multiplier, calibrateFromImage);
 
+        histogramImage(&_mtlContext, *denoisedImage, _histogramBuffer.get());
+
+        histogramStatistics(&_mtlContext, _histogramBuffer.get(), denoisedImage->size());
+
         if (demosaicParameters->rgbConversionParameters.localToneMapping) {
             const std::array<const gls::mtl_image_2d<gls::rgba_pixel_float>*, 3>& guideImage = {
-                _pyramidProcessor->denoisedImagePyramid[4].get(), _pyramidProcessor->denoisedImagePyramid[2].get(),
-                _pyramidProcessor->denoisedImagePyramid[0].get()};
-            _localToneMapping->createMask(&_mtlContext, *denoisedImage, guideImage, *noiseModel, *demosaicParameters);
+                _pyramidProcessor->denoisedImagePyramid[4].get(),
+                _pyramidProcessor->denoisedImagePyramid[2].get(),
+                _pyramidProcessor->denoisedImagePyramid[0].get()
+            };
+            _localToneMapping->createMask(&_mtlContext, *denoisedImage, guideImage, *noiseModel, demosaicParameters->ltmParameters);
         }
 
 //        // High ISO noise texture replacement
@@ -144,10 +150,6 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
     transformImage(&_mtlContext, *_linearRGBImageA, _linearRGBImageA.get(), cam_to_ycbcr);
 
     const auto _denoisedImage = denoise(*_linearRGBImageA, demosaicParameters, /*calibrateFromImage*/ false);
-
-    histogramImage(&_mtlContext, *_denoisedImage, _histogramBuffer.get());
-
-    histogramStatistics(&_mtlContext, _histogramBuffer.get(), _denoisedImage->size());
 
     // Convert result back to camera RGB
     const auto normalized_ycbcr_to_cam = inverse(cam_to_ycbcr) * demosaicParameters->exposure_multiplier;

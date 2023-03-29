@@ -18,6 +18,11 @@
 
 #include <simd/simd.h>
 
+//#define half float
+//#define half2 float2
+//#define half3 float3
+//#define half4 float4
+
 typedef __fp16 float16_t;
 typedef __fp16 half;
 
