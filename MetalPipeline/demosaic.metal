@@ -456,11 +456,16 @@ kernel void interpolateRedBlueAtGreen(texture2d<float> rgbImageIn               
 {
     const int2 imageCoordinates = 2 * (int2) index;
 
+    const int2 r = bayerOffsets[bayerPattern][raw_red];
     const int2 g = bayerOffsets[bayerPattern][raw_green];
     const int2 g2 = bayerOffsets[bayerPattern][raw_green2];
+    const int2 b = bayerOffsets[bayerPattern][raw_blue];
 
     interpolateRedBlueAtGreenPixel(rgbImageIn, gradientImage, rgbImageOut, redVariance, blueVariance, imageCoordinates + g);
     interpolateRedBlueAtGreenPixel(rgbImageIn, gradientImage, rgbImageOut, redVariance, blueVariance, imageCoordinates + g2);
+
+    write_imagef(rgbImageOut, imageCoordinates + r, read_imagef(rgbImageIn, imageCoordinates + r));
+    write_imagef(rgbImageOut, imageCoordinates + b, read_imagef(rgbImageIn, imageCoordinates + b));
 }
 
 #define M_SQRT3_F 1.7320508f

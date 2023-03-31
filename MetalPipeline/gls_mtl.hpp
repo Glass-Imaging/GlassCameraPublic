@@ -140,17 +140,16 @@ extern std::unique_ptr<std::map<const std::string,
 
 template <typename... Ts>
 class Kernel {
-    MTL::ComputeCommandEncoder* _encoder;
     NS::SharedPtr<MTL::ComputePipelineState> _pipelineState;
 
     template <int index, typename T0, typename... T1s>
-    void setArgs(MTL::ComputeCommandEncoder* encoder, T0&& t0, T1s&&... t1s) {
+    void setArgs(MTL::ComputeCommandEncoder* encoder, T0&& t0, T1s&&... t1s) const {
         setParameter(encoder, t0, index);
         setArgs<index + 1, T1s...>(encoder, std::forward<T1s>(t1s)...);
     }
 
     template <int index, typename T0>
-    void setArgs(MTL::ComputeCommandEncoder* encoder, T0&& t0) {
+    void setArgs(MTL::ComputeCommandEncoder* encoder, T0&& t0) const {
         setParameter(encoder, t0, index);
     }
 
@@ -196,14 +195,14 @@ public:
         encoder->dispatchThreads(gridSize, threadgroupSize);
     }
 
-    void operator()(MTL::ComputeCommandEncoder* encoder, const MTL::Size& gridSize, Ts... ts) {
+    void operator()(MTL::ComputeCommandEncoder* encoder, const MTL::Size& gridSize, Ts... ts) const {
         assert(encoder);
         encoder->setComputePipelineState(_pipelineState.get());
         setArgs<0>(encoder, std::forward<Ts>(ts)...);
         dispatchThreads(gridSize, encoder);
     }
 
-    void operator()(MTL::CommandBuffer* commandBuffer, const MTL::Size& gridSize, Ts... ts) {
+    void operator()(MTL::CommandBuffer* commandBuffer, const MTL::Size& gridSize, Ts... ts) const {
         auto encoder = commandBuffer->computeCommandEncoder();
         if (encoder) {
             operator()(encoder, gridSize, std::forward<Ts>(ts)...);
@@ -211,7 +210,7 @@ public:
         }
     }
 
-    void operator()(MetalContext* metalContext, const MTL::Size& gridSize, Ts... ts) {
+    void operator()(MetalContext* metalContext, const MTL::Size& gridSize, Ts... ts) const {
         metalContext->scheduleOnCommandBuffer([&, this](MTL::CommandBuffer* commandBuffer){
             operator()(commandBuffer, gridSize, std::forward<Ts>(ts)...);
         });

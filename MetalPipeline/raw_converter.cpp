@@ -50,23 +50,25 @@ void RawConverter::allocateHighNoiseTextures(const gls::size& imageSize) {
     }
 }
 
-gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::denoise(const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
+template <class Context>
+gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::denoise(Context* executionContext, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
                                                                 DemosaicParameters* demosaicParameters, bool calibrateFromImage) {
     NoiseModel<5>* noiseModel = &demosaicParameters->noiseModel;
 
     // Luma and Chroma Despeckling
     const auto& np = noiseModel->pyramidNlf[0];
-    despeckleImage(&_mtlContext, inputImage,
-                   /*var_a=*/np.first,
-                   /*var_b=*/np.second, _linearRGBImageB.get());
+    _despeckleImage(executionContext, inputImage,
+                    /*var_a=*/np.first,
+                    /*var_b=*/np.second, _linearRGBImageB.get());
 
-    gls::mtl_image_2d<gls::rgba_pixel_float>* denoisedImage = _pyramidProcessor->denoise(
-        &_mtlContext, &(demosaicParameters->denoiseParameters), *_linearRGBImageB, *_rawGradientImage,
-        &(noiseModel->pyramidNlf), demosaicParameters->exposure_multiplier, calibrateFromImage);
+    gls::mtl_image_2d<gls::rgba_pixel_float>* denoisedImage = _pyramidProcessor->denoise(executionContext, &(demosaicParameters->denoiseParameters),
+                                                                                         *_linearRGBImageB, *_rawGradientImage,
+                                                                                         &(noiseModel->pyramidNlf), demosaicParameters->exposure_multiplier,
+                                                                                         calibrateFromImage);
 
-        histogramImage(&_mtlContext, *denoisedImage, _histogramBuffer.get());
+        _histogramImage(executionContext, *denoisedImage, _histogramBuffer.get());
 
-        histogramStatistics(&_mtlContext, _histogramBuffer.get(), denoisedImage->size());
+        _histogramStatistics(executionContext, _histogramBuffer.get(), denoisedImage->size());
 
         if (demosaicParameters->rgbConversionParameters.localToneMapping) {
             const std::array<const gls::mtl_image_2d<gls::rgba_pixel_float>*, 3>& guideImage = {
@@ -74,7 +76,7 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::denoise(const gls::mtl_i
                 _pyramidProcessor->denoisedImagePyramid[2].get(),
                 _pyramidProcessor->denoisedImagePyramid[0].get()
             };
-            _localToneMapping->createMask(&_mtlContext, *denoisedImage, guideImage, *noiseModel, demosaicParameters->ltmParameters);
+            _localToneMapping->createMask(executionContext, *denoisedImage, guideImage, *noiseModel, demosaicParameters->ltmParameters);
         }
 
 //        // High ISO noise texture replacement
@@ -85,7 +87,7 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::denoise(const gls::mtl_i
 //
 //            const auto grainAmount = 1 + 3 * smoothstep(4e-4, 6e-4, lumaVariance[1]);
 //
-//            blueNoiseImage(&_mtlContext, *clDenoisedImage, *clBlueNoise, 2 * grainAmount * lumaVariance,
+//            blueNoiseImage(executionContext, *clDenoisedImage, *clBlueNoise, 2 * grainAmount * lumaVariance,
 //                           clLinearRGBImageB.get());
 //            clDenoisedImage = clLinearRGBImageB.get();
 //        }
@@ -108,105 +110,59 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
         _localToneMapping->allocateTextures(&_mtlContext, rawImage.width, rawImage.height);
     }
 
-    _rawImage->copyPixelsFrom(rawImage);
-
-    scaleRawData(&_mtlContext, *_rawImage, _scaledRawImage.get(),
-                 demosaicParameters->bayerPattern,
-                 demosaicParameters->scale_mul,
-                 demosaicParameters->black_level,
-                 demosaicParameters->lensShadingCorrection);
-
-    rawImageSobel(&_mtlContext, *_scaledRawImage, _rawSobelImage.get());
-
-    gaussianBlurSobelImage(&_mtlContext, *_scaledRawImage, *_rawSobelImage, rawVariance[1], 1.5, 4.5, _rawGradientImage.get());
-
     bool high_noise_image = true;
     if (high_noise_image) {
         allocateHighNoiseTextures(rawImage.size());
-
-        bayerToRawRGBA(&_mtlContext, *_scaledRawImage, _rgbaRawImage.get(), demosaicParameters->bayerPattern);
-
-        despeckleRawRGBAImage(&_mtlContext, *_rgbaRawImage, noiseModel->rawNlf.second, _denoisedRgbaRawImage.get());
-
-        rawRGBAToBayer(&_mtlContext, *_denoisedRgbaRawImage, _scaledRawImage.get(), demosaicParameters->bayerPattern);
     }
-
-    interpolateGreen(&_mtlContext, *_scaledRawImage, *_rawGradientImage, _greenImage.get(),
-                     demosaicParameters->bayerPattern, rawVariance[1]);
-
-    interpolateRedBlue(&_mtlContext, *_scaledRawImage, *_greenImage, *_rawGradientImage, _linearRGBImageA.get(),
-                       demosaicParameters->bayerPattern, rawVariance[0], rawVariance[2]);
-
-    interpolateRedBlueAtGreen(&_mtlContext, *_linearRGBImageA, *_rawGradientImage, _linearRGBImageA.get(),
-                              demosaicParameters->bayerPattern, rawVariance[0], rawVariance[2]);
-
-    blendHighlightsImage(&_mtlContext, *_linearRGBImageA, /*clip=*/1.0, _linearRGBImageA.get());
-
-    // --- Image Denoising ---
 
     // Convert linear image to YCbCr for denoising
     const auto cam_to_ycbcr = cam_ycbcr(demosaicParameters->rgb_cam, xyz_rgb());
 
-    transformImage(&_mtlContext, *_linearRGBImageA, _linearRGBImageA.get(), cam_to_ycbcr);
-
-    const auto _denoisedImage = denoise(*_linearRGBImageA, demosaicParameters, /*calibrateFromImage*/ false);
-
     // Convert result back to camera RGB
     const auto normalized_ycbcr_to_cam = inverse(cam_to_ycbcr) * demosaicParameters->exposure_multiplier;
-    transformImage(&_mtlContext, *_denoisedImage, _linearRGBImageA.get(), normalized_ycbcr_to_cam);
 
-    convertTosRGB(&_mtlContext, *_linearRGBImageA, _localToneMapping->getMask(), *demosaicParameters,
-                  _histogramBuffer.get(), _linearRGBImageA.get());
+    _rawImage->copyPixelsFrom(rawImage);
+
+    gls::mtl_image_2d<gls::rgba_pixel_float>* denoisedImage = nullptr;
+
+    auto executionContext = &_mtlContext;
+
+    _scaleRawData(executionContext, *_rawImage, _scaledRawImage.get(),
+                  demosaicParameters->bayerPattern,
+                  demosaicParameters->scale_mul,
+                  demosaicParameters->black_level,
+                  demosaicParameters->lensShadingCorrection);
+
+    _rawImageSobel(executionContext, *_scaledRawImage, _rawSobelImage.get());
+    _gaussianBlurSobelImage(executionContext, *_scaledRawImage, *_rawSobelImage, rawVariance[1], _rawGradientImage.get());
+
+    if (high_noise_image) {
+        _bayerToRawRGBA(executionContext, *_scaledRawImage, _rgbaRawImage.get(), demosaicParameters->bayerPattern);
+        _despeckleRawRGBAImage(executionContext, *_rgbaRawImage, noiseModel->rawNlf.second, _denoisedRgbaRawImage.get());
+        _rawRGBAToBayer(executionContext, *_denoisedRgbaRawImage, _scaledRawImage.get(), demosaicParameters->bayerPattern);
+    }
+
+    _demosaicImage(executionContext, *_scaledRawImage, *_rawGradientImage,
+                   _greenImage.get(), /*rgbImageTmp=*/ _linearRGBImageB.get(), _linearRGBImageA.get(),
+                   demosaicParameters->bayerPattern, rawVariance);
+
+    _blendHighlightsImage(executionContext, *_linearRGBImageA, /*clip=*/1.0, _linearRGBImageA.get());
+
+    // --- Image Denoising ---
+
+    // Convert to YCbCr
+    _transformImage(executionContext, *_linearRGBImageA, _linearRGBImageA.get(), cam_to_ycbcr);
+
+    denoisedImage = denoise(executionContext, *_linearRGBImageA, demosaicParameters, /*calibrateFromImage=*/ false);
+
+    // Convert to RGB
+    _transformImage(executionContext, *denoisedImage, _linearRGBImageA.get(), normalized_ycbcr_to_cam);
+
+    _convertTosRGB(executionContext, *_linearRGBImageA, _localToneMapping->getMask(), *demosaicParameters,
+                   _histogramBuffer.get(), _linearRGBImageA.get());
+
 
     _mtlContext.waitForCompletion();
 
     return _linearRGBImageA.get();
 }
-
-// Alternative ways to run the Metal pipeline
-
-//        auto kernel = Kernel<MTL::Texture*,     // rawImage
-//                             MTL::Texture*,     // scaledRawImage
-//                             int,               // bayerPattern
-//                             simd::float4,      // scaleMul
-//                             float              // blackLevel
-//                             >(&mtlContext, "scaleRawData");
-
-//        const auto scaleMul = demosaicParameters->scale_mul;
-
-//        kernel(&mtlContext, /*gridSize=*/ { (unsigned) scaledRawImage.width / 2, (unsigned) scaledRawImage.height / 2, 1 },
-//               rawImage->texture(), scaledRawImage.texture(), demosaicParameters->bayerPattern,
-//               simd::float4 { scaleMul[0], scaleMul[1], scaleMul[2], scaleMul[3] },
-//               demosaicParameters->black_level / 0xffff);
-
-//        mtlContext.scheduleOnCommandBuffer([&] (MTL::CommandBuffer* commandBuffer) {
-//            for (int channel = 0; channel < 3; channel++) {
-//                mtlContext.wait(commandBuffer);
-//
-//                kernel(commandBuffer, /*gridSize=*/ { (unsigned) scaledRawImage.width / 2, (unsigned) scaledRawImage.height / 2, 1 },
-//                       rawImage->texture(), scaledRawImage.texture(), demosaicParameters->bayerPattern,
-//                       simd::float4 { scaleMul[0], scaleMul[1], scaleMul[2], scaleMul[3] },
-//                       demosaicParameters->black_level / 0xffff);
-//
-//                mtlContext.signal(commandBuffer);
-//            }
-//        }, [&] (MTL::CommandBuffer* commandBuffer) {
-//            if (commandBuffer->status() == MTL::CommandBufferStatusCompleted) {
-//                const auto start = commandBuffer->GPUStartTime();
-//                const auto end = commandBuffer->GPUEndTime();
-//
-//                std::cout << "Metal execution done, execution time: " << end - start << std::endl;
-//
-//                const auto scaledRawImageCpu = scaledRawImage.mapImage();
-//
-//                gls::image<gls::luma_pixel> saveImage(scaledRawImageCpu->width, scaledRawImageCpu->height);
-//
-//                saveImage.apply([&](gls::luma_pixel* p, int x, int y) {
-//                    p->luma = 255 * (*scaledRawImageCpu)[y][x].luma;
-//                });
-//
-//                saveImage.write_png_file("/Users/fabio/scaled.png");
-//            } else {
-//                std::cout << "Something wrong with Metal execution: " << commandBuffer->status() << std::endl;
-//            }
-//        });

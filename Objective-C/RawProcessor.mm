@@ -11,7 +11,6 @@
 
 #include <simd/simd.h>
 
-#include "demosaic_mtl.hpp"
 #include "gls_tiff_metadata.hpp"
 #include "raw_converter.hpp"
 

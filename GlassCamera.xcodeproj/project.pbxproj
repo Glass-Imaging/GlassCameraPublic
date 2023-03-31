@@ -30,8 +30,6 @@
 		E5C6986D29C926F100F7062C /* Sonya6400Calibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C6986C29C926F100F7062C /* Sonya6400Calibration.cpp */; };
 		E5C6986E29C926F100F7062C /* Sonya6400Calibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C6986C29C926F100F7062C /* Sonya6400Calibration.cpp */; };
 		E5C6986F29C92E9600F7062C /* demosaic.metal in Sources */ = {isa = PBXBuildFile; fileRef = E5C6984529C805B500F7062C /* demosaic.metal */; };
-		E5C6987229C96F8B00F7062C /* demosaic_mtl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C6987029C96F8B00F7062C /* demosaic_mtl.cpp */; };
-		E5C6987329C96F8B00F7062C /* demosaic_mtl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C6987029C96F8B00F7062C /* demosaic_mtl.cpp */; };
 		E5C6987F29CBAD8300F7062C /* RawProcessor.mm in Sources */ = {isa = PBXBuildFile; fileRef = E5C6987E29CBAD8300F7062C /* RawProcessor.mm */; };
 		E5D4D88D27D1798D00F1D944 /* GlassCameraApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5D4D88C27D1798D00F1D944 /* GlassCameraApp.swift */; };
 		E5D4D88F27D1798D00F1D944 /* CameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5D4D88E27D1798D00F1D944 /* CameraView.swift */; };
@@ -91,6 +89,7 @@
 		E522296F29D02EEA00D13A4F /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.3.sdk/System/Library/Frameworks/CoreGraphics.framework; sourceTree = DEVELOPER_DIR; };
 		E57CA85929D04DFD006F5D3F /* float16.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = float16.hpp; sourceTree = "<group>"; };
 		E57CA85A29D3D472006F5D3F /* sciplot */ = {isa = PBXFileReference; lastKnownFileType = folder; path = sciplot; sourceTree = "<group>"; };
+		E59FB6A129D5FB1C008FD7AA /* demosaic_kernels.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = demosaic_kernels.hpp; sourceTree = "<group>"; };
 		E5C5BF4229BA833F00AAB593 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		E5C5BFA629BC5E4B00AAB593 /* GlassCamera-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "GlassCamera-Bridging-Header.h"; sourceTree = "<group>"; };
 		E5C5BFF229BD36B600AAB593 /* gls_color_science.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = gls_color_science.cpp; path = GlassImage/src/gls_color_science.cpp; sourceTree = "<group>"; };
@@ -125,8 +124,6 @@
 		E5C6986829C926CD00F7062C /* ThreadPool.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = ThreadPool.hpp; sourceTree = "<group>"; };
 		E5C6986929C926CD00F7062C /* ThreadPool.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ThreadPool.cpp; sourceTree = "<group>"; };
 		E5C6986C29C926F100F7062C /* Sonya6400Calibration.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Sonya6400Calibration.cpp; sourceTree = "<group>"; };
-		E5C6987029C96F8B00F7062C /* demosaic_mtl.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = demosaic_mtl.cpp; sourceTree = "<group>"; };
-		E5C6987129C96F8B00F7062C /* demosaic_mtl.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = demosaic_mtl.hpp; sourceTree = "<group>"; };
 		E5C6987D29CBAD8300F7062C /* RawProcessor.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RawProcessor.h; sourceTree = "<group>"; };
 		E5C6987E29CBAD8300F7062C /* RawProcessor.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = RawProcessor.mm; sourceTree = "<group>"; };
 		E5D4D88927D1798D00F1D944 /* GlassCamera.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GlassCamera.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -264,8 +261,7 @@
 				E5FAE7AB29C50D2C00213AE6 /* gls_mtl.cpp */,
 				E5FAE7AC29C50D2C00213AE6 /* gls_mtl.hpp */,
 				E5C6984529C805B500F7062C /* demosaic.metal */,
-				E5C6987029C96F8B00F7062C /* demosaic_mtl.cpp */,
-				E5C6987129C96F8B00F7062C /* demosaic_mtl.hpp */,
+				E59FB6A129D5FB1C008FD7AA /* demosaic_kernels.hpp */,
 				E5C6985E29C91EF600F7062C /* demosaic.hpp */,
 				E5C6986529C9269400F7062C /* demosaic_utils.cpp */,
 				E522296629CD646600D13A4F /* pyramid_processor.cpp */,
@@ -438,7 +434,6 @@
 				E5C5BFFC29BD36B600AAB593 /* gls_image_jpeg.cpp in Sources */,
 				E522296D29D026DA00D13A4F /* iPhoneCalibration.cpp in Sources */,
 				E5C6986A29C926CD00F7062C /* ThreadPool.cpp in Sources */,
-				E5C6987229C96F8B00F7062C /* demosaic_mtl.cpp in Sources */,
 				E5C6986329C925A600F7062C /* CameraCalibration.cpp in Sources */,
 				E522296829CD646600D13A4F /* pyramid_processor.cpp in Sources */,
 				E5D4D8A027D183D800F1D944 /* CameraPreview.swift in Sources */,
@@ -481,7 +476,6 @@
 				E522296929CD646600D13A4F /* pyramid_processor.cpp in Sources */,
 				E5FAE7F029C5425300213AE6 /* gls_image_jpeg.cpp in Sources */,
 				E5FAE7F129C5425300213AE6 /* gls_image_png.cpp in Sources */,
-				E5C6987329C96F8B00F7062C /* demosaic_mtl.cpp in Sources */,
 				E5C6984E29C906FC00F7062C /* raw_converter.cpp in Sources */,
 				E5FAE7F229C5425300213AE6 /* gls_image_tiff.cpp in Sources */,
 				E5FAE7F329C5425300213AE6 /* gls_logging.cpp in Sources */,

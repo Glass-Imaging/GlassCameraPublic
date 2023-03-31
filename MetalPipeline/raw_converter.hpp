@@ -19,8 +19,8 @@
 #include "gls_mtl_image.hpp"
 #include "gls_mtl.hpp"
 
-#include "demosaic_mtl.hpp"
 #include "pyramid_processor.hpp"
+#include "demosaic_kernels.hpp"
 
 class LocalToneMapping {
     gls::mtl_image_2d<gls::luma_pixel_float>::unique_ptr ltmMaskImage;
@@ -31,8 +31,11 @@ class LocalToneMapping {
     gls::mtl_image_2d<gls::luma_alpha_pixel_float>::unique_ptr hfAbGfImage;
     gls::mtl_image_2d<gls::luma_alpha_pixel_float>::unique_ptr hfAbGfMeanImage;
 
+    localToneMappingMaskKernel _localToneMappingMask;
+
    public:
-    LocalToneMapping(MetalContext* mtlContext) {
+    LocalToneMapping(MetalContext* mtlContext) :
+        _localToneMappingMask(mtlContext) {
         // Placeholder, only allocated if LTM is used
         ltmMaskImage = std::make_unique<gls::mtl_image_2d<gls::luma_pixel_float>>(mtlContext->device(), 1, 1);
     }
@@ -55,7 +58,8 @@ class LocalToneMapping {
         }
     }
 
-    void createMask(MetalContext* mtlContext, const gls::mtl_image_2d<gls::rgba_pixel_float>& image,
+    template <class Context>
+    void createMask(Context* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& image,
                     const std::array<const gls::mtl_image_2d<gls::rgba_pixel_float>*, 3>& guideImage,
                     const NoiseModel<5>& noiseModel, const LTMParameters& ltmParameters) {
         const std::array<const gls::mtl_image_2d<gls::luma_alpha_pixel_float>*, 3>& abImage = {
@@ -64,8 +68,9 @@ class LocalToneMapping {
             lfAbGfMeanImage.get(), mfAbGfMeanImage.get(), hfAbGfMeanImage.get()};
 
         gls::Vector<2> nlf = {noiseModel.pyramidNlf[0].first[0], noiseModel.pyramidNlf[0].second[0]};
-        localToneMappingMask(mtlContext, image, guideImage, abImage, abMeanImage, ltmParameters,
-                             nlf, ltmMaskImage.get());
+
+        _localToneMappingMask(context, image, guideImage, abImage, abMeanImage, ltmParameters,
+                              nlf, ltmMaskImage.get());
     }
 
     const gls::mtl_image_2d<gls::luma_pixel_float>& getMask() { return *ltmMaskImage; }
@@ -98,6 +103,21 @@ class RawConverter {
     std::unique_ptr<std::vector<uint8_t>> _icc_profile_data;
     gls::Matrix<3, 3> _xyz_rgb;
 
+    // Kernels
+    scaleRawDataKernel _scaleRawData;
+    rawImageSobelKernel _rawImageSobel;
+    gaussianBlurSobelImageKernel _gaussianBlurSobelImage;
+    demosaicImageKernel _demosaicImage;
+    bayerToRawRGBAKernel _bayerToRawRGBA;
+    rawRGBAToBayerKernel _rawRGBAToBayer;
+    despeckleRawRGBAImageKernel _despeckleRawRGBAImage;
+    blendHighlightsImageKernel _blendHighlightsImage;
+    transformImageKernel _transformImage;
+    convertTosRGBKernel _convertTosRGB;
+    despeckleImageKernel _despeckleImage;
+    histogramImageKernel _histogramImage;
+    histogramStatisticsKernel _histogramStatistics;
+
 public:
     struct histogram_data {
         std::array<uint32_t, 0x10000> histogram;
@@ -107,20 +127,34 @@ public:
 
     RawConverter(NS::SharedPtr<MTL::Device> mtlDevice, const std::vector<uint8_t>* icc_profile_data = nullptr) :
         _mtlContext(mtlDevice),
-        _rawImageSize(gls::size {0, 0}) {
-            _localToneMapping = std::make_unique<LocalToneMapping>(&_mtlContext);
+        _rawImageSize(gls::size {0, 0}),
+        _scaleRawData(&_mtlContext),
+        _rawImageSobel(&_mtlContext),
+        _gaussianBlurSobelImage(&_mtlContext, 1.5f, 4.5f),
+        _demosaicImage(&_mtlContext),
+        _bayerToRawRGBA(&_mtlContext),
+        _rawRGBAToBayer(&_mtlContext),
+        _despeckleRawRGBAImage(&_mtlContext),
+        _blendHighlightsImage(&_mtlContext),
+        _transformImage(&_mtlContext),
+        _convertTosRGB(&_mtlContext),
+        _despeckleImage(&_mtlContext),
+        _histogramImage(&_mtlContext),
+        _histogramStatistics(&_mtlContext)
+    {
+        _localToneMapping = std::make_unique<LocalToneMapping>(&_mtlContext);
 
-            _histogramBuffer = NS::TransferPtr(mtlDevice->newBuffer(sizeof(histogram_data),
-                                                                    MTL::ResourceStorageModeShared));
+        _histogramBuffer = NS::TransferPtr(mtlDevice->newBuffer(sizeof(histogram_data),
+                                                                MTL::ResourceStorageModeShared));
 
-            assert(_histogramBuffer->length() == sizeof(histogram_data));
+        assert(_histogramBuffer->length() == sizeof(histogram_data));
 
-            if (icc_profile_data) {
-                _icc_profile_data = std::make_unique<std::vector<uint8_t>>(*icc_profile_data);
+        if (icc_profile_data) {
+            _icc_profile_data = std::make_unique<std::vector<uint8_t>>(*icc_profile_data);
 
-                _xyz_rgb = icc_profile_xyz_matrix(*_icc_profile_data);
-            }
+            _xyz_rgb = icc_profile_xyz_matrix(*_icc_profile_data);
         }
+    }
 
     const std::vector<uint8_t>* icc_profile_data() const {
         return _icc_profile_data.get();
@@ -144,7 +178,8 @@ public:
 
     void allocateHighNoiseTextures(const gls::size& imageSize);
 
-    gls::mtl_image_2d<gls::rgba_pixel_float>* denoise(const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
+    template <class Context>
+    gls::mtl_image_2d<gls::rgba_pixel_float>* denoise(Context* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
                                                       DemosaicParameters* demosaicParameters, bool calibrateFromImage);
 
     gls::mtl_image_2d<gls::rgba_pixel_float>* demosaic(const gls::image<gls::luma_pixel_16>& rawImage,

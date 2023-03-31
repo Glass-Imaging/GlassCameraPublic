@@ -174,18 +174,37 @@ public:
     }
 };
 
-template< typename IteratorType >
-NS::SharedPtr<MTL::Buffer> Buffer(MTL::Device* device,
-                                  IteratorType startIterator,
-                                  IteratorType endIterator,
-                                  MTL::ResourceOptions resourceOptions = MTL::ResourceStorageModeShared) {
-    assert(device != nullptr);
-    typedef typename std::iterator_traits<IteratorType>::value_type value_type;
-    size_t size = sizeof(value_type) * (endIterator - startIterator);
-    auto buffer = NS::TransferPtr(device->newBuffer(size, resourceOptions));
-    std::copy(startIterator, endIterator, (value_type *) buffer->contents());
-    return buffer;
-}
+template <typename T>
+class Buffer {
+    const NS::SharedPtr<MTL::Buffer> _buffer;
+
+public:
+    Buffer(MTL::Device* device, const std::vector<T> vec) :
+    _buffer(NS::TransferPtr(device->newBuffer(sizeof(T) * vec.size(), MTL::ResourceStorageModeShared)))
+    {
+        std::copy(vec.begin(), vec.end(), this->data());
+    }
+
+    template< typename IteratorType >
+    Buffer(MTL::Device* device, IteratorType startIterator, IteratorType endIterator) :
+    _buffer(NS::TransferPtr(device->newBuffer(sizeof(T) * (endIterator - startIterator),
+                                              MTL::ResourceStorageModeShared)))
+    {
+        std::copy(startIterator, endIterator, (T*) _buffer->contents());
+    }
+
+    size_t size() const {
+        return _buffer->length() / sizeof(T);
+    }
+
+    T* data() const {
+        return (T*) _buffer->contents();
+    }
+
+    MTL::Buffer* buffer() const {
+        return _buffer.get();
+    }
+};
 
 }  // namespace gls
 

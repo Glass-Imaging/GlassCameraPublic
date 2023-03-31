@@ -986,3 +986,24 @@ void KernelOptimizeBilinear2d(int width, const std::vector<float>& weightsIn,
     const int k = (row / 2) * outWidth + (col / 2);
     (*weightsOut)[k] = {weightsIn[(row * width) + col], width / 2.0f, width / 2.0f};
 }
+
+std::vector<std::array<float, 3>> gaussianKernelBilinearWeights(float radius) {
+    int kernelSize = (int)(ceil(2 * radius));
+    if ((kernelSize % 2) == 0) {
+        kernelSize++;
+    }
+
+    std::vector<float> weights(kernelSize * kernelSize);
+    for (int y = -kernelSize / 2, i = 0; y <= kernelSize / 2; y++) {
+        for (int x = -kernelSize / 2; x <= kernelSize / 2; x++, i++) {
+            weights[i] = exp(-((float)(x * x + y * y) / (2 * radius * radius)));
+        }
+    }
+
+    const int outWidth = kernelSize / 2 + 1;
+    const int weightsCount = outWidth * outWidth;
+    std::vector<std::array<float, 3>> weightsOut(weightsCount);
+    KernelOptimizeBilinear2d(kernelSize, weights, &weightsOut);
+
+    return weightsOut;
+}

@@ -172,6 +172,15 @@ inline static float smoothstep(float edge0, float edge1, float x) {
     return t * t * (3.0f - 2.0f * t);
 }
 
+static inline std::array<gls::Vector<2>, 3> getRawVariance(const RawNLF& rawNLF) {
+    const gls::Vector<2> greenVariance = {(rawNLF.first[1] + rawNLF.first[3]) / 2,
+                                          (rawNLF.second[1] + rawNLF.second[3]) / 2};
+    const gls::Vector<2> redVariance = {rawNLF.first[0], rawNLF.second[0]};
+    const gls::Vector<2> blueVariance = {rawNLF.first[2], rawNLF.second[2]};
+
+    return {redVariance, greenVariance, blueVariance};
+}
+
 void interpolateGreen(const gls::image<gls::luma_pixel_16>& rawImage, gls::image<gls::rgb_pixel_16>* rgbImage,
                       BayerPattern bayerPattern);
 
@@ -262,6 +271,8 @@ gls::Vector<3> autoWhiteBalance(const gls::image<gls::luma_pixel_16>& rawImage, 
 
 void KernelOptimizeBilinear2d(int width, const std::vector<float>& weightsIn,
                               std::vector<std::array<float, 3>>* weightsOut);
+
+std::vector<std::array<float, 3>> gaussianKernelBilinearWeights(float radius);
 
 RawNLF estimateRawParameters(const gls::image<gls::luma_pixel_16>& rawImage, gls::Matrix<3, 3>* cam_xyz,
                              gls::Vector<3>* pre_mul, float black_level, float white_level, BayerPattern bayerPattern,

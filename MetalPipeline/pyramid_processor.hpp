@@ -17,12 +17,17 @@
 #define pyramid_processor_hpp
 
 #include "demosaic.hpp"
-#include "demosaic_mtl.hpp"
+#include "demosaic_kernels.hpp"
 
 template <size_t levels>
 struct PyramidProcessor {
     const int width, height;
     int fusedFrames;
+
+    denoiseImageKernel _denoiseImage;
+    subtractNoiseImageKernel _subtractNoiseImage;
+    resampleImageKernel _resampleImage;
+    resampleImageKernel _resampleGradientImage;
 
     typedef gls::mtl_image_2d<gls::rgba_pixel_float> imageType;
     std::array<imageType::unique_ptr, levels - 1> imagePyramid;
@@ -38,7 +43,8 @@ struct PyramidProcessor {
 
     PyramidProcessor(MetalContext* mtlContext, int width, int height);
 
-    imageType* denoise(MetalContext* mtlContext, std::array<DenoiseParameters, levels>* denoiseParameters,
+    template <class Context>
+    imageType* denoise(Context* context, std::array<DenoiseParameters, levels>* denoiseParameters,
                        const imageType& image, const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& gradientImage,
                        std::array<YCbCrNLF, levels>* nlfParameters, float exposure_multiplier,
                        bool calibrateFromImage = false);
