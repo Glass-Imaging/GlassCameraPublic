@@ -56,7 +56,9 @@ public:
                     break;
                 }
             }
-            commandBuffer->waitUntilCompleted();
+            if (commandBuffer) {
+                commandBuffer->waitUntilCompleted();
+            }
         };
     }
 
@@ -74,7 +76,7 @@ public:
         return pso;
     }
 
-    void scheduleOnCommandBuffer(std::function<void(MTL::CommandBuffer*)> task, std::function<void(MTL::CommandBuffer*)> completionHandler) {
+    void enqueue(std::function<void(MTL::CommandBuffer*)> task, std::function<void(MTL::CommandBuffer*)> completionHandler) {
         auto commandBuffer = _commandQueue->commandBuffer();
 
         // Add commandBuffer from work_in_progress
@@ -99,8 +101,23 @@ public:
         commandBuffer->commit();
     }
 
-    void scheduleOnCommandBuffer(std::function<void(MTL::CommandBuffer*)> task) {
-        scheduleOnCommandBuffer(task, [](MTL::CommandBuffer*) {});
+    void enqueue(std::function<void(MTL::CommandBuffer*)> task) {
+        enqueue(task, [](MTL::CommandBuffer*) {});
+    }
+
+    void enqueue(std::function<void(MTL::ComputeCommandEncoder*)> task, std::function<void(MTL::CommandBuffer*)> completionHandler) {
+        enqueue([&] (MTL::CommandBuffer *commandBuffer) {
+            auto encoder = commandBuffer->computeCommandEncoder();
+            if (encoder) {
+                task(encoder);
+
+                encoder->endEncoding();
+            }
+        }, completionHandler);
+    }
+
+    void enqueue(std::function<void(MTL::ComputeCommandEncoder*)> task) {
+        enqueue(task, [](MTL::CommandBuffer*) {});
     }
 };
 
@@ -205,7 +222,7 @@ public:
     }
 
     void operator()(MetalContext* metalContext, const MTL::Size& gridSize, Ts... ts) const {
-        metalContext->scheduleOnCommandBuffer([&, this](MTL::CommandBuffer* commandBuffer){
+        metalContext->enqueue([&, this](MTL::CommandBuffer* commandBuffer){
             operator()(commandBuffer, gridSize, std::forward<Ts>(ts)...);
         });
     }

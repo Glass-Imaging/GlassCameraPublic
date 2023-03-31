@@ -95,6 +95,8 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::denoise(Context* executi
     return denoisedImage;
 }
 
+//#define RUN_ON_SINGLE_COMMAND_BUFFER true
+
 gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::image<gls::luma_pixel_16>& rawImage,
                                                                  DemosaicParameters* demosaicParameters) {
     const NoiseModel<5>* noiseModel = &demosaicParameters->noiseModel;
@@ -125,43 +127,52 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
 
     gls::mtl_image_2d<gls::rgba_pixel_float>* denoisedImage = nullptr;
 
+#ifndef RUN_ON_SINGLE_COMMAND_BUFFER
     auto executionContext = &_mtlContext;
+#else
+    _mtlContext.enqueue([&] (MTL::ComputeCommandEncoder* encoder) {
+        auto executionContext = encoder;
+#endif
+        // --- Image Demosaicing ---
 
-    _scaleRawData(executionContext, *_rawImage, _scaledRawImage.get(),
-                  demosaicParameters->bayerPattern,
-                  demosaicParameters->scale_mul,
-                  demosaicParameters->black_level,
-                  demosaicParameters->lensShadingCorrection);
+        _scaleRawData(executionContext, *_rawImage, _scaledRawImage.get(),
+                      demosaicParameters->bayerPattern,
+                      demosaicParameters->scale_mul,
+                      demosaicParameters->black_level,
+                      demosaicParameters->lensShadingCorrection);
 
-    _rawImageSobel(executionContext, *_scaledRawImage, _rawSobelImage.get());
-    _gaussianBlurSobelImage(executionContext, *_scaledRawImage, *_rawSobelImage, rawVariance[1], _rawGradientImage.get());
+        _rawImageSobel(executionContext, *_scaledRawImage, _rawSobelImage.get());
+        _gaussianBlurSobelImage(executionContext, *_scaledRawImage, *_rawSobelImage, rawVariance[1], _rawGradientImage.get());
 
-    if (high_noise_image) {
-        _bayerToRawRGBA(executionContext, *_scaledRawImage, _rgbaRawImage.get(), demosaicParameters->bayerPattern);
-        _despeckleRawRGBAImage(executionContext, *_rgbaRawImage, noiseModel->rawNlf.second, _denoisedRgbaRawImage.get());
-        _rawRGBAToBayer(executionContext, *_denoisedRgbaRawImage, _scaledRawImage.get(), demosaicParameters->bayerPattern);
-    }
+        if (high_noise_image) {
+            _bayerToRawRGBA(executionContext, *_scaledRawImage, _rgbaRawImage.get(), demosaicParameters->bayerPattern);
+            _despeckleRawRGBAImage(executionContext, *_rgbaRawImage, noiseModel->rawNlf.second, _denoisedRgbaRawImage.get());
+            _rawRGBAToBayer(executionContext, *_denoisedRgbaRawImage, _scaledRawImage.get(), demosaicParameters->bayerPattern);
+        }
 
-    _demosaicImage(executionContext, *_scaledRawImage, *_rawGradientImage,
-                   _greenImage.get(), /*rgbImageTmp=*/ _linearRGBImageB.get(), _linearRGBImageA.get(),
-                   demosaicParameters->bayerPattern, rawVariance);
+        _demosaicImage(executionContext, *_scaledRawImage, *_rawGradientImage,
+                       _greenImage.get(), /*rgbImageTmp=*/ _linearRGBImageB.get(), _linearRGBImageA.get(),
+                       demosaicParameters->bayerPattern, rawVariance);
 
-    _blendHighlightsImage(executionContext, *_linearRGBImageA, /*clip=*/1.0, _linearRGBImageA.get());
+        _blendHighlightsImage(executionContext, *_linearRGBImageA, /*clip=*/1.0, _linearRGBImageA.get());
 
-    // --- Image Denoising ---
+        // --- Image Denoising ---
 
-    // Convert to YCbCr
-    _transformImage(executionContext, *_linearRGBImageA, _linearRGBImageA.get(), cam_to_ycbcr);
+        // Convert to YCbCr
+        _transformImage(executionContext, *_linearRGBImageA, _linearRGBImageA.get(), cam_to_ycbcr);
 
-    denoisedImage = denoise(executionContext, *_linearRGBImageA, demosaicParameters, /*calibrateFromImage=*/ false);
+        denoisedImage = denoise(executionContext, *_linearRGBImageA, demosaicParameters, /*calibrateFromImage=*/ false);
 
-    // Convert to RGB
-    _transformImage(executionContext, *denoisedImage, _linearRGBImageA.get(), normalized_ycbcr_to_cam);
+        // Convert to RGB
+        _transformImage(executionContext, *denoisedImage, _linearRGBImageA.get(), normalized_ycbcr_to_cam);
 
-    _convertTosRGB(executionContext, *_linearRGBImageA, _localToneMapping->getMask(), *demosaicParameters,
-                   _histogramBuffer.get(), _linearRGBImageA.get());
+        // --- Image Post Processing ---
 
-
+        _convertTosRGB(executionContext, *_linearRGBImageA, _localToneMapping->getMask(), *demosaicParameters,
+                       _histogramBuffer.get(), _linearRGBImageA.get());
+#ifdef RUN_ON_SINGLE_COMMAND_BUFFER
+    });
+#endif
     _mtlContext.waitForCompletion();
 
     return _linearRGBImageA.get();
