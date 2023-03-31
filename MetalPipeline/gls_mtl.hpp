@@ -21,36 +21,21 @@
 #include <map>
 #include <vector>
 #include <string>
+#include <mutex>
 
 #include <Metal/Metal.hpp>
 
-class EventWrapper {
-    NS::SharedPtr<MTL::Event> _event;
-    uint64_t _signalCounter = 0;
-
-public:
-    EventWrapper(MTL::Device* device) {
-        _event = NS::TransferPtr(device->newEvent());
-    }
-
-    void signal(MTL::CommandBuffer* commandBuffer) {
-        commandBuffer->encodeSignalEvent(_event.get(), ++_signalCounter);
-    }
-
-    void wait(MTL::CommandBuffer* commandBuffer) {
-        commandBuffer->encodeWait(_event.get(), _signalCounter);
-    }
-};
+// Metal execution context implementing a simple sequential pipeline
 
 class MetalContext {
     NS::SharedPtr<MTL::Device> _device;
     NS::SharedPtr<MTL::Library> _computeLibrary;
     NS::SharedPtr<MTL::CommandQueue> _commandQueue;
     std::vector<MTL::CommandBuffer*> work_in_progress;
-    EventWrapper _event;
+    std::mutex work_in_progress_mutex;
 
 public:
-    MetalContext(NS::SharedPtr<MTL::Device> device) : _device(device), _event(_device.get()) {
+    MetalContext(NS::SharedPtr<MTL::Device> device) : _device(device) {
         _computeLibrary = NS::TransferPtr(_device->newDefaultLibrary());
         _commandQueue = NS::TransferPtr(_device->newCommandQueue());
     }
@@ -59,20 +44,20 @@ public:
         waitForCompletion();
     }
 
-    void wait(MTL::CommandBuffer* commandBuffer) {
-        _event.wait(commandBuffer);
-    }
-
-    void signal(MTL::CommandBuffer* commandBuffer) {
-        _event.signal(commandBuffer);
-    }
-
     void waitForCompletion() {
-        while (!work_in_progress.empty()) {
-            for (auto cb : work_in_progress) {
-                cb->waitUntilCompleted();
+        while (true) {
+            MTL::CommandBuffer* commandBuffer = nullptr;
+            {
+                std::lock_guard<std::mutex> guard(work_in_progress_mutex);
+
+                if (!work_in_progress.empty()) {
+                    commandBuffer = work_in_progress[work_in_progress.size() - 1];
+                } else {
+                    break;
+                }
             }
-        }
+            commandBuffer->waitUntilCompleted();
+        };
     }
 
     MTL::Device* device() const {
@@ -81,8 +66,7 @@ public:
 
     MTL::ComputePipelineState* newKernelPipelineState(const std::string& kernelName) const {
         NS::Error* error = nullptr;
-        auto kernel =
-        NS::TransferPtr(_computeLibrary->newFunction(NS::String::string(kernelName.c_str(), NS::UTF8StringEncoding)));
+        auto kernel = NS::TransferPtr(_computeLibrary->newFunction(NS::String::string(kernelName.c_str(), NS::UTF8StringEncoding)));
         auto pso = _device->newComputePipelineState(kernel.get(), &error);
         if (!pso) {
             throw std::runtime_error("Couldn't create pipeline state for kernel " + kernelName + " : " + error->localizedDescription()->utf8String());
@@ -93,13 +77,23 @@ public:
     void scheduleOnCommandBuffer(std::function<void(MTL::CommandBuffer*)> task, std::function<void(MTL::CommandBuffer*)> completionHandler) {
         auto commandBuffer = _commandQueue->commandBuffer();
 
-        work_in_progress.push_back(commandBuffer);
+        // Add commandBuffer from work_in_progress
+        {
+            std::lock_guard<std::mutex> guard(work_in_progress_mutex);
+            work_in_progress.push_back(commandBuffer);
+        }
 
+        // Schedule task on commandBuffer
         task(commandBuffer);
 
         commandBuffer->addCompletedHandler((MTL::HandlerFunction) [this, completionHandler](MTL::CommandBuffer* commandBuffer) {
             completionHandler(commandBuffer);
-            work_in_progress.erase(std::remove(work_in_progress.begin(), work_in_progress.end(), commandBuffer), work_in_progress.end());
+
+            // Remove completed commandBuffer from work_in_progress
+            {
+                std::lock_guard<std::mutex> guard(work_in_progress_mutex);
+                work_in_progress.erase(std::remove(work_in_progress.begin(), work_in_progress.end(), commandBuffer), work_in_progress.end());
+            }
         });
 
         commandBuffer->commit();
