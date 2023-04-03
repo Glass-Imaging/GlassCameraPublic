@@ -61,7 +61,8 @@ class LocalToneMapping {
     template <class Context>
     void createMask(Context* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& image,
                     const std::array<const gls::mtl_image_2d<gls::rgba_pixel_float>*, 3>& guideImage,
-                    const NoiseModel<5>& noiseModel, const LTMParameters& ltmParameters) {
+                    const NoiseModel<5>& noiseModel, const LTMParameters& ltmParameters,
+                    MTL::Buffer* histogramBuffer) {
         const std::array<const gls::mtl_image_2d<gls::luma_alpha_pixel_float>*, 3>& abImage = {
             lfAbGfImage.get(), mfAbGfImage.get(), hfAbGfImage.get()};
         const std::array<const gls::mtl_image_2d<gls::luma_alpha_pixel_float>*, 3>& abMeanImage = {
@@ -70,7 +71,7 @@ class LocalToneMapping {
         gls::Vector<2> nlf = {noiseModel.pyramidNlf[0].first[0], noiseModel.pyramidNlf[0].second[0]};
 
         _localToneMappingMask(context, image, guideImage, abImage, abMeanImage, ltmParameters,
-                              nlf, ltmMaskImage.get());
+                              nlf, histogramBuffer, ltmMaskImage.get());
     }
 
     const gls::mtl_image_2d<gls::luma_pixel_float>& getMask() { return *ltmMaskImage; }
@@ -120,9 +121,12 @@ class RawConverter {
 
 public:
     struct histogram_data {
-        std::array<uint32_t, 0x10000> histogram;
-        uint32_t black_level;
-        uint32_t white_level;
+        std::array<uint32_t, 0x100> histogram;
+        std::array<uint32_t, 8> bands;
+        float black_level;
+        float white_level;
+        float shadows;
+        float highlights;
     };
 
     RawConverter(NS::SharedPtr<MTL::Device> mtlDevice, const std::vector<uint8_t>* icc_profile_data = nullptr) :

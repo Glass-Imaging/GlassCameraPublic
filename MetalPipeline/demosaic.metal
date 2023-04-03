@@ -1038,13 +1038,23 @@ float computeLtmMultiplier(float3 input, float2 gfAb, float eps, float shadows,
     return adjusted_illuminance * pow(reflectance, detail) / input.x;
 }
 
-
 typedef struct LTMParameters {
     float eps;
     float shadows;
     float highlights;
     float detail[3];
 } LTMParameters;
+
+constant int histogramSize = 0x100;
+
+struct histogram_data {
+    array<atomic<uint32_t>, histogramSize> histogram;
+    array<uint32_t, 8> bands;
+    float black_level;
+    float white_level;
+    float shadows;
+    float highlights;
+};
 
 kernel void localToneMappingMaskImage(texture2d<float> inputImage                   [[texture(0)]],
                                       texture2d<float> lfAbImage                    [[texture(1)]],
@@ -1053,6 +1063,7 @@ kernel void localToneMappingMaskImage(texture2d<float> inputImage               
                                       texture2d<float, access::write> ltmMaskImage  [[texture(4)]],
                                       constant LTMParameters& ltmParameters         [[buffer(5)]],
                                       constant float2& nlf                          [[buffer(6)]],
+                                      constant histogram_data& histogram_data       [[buffer(7)]],
                                       uint2 index                                   [[thread_position_in_grid]]) {
     const int2 imageCoordinates = (int2) index;
     const float2 inputNorm = 1.0 / float2(get_image_dim(ltmMaskImage));
@@ -1066,13 +1077,13 @@ kernel void localToneMappingMaskImage(texture2d<float> inputImage               
     float2 lfAbSample = read_imagef(lfAbImage, linear_sampler, pos + 0.5f * inputNorm).xy;
 
     float ltmMultiplier = computeLtmMultiplier(input, lfAbSample, ltmParameters.eps,
-                                               ltmParameters.shadows, ltmParameters.highlights,
+                                               histogram_data.shadows, histogram_data.highlights,
                                                ltmParameters.detail[0]);
 
     if (ltmParameters.detail[1] != 1) {
         float2 mfAbSample = read_imagef(mfAbImage, linear_sampler, pos + 0.5f * inputNorm).xy;
         ltmMultiplier *= computeLtmMultiplier(input, mfAbSample, ltmParameters.eps,
-                                              ltmParameters.shadows, 1, ltmParameters.detail[1]);
+                                              histogram_data.shadows, 1, ltmParameters.detail[1]);
     }
 
     if (ltmParameters.detail[2] != 1) {
@@ -1090,17 +1101,11 @@ kernel void localToneMappingMaskImage(texture2d<float> inputImage               
 
         float2 hfAbSample = read_imagef(hfAbImage, linear_sampler, pos + 0.5f * inputNorm).xy;
         ltmMultiplier *= computeLtmMultiplier(input, hfAbSample, ltmParameters.eps,
-                                              ltmParameters.shadows, 1, detail);
+                                              histogram_data.shadows, 1, detail);
     }
 
     write_imagef(ltmMaskImage, imageCoordinates, float4(ltmMultiplier, 0, 0, 0));
 }
-
-struct histogram_data {
-    array<atomic<uint32_t>, 0x10000> histogram;
-    uint32_t black_level;
-    uint32_t white_level;
-};
 
 kernel void histogramImage(texture2d<float> inputImage          [[texture(0)]],
                            device histogram_data& histogram_data [[buffer(1)]],
@@ -1109,7 +1114,7 @@ kernel void histogramImage(texture2d<float> inputImage          [[texture(0)]],
 
     float3 pixelValue = read_imagef(inputImage, imageCoordinates).xyz;
 
-    int histogram_index = clamp((int) (0xffff * pixelValue.x / 4), 0, 0xffff);
+    int histogram_index = clamp((int) ((histogramSize - 1) * sqrt(pixelValue.x / 2)), 0, (histogramSize - 1));
 
     atomic_fetch_add_explicit(&histogram_data.histogram[histogram_index], 1, memory_order_relaxed);
 }
@@ -1118,25 +1123,35 @@ kernel void histogramStatistics(device histogram_data& histogram_data [[buffer(0
                                 constant uint2& image_dimensions      [[buffer(1)]],
                                 uint2 index                           [[thread_position_in_grid]]) {
     if (index.x == 0 && index.y == 0) {
-        device array<uint32_t, 0x10000>* plain_histogram = (device array<uint32_t, 0x10000>*) &histogram_data.histogram;
+        device array<uint32_t, histogramSize>* plain_histogram = (device array<uint32_t, histogramSize>*) &histogram_data.histogram;
 
         const uint32_t image_size = image_dimensions.x * image_dimensions.y;
+
+        bool found_black = false;
+        bool found_white = false;
         uint32_t sum = 0;
-        for (int i = 0; i < 0x10000; i++) {
-            sum += (*plain_histogram)[i];
-            if (sum >= 0.001 * image_size) {
-                histogram_data.black_level = i - 1;
-                break;
+        for (int i = 0; i < histogramSize; i++) {
+            const uint32_t entry = (*plain_histogram)[i];
+            histogram_data.bands[i / 32] += entry;
+            sum += entry;
+            if (!found_black && sum >= 0.001 * image_size) {
+                float v = (i - 1) / (float) (histogramSize - 1);
+                histogram_data.black_level = 2 * v * v;
+                found_black = true;
             }
-        }
-        sum = 0;
-        for (int i = 0xffff; i >= 0; i--) {
-            sum += (*plain_histogram)[i];
-            if (sum >= 0.001 * image_size) {
-                histogram_data.white_level = i;
-                break;
+            if (!found_white && sum >= 0.999 * image_size) {
+                float v = i / (float) (histogramSize - 1);
+                histogram_data.white_level = 2 * v * v;
+                found_white = true;
             }
+
+            (*plain_histogram)[i] = (histogramSize - 1) * log(entry / (float) (histogramSize - 1));
         }
+
+        histogram_data.highlights = 1.5 + smoothstep(0.01, 0.1, histogram_data.bands[7] / (float) image_size);
+        histogram_data.shadows = 0.8 - 0.5 * smoothstep(0.25, 0.5,
+                                                        (histogram_data.bands[0] +
+                                                         histogram_data.bands[1]) / (float) image_size);
     }
 }
 
@@ -1150,8 +1165,8 @@ kernel void convertTosRGB(texture2d<float> linearImage                  [[textur
 {
     const int2 imageCoordinates = (int2) index;
 
-    float black_level = 4 * histogram_data.black_level / (float) (0xffff);
-    float white_level = 1; // 4 * histogram_data.white_level / (float) (0xffff);
+    float black_level = histogram_data.black_level;
+    float white_level = 0.5 + 0.5 * smoothstep(0.25, 0.5, histogram_data.white_level);
 
     // FIXME: Compute the black and white levels dynamically
     float3 pixel_value = (read_imagef(linearImage, imageCoordinates).xyz - black_level) / (white_level - black_level);

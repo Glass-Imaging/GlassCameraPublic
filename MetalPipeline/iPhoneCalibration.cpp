@@ -134,8 +134,8 @@ public:
             },
             .ltmParameters = {
                 .eps = 0.01,
-                .shadows = 0.6,
-                .highlights = 1.5,
+                .shadows = 1.0,
+                .highlights = 1.0,
                 .detail = { 1, 1.2, 2.0 }
             }
         };
@@ -147,11 +147,7 @@ std::unique_ptr<DemosaicParameters> unpackiPhoneRawImage(const gls::image<gls::l
                                                             gls::tiff_metadata* dng_metadata,
                                                             gls::tiff_metadata* exif_metadata) {
     iPhoneCalibration calibration;
-    auto demosaicParameters = calibration.getDemosaicParameters(inputImage, xyz_rgb, dng_metadata, exif_metadata);
-
-    unpackDNGMetadata(inputImage, dng_metadata, demosaicParameters.get(), xyz_rgb, /*auto_white_balance=*/false, nullptr, false);
-
-    return demosaicParameters;
+    return calibration.getDemosaicParameters(inputImage, xyz_rgb, dng_metadata, exif_metadata);
 }
 
 

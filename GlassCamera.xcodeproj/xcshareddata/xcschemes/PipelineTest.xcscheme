@@ -38,6 +38,9 @@
       ignoresPersistentStateOnLaunch = "NO"
       debugDocumentVersioning = "YES"
       debugServiceExtension = "internal"
+      enableGPUFrameCaptureMode = "1"
+      showGraphicsOverview = "Yes"
+      logGraphicsOverview = "Yes"
       allowLocationSimulation = "YES"
       viewDebuggingEnabled = "No">
       <BuildableProductRunnable
@@ -52,7 +55,7 @@
       </BuildableProductRunnable>
       <CommandLineArguments>
          <CommandLineArgument
-            argument = "/Users/fabio/work/iPhoneTuning/Office-3-27-2023/IMG_3519.dng"
+            argument = "/Users/fabio/work/iPhoneTuning/Office-3-27-2023/IMG_3465.dng"
             isEnabled = "YES">
          </CommandLineArgument>
       </CommandLineArguments>

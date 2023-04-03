@@ -408,7 +408,8 @@ struct localToneMappingMaskKernel {
            MTL::Texture*,  // hfAbImage
            MTL::Texture*,  // ltmMaskImage
            LTMParameters,  // ltmParameters
-           simd::float2    // nlf
+           simd::float2,   // nlf
+           MTL::Buffer*    // histogramBuffer
     > localToneMappingMaskImage;
 
     localToneMappingMaskKernel(MetalContext* mtlContext) :
@@ -422,7 +423,7 @@ struct localToneMappingMaskKernel {
                      const std::array<const gls::mtl_image_2d<gls::rgba_pixel_float>*, 3>& guideImage,
                      const std::array<const gls::mtl_image_2d<gls::luma_alpha_pixel_float>*, 3>& abImage,
                      const std::array<const gls::mtl_image_2d<gls::luma_alpha_pixel_float>*, 3>& abMeanImage,
-                     const LTMParameters& ltmParameters, const gls::Vector<2>& nlf,
+                     const LTMParameters& ltmParameters, const gls::Vector<2>& nlf, MTL::Buffer* histogramBuffer,
                      gls::mtl_image_2d<gls::luma_pixel_float>* outputImage) {
         for (int i = 0; i < 3; i++) {
             assert(guideImage[i]->width == abImage[i]->width && guideImage[i]->height == abImage[i]->height);
@@ -441,7 +442,7 @@ struct localToneMappingMaskKernel {
 
         localToneMappingMaskImage(context, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1), inputImage.texture(),
                   abMeanImage[0]->texture(), abMeanImage[1]->texture(), abMeanImage[2]->texture(),
-                  outputImage->texture(), ltmParameters, simd::float2 { nlf[0], nlf[1] });
+                  outputImage->texture(), ltmParameters, simd::float2 { nlf[0], nlf[1] }, histogramBuffer);
     }
 };
 

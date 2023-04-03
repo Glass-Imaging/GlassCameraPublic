@@ -66,18 +66,20 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::denoise(Context* executi
                                                                                          &(noiseModel->pyramidNlf), demosaicParameters->exposure_multiplier,
                                                                                          calibrateFromImage);
 
-        _histogramImage(executionContext, *denoisedImage, _histogramBuffer.get());
+    // Use a lower level of the pyramid to compute the histogram
+    const auto histogramImage = _pyramidProcessor->denoisedImagePyramid[3].get();
+    _histogramImage(executionContext, *histogramImage, _histogramBuffer.get());
+    _histogramStatistics(executionContext, _histogramBuffer.get(), histogramImage->size());
 
-        _histogramStatistics(executionContext, _histogramBuffer.get(), denoisedImage->size());
-
-        if (demosaicParameters->rgbConversionParameters.localToneMapping) {
-            const std::array<const gls::mtl_image_2d<gls::rgba_pixel_float>*, 3>& guideImage = {
-                _pyramidProcessor->denoisedImagePyramid[4].get(),
-                _pyramidProcessor->denoisedImagePyramid[2].get(),
-                _pyramidProcessor->denoisedImagePyramid[0].get()
-            };
-            _localToneMapping->createMask(executionContext, *denoisedImage, guideImage, *noiseModel, demosaicParameters->ltmParameters);
-        }
+    if (demosaicParameters->rgbConversionParameters.localToneMapping) {
+        const std::array<const gls::mtl_image_2d<gls::rgba_pixel_float>*, 3>& guideImage = {
+            _pyramidProcessor->denoisedImagePyramid[4].get(),
+            _pyramidProcessor->denoisedImagePyramid[2].get(),
+            _pyramidProcessor->denoisedImagePyramid[0].get()
+        };
+        _localToneMapping->createMask(executionContext, *denoisedImage, guideImage, *noiseModel,
+                                      demosaicParameters->ltmParameters, _histogramBuffer.get());
+    }
 
 //        // High ISO noise texture replacement
 //        if (clBlueNoise != nullptr) {
@@ -104,9 +106,8 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
 
     allocateTextures(rawImage.size());
 
-    auto histogramData = (RawConverter::histogram_data*) _histogramBuffer->contents();
-    std::fill(histogramData->histogram.begin(), histogramData->histogram.end(), 0);
-    histogramData->black_level = histogramData->white_level = 0;
+    // Zero histogram data
+    bzero(_histogramBuffer->contents(), _histogramBuffer->length());
 
     if (demosaicParameters->rgbConversionParameters.localToneMapping) {
         _localToneMapping->allocateTextures(&_mtlContext, rawImage.width, rawImage.height);

@@ -19,9 +19,10 @@
 #include <sciplot/sciplot.hpp>
 using namespace sciplot;
 
-void plotHistogram(const std::array<uint32_t, 0x10000>& histogram, const std::string& image_name) {
+template <size_t histogram_size>
+void plotHistogram(const std::array<uint32_t, histogram_size>& histogram, const std::string& image_name) {
     Vec vec(histogram.size());
-    Vec x = linspace(0.0, 4.0, 0x10000);
+    Vec x = linspace(0.0, 1.0, histogram_size);
 
     for (int i = 0; i < histogram.size(); i++) {
         vec[i] = histogram[i];
@@ -112,7 +113,7 @@ void demosaicFile(RawConverter* rawConverter, std::filesystem::path input_path) 
     double elapsed_time_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();
 
     std::cout << "Metal Pipeline Execution Time: " << (int)elapsed_time_ms
-                  << "ms for image of size: " << rawImage->width << " x " << rawImage->height << std::endl;
+    << "ms for image of size: " << rawImage->width << " x " << rawImage->height << std::endl;
 
     const auto output_path = input_path.replace_extension("_b.png");
 
@@ -121,7 +122,16 @@ void demosaicFile(RawConverter* rawConverter, std::filesystem::path input_path) 
 
     auto histogramData = rawConverter->histogramData();
     // plotHistogram(histogramData->histogram, input_path.filename().string());
+
+    int imageSize = rawImage->width * rawImage->height;
+    std::cout << "bands: ";
+    for (int i = 0; i < 8; i++) {
+        std::cout << histogramData->bands[i] / (float) imageSize << ", ";
+    }
+    std::cout << std::endl;
+
     std::cout << "black_level: " << histogramData->black_level << ", white_level: " << histogramData->white_level << std::endl;
+    std::cout << "shadows: " << histogramData->shadows << ", highlights: " << histogramData->highlights << std::endl;
 }
 
 void demosaicDirectory(RawConverter* rawConverter, std::filesystem::path input_path) {
