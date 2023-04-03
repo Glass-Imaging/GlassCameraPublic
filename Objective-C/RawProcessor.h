@@ -6,12 +6,15 @@
 //
 
 #import <Foundation/Foundation.h>
+#import <CoreImage/CoreImage.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
 @interface RawProcessor : NSObject
 
 - (NSString*) convertDngFile: (NSString*) path;
+
+- (CVPixelBufferRef) CVPixelBufferFromDngFile: (NSString*) path;
 
 @end
 

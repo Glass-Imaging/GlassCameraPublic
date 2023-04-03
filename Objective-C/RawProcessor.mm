@@ -8,6 +8,7 @@
 #import "RawProcessor.h"
 
 #import <CoreGraphics/CGColorSpace.h>
+#import <CoreImage/CoreImage.h>
 
 #include <simd/simd.h>
 
@@ -112,6 +113,93 @@ static std::unique_ptr<RawConverter> _rawConverter = nullptr;
     std::cout << "Total Pipeline Execution Time: " << (int)elapsed_time_ms << std::endl;
 
     return [NSString stringWithUTF8String:output_path.c_str()];
+}
+
+template <typename pixel_type>
+CVPixelBufferRef buildCVPixelBuffer(const gls::mtl_image_2d<gls::rgba_pixel_float>& srgbImage) {
+    typename pixel_type::value_type max_value = std::numeric_limits<typename pixel_type::value_type>::max();
+
+    OSType pixelFormatType;
+    if (std::is_same<pixel_type, gls::rgb_pixel>::value) {
+        pixelFormatType = kCVPixelFormatType_24RGB;
+    } else if (std::is_same<pixel_type, gls::rgba_pixel_16>::value) {
+        pixelFormatType = kCVPixelFormatType_64RGBALE;
+    } else {
+        std::cerr << "Unexpected pixel type." << std::endl;
+        return nullptr;
+    }
+
+    CVPixelBufferRef pixelBuffer = nullptr;
+    CVReturn ret = CVPixelBufferCreate(kCFAllocatorDefault, srgbImage.width, srgbImage.height, pixelFormatType, nullptr, &pixelBuffer);
+    if (ret == kCVReturnSuccess) {
+        CVPixelBufferLockBaseAddress(pixelBuffer, 0);
+        size_t width = CVPixelBufferGetWidth(pixelBuffer);
+        size_t height = CVPixelBufferGetHeight(pixelBuffer);
+        size_t bytesPerRow = CVPixelBufferGetBytesPerRow(pixelBuffer);
+        size_t stride = (int) bytesPerRow / sizeof(pixel_type);
+        UInt32* data = (UInt32*)CVPixelBufferGetBaseAddress(pixelBuffer);
+        // size_t dataSize = CVPixelBufferGetDataSize(pixelBuffer);
+
+        auto pixelBufferImage = gls::image<pixel_type>((int) width, (int) height, (int) stride, std::span((pixel_type*) data, stride * height));
+
+        const auto& srgbImageCPU = srgbImage.mapImage();
+        pixelBufferImage.apply([&] (pixel_type* p, int x, int y) {
+            const auto ip = (*srgbImageCPU)[y][x];
+            if (std::is_same<pixel_type, gls::rgb_pixel>::value) {
+                *p = {
+                    std::clamp((typename pixel_type::value_type) (max_value * ip.red), (typename pixel_type::value_type) 0, max_value),
+                    std::clamp((typename pixel_type::value_type) (max_value * ip.green), (typename pixel_type::value_type) 0, max_value),
+                    std::clamp((typename pixel_type::value_type) (max_value * ip.blue), (typename pixel_type::value_type) 0, max_value)
+                };
+            } else {
+                *p = {
+                    std::clamp((typename pixel_type::value_type) (max_value * ip.red), (typename pixel_type::value_type) 0, max_value),
+                    std::clamp((typename pixel_type::value_type) (max_value * ip.green), (typename pixel_type::value_type) 0, max_value),
+                    std::clamp((typename pixel_type::value_type) (max_value * ip.blue), (typename pixel_type::value_type) 0, max_value),
+                    max_value
+                };
+            }
+        });
+
+        CVPixelBufferUnlockBaseAddress(pixelBuffer, 0);
+    }
+    return pixelBuffer;
+}
+
+- (CVPixelBufferRef) CVPixelBufferFromDngFile: (NSString*) path {
+    std::string input_path = std::string([path UTF8String]);
+
+    auto t_start = std::chrono::high_resolution_clock::now();
+
+    gls::tiff_metadata dng_metadata, exif_metadata;
+    const auto rawImage =
+        gls::image<gls::luma_pixel_16>::read_dng_file(input_path, &dng_metadata, &exif_metadata);
+    auto demosaicParameters = unpackiPhoneRawImage(*rawImage, _rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
+
+    auto t_dng_end = std::chrono::high_resolution_clock::now();
+    double elapsed_time_ms = std::chrono::duration<double, std::milli>(t_dng_end - t_start).count();
+
+    std::cout << "DNG file read time: " << (int)elapsed_time_ms << std::endl;
+
+    _rawConverter->allocateTextures(rawImage->size());
+
+    auto t_metal_start = std::chrono::high_resolution_clock::now();
+
+    auto srgbImage = _rawConverter->demosaic(*rawImage, demosaicParameters.get());
+
+    auto t_metal_end = std::chrono::high_resolution_clock::now();
+    elapsed_time_ms = std::chrono::duration<double, std::milli>(t_metal_end - t_metal_start).count();
+
+    std::cout << "Metal Pipeline Execution Time: " << (int)elapsed_time_ms << std::endl;
+
+    // CVPixelBufferRef pixelBuffer = buildCVPixelBuffer<gls::rgba_pixel_16>(*srgbImage);
+    CVPixelBufferRef pixelBuffer = buildCVPixelBuffer<gls::rgb_pixel>(*srgbImage);
+
+    auto t_end = std::chrono::high_resolution_clock::now();
+    elapsed_time_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();
+    std::cout << "Total Pipeline Execution Time: " << (int)elapsed_time_ms << std::endl;
+
+    return pixelBuffer;
 }
 
 @end

@@ -199,6 +199,26 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
         }
     }
 
+    func createCGImage(from pixelBuffer: CVPixelBuffer) -> CGImage? {
+        if let displayP3 = CGColorSpace(name: CGColorSpace.displayP3) {
+            let pixelFormatType = CVPixelBufferGetPixelFormatType(pixelBuffer)
+
+            if (pixelFormatType == kCVPixelFormatType_24RGB) {
+                let ciContext = CIContext()
+                let ciImage = CIImage(cvImageBuffer: pixelBuffer)
+                return ciContext.createCGImage(ciImage, from: ciImage.extent)?.copy(colorSpace: displayP3)
+            } else if (pixelFormatType == kCVPixelFormatType_64RGBALE) {
+                let ciContext = CIContext()
+                let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
+                return ciContext.createCGImage(ciImage, from: ciImage.extent, format: CIFormat.RGBA16, colorSpace: displayP3)
+            } else {
+                print("Cannot deal with format ", pixelFormatType)
+                return nil
+            }
+        }
+        return nil
+    }
+
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
         DispatchQueue.main.async {
             self.photoProcessingHandler(false)
@@ -222,25 +242,36 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
                         if let displayP3 = CGColorSpace(name: CGColorSpace.displayP3) {
                             displayP3iCCData = displayP3.copyICCData()
                             print("displayP3", displayP3, CFDataGetLength(displayP3iCCData))
+
+                            let usePixelBuffer = true
+                            if (usePixelBuffer) {
+                                let pixelBuffer = rawProcessor.cvPixelBuffer(fromDngFile: rawImage.path()).takeRetainedValue()
+                                let cgImage = createCGImage(from: pixelBuffer)
+
+                                print("Image bit depth: ", cgImage!.bitsPerComponent)
+
+                                procesedImage = encodeImageToHeif(CIImage(cgImage: cgImage!),
+                                                                  compressionQuality: 0.8,
+                                                                  use10BitRepresentation: cgImage!.bitsPerComponent > 8)
+                            } else {
+                                // Convert DNG file to PNG.
+                                let pngImagePath = rawProcessor.convertDngFile(rawImage.path())
+
+                                // TODO: add some error checking here...
+
+                                // Convert PNG to HEIC.
+                                let png_image = UIImage(contentsOfFile: pngImagePath)
+
+                                print("PNG image bit depth: ", png_image!.cgImage!.bitsPerComponent)
+
+                                procesedImage = encodeImageToHeif(CIImage(image: png_image!)!,
+                                                                  compressionQuality: 0.8,
+                                                                  use10BitRepresentation: png_image!.cgImage!.bitsPerComponent > 8)
+
+                                // Remove PNG file.
+                                removeFile(at: URL(fileURLWithPath: pngImagePath))
+                            }
                         }
-
-                        // Convert DNG file to PNG.
-                        let pngImagePath = rawProcessor.convertDngFile(rawImage.path())
-
-                        // TODO: add some error checking here...
-
-                        // Convert PNG to HEIC.
-                        let png_image = UIImage(contentsOfFile: pngImagePath)
-
-                        print("PNG image bit depth: ", png_image!.cgImage!.bitsPerComponent)
-
-                        // procesedImage = png_image!.heic(compressionQuality: 0.9)
-                        procesedImage = encodeImageToHeif(CIImage(image: png_image!)!,
-                                                          compressionQuality: 0.8,
-                                                          use10BitRepresentation: png_image!.cgImage!.bitsPerComponent > 8)
-
-                        // Remove PNG file.
-                        removeFile(at: URL(fileURLWithPath: pngImagePath))
                     }
                 } catch {
                     fatalError("Couldn't write DNG file to the URL.")
