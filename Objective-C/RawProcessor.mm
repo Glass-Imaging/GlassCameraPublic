@@ -115,22 +115,39 @@ static std::unique_ptr<RawConverter> _rawConverter = nullptr;
     return [NSString stringWithUTF8String:output_path.c_str()];
 }
 
+/*
+ Note: This really fast but it is just a wrapper around the gls::image data, which itself wraps a MTL::Buffer
+       This method is not reentrant and the pipeline should not be invoked till the PixelBuffer is released
+ */
+CVPixelBufferRef CVPixelBufferFromFP16ImageBytes(const gls::image<gls::rgba_pixel_fp16>& image) {
+    auto bytesPerRow = image.stride * sizeof(gls::rgba_pixel_fp16);
+    CVPixelBufferRef pixelBuffer = nullptr;
+    CVReturn ret = CVPixelBufferCreateWithBytes(kCFAllocatorDefault, image.width, image.height, kCVPixelFormatType_64RGBAHalf,
+                                                image.pixels().data(), bytesPerRow, nullptr, nullptr, nullptr, &pixelBuffer);
+    assert(ret == kCVReturnSuccess);
+    return pixelBuffer;
+}
+
 template <typename pixel_type>
-CVPixelBufferRef buildCVPixelBuffer(const gls::mtl_image_2d<gls::rgba_pixel_float>& srgbImage) {
-    typename pixel_type::value_type max_value = std::numeric_limits<typename pixel_type::value_type>::max();
+CVPixelBufferRef buildCVPixelBuffer(const gls::image<gls::rgba_pixel_float>& rgbImage) {
+    typename pixel_type::value_type max_value =
+        std::is_same<pixel_type, gls::rgba_pixel_fp16>::value ? 1.0 :
+            std::numeric_limits<typename pixel_type::value_type>::max();
 
     OSType pixelFormatType;
     if (std::is_same<pixel_type, gls::rgb_pixel>::value) {
         pixelFormatType = kCVPixelFormatType_24RGB;
     } else if (std::is_same<pixel_type, gls::rgba_pixel_16>::value) {
         pixelFormatType = kCVPixelFormatType_64RGBALE;
+    } else if (std::is_same<pixel_type, gls::rgba_pixel_fp16>::value) {
+        pixelFormatType = kCVPixelFormatType_64RGBAHalf;
     } else {
         std::cerr << "Unexpected pixel type." << std::endl;
         return nullptr;
     }
 
     CVPixelBufferRef pixelBuffer = nullptr;
-    CVReturn ret = CVPixelBufferCreate(kCFAllocatorDefault, srgbImage.width, srgbImage.height, pixelFormatType, nullptr, &pixelBuffer);
+    CVReturn ret = CVPixelBufferCreate(kCFAllocatorDefault, rgbImage.width, rgbImage.height, pixelFormatType, nullptr, &pixelBuffer);
     if (ret == kCVReturnSuccess) {
         CVPixelBufferLockBaseAddress(pixelBuffer, 0);
         size_t width = CVPixelBufferGetWidth(pixelBuffer);
@@ -138,28 +155,29 @@ CVPixelBufferRef buildCVPixelBuffer(const gls::mtl_image_2d<gls::rgba_pixel_floa
         size_t bytesPerRow = CVPixelBufferGetBytesPerRow(pixelBuffer);
         size_t stride = (int) bytesPerRow / sizeof(pixel_type);
         UInt32* data = (UInt32*)CVPixelBufferGetBaseAddress(pixelBuffer);
-        // size_t dataSize = CVPixelBufferGetDataSize(pixelBuffer);
 
         auto pixelBufferImage = gls::image<pixel_type>((int) width, (int) height, (int) stride, std::span((pixel_type*) data, stride * height));
 
-        const auto& srgbImageCPU = srgbImage.mapImage();
-        pixelBufferImage.apply([&] (pixel_type* p, int x, int y) {
-            const auto ip = (*srgbImageCPU)[y][x];
-            if (std::is_same<pixel_type, gls::rgb_pixel>::value) {
-                *p = {
-                    std::clamp((typename pixel_type::value_type) (max_value * ip.red), (typename pixel_type::value_type) 0, max_value),
-                    std::clamp((typename pixel_type::value_type) (max_value * ip.green), (typename pixel_type::value_type) 0, max_value),
-                    std::clamp((typename pixel_type::value_type) (max_value * ip.blue), (typename pixel_type::value_type) 0, max_value)
+        if (pixel_type::channels == 3) {
+            pixelBufferImage.apply([&] (pixel_type* p, int x, int y) {
+                const auto ip = rgbImage[y][x];
+                *p = pixel_type {
+                    (typename pixel_type::value_type) (max_value * ip.red),
+                    (typename pixel_type::value_type) (max_value * ip.green),
+                    (typename pixel_type::value_type) (max_value * ip.blue)
                 };
-            } else {
-                *p = {
-                    std::clamp((typename pixel_type::value_type) (max_value * ip.red), (typename pixel_type::value_type) 0, max_value),
-                    std::clamp((typename pixel_type::value_type) (max_value * ip.green), (typename pixel_type::value_type) 0, max_value),
-                    std::clamp((typename pixel_type::value_type) (max_value * ip.blue), (typename pixel_type::value_type) 0, max_value),
+            });
+        } else {
+            pixelBufferImage.apply([&] (pixel_type* p, int x, int y) {
+                const auto ip = rgbImage[y][x];
+                *p = pixel_type {
+                    (typename pixel_type::value_type) (max_value * ip.red),
+                    (typename pixel_type::value_type) (max_value * ip.green),
+                    (typename pixel_type::value_type) (max_value * ip.blue),
                     max_value
                 };
-            }
-        });
+            });
+        }
 
         CVPixelBufferUnlockBaseAddress(pixelBuffer, 0);
     }
@@ -185,19 +203,29 @@ CVPixelBufferRef buildCVPixelBuffer(const gls::mtl_image_2d<gls::rgba_pixel_floa
 
     auto t_metal_start = std::chrono::high_resolution_clock::now();
 
-    auto srgbImage = _rawConverter->demosaic(*rawImage, demosaicParameters.get());
+    auto rgbImage = _rawConverter->demosaic(*rawImage, demosaicParameters.get());
 
     auto t_metal_end = std::chrono::high_resolution_clock::now();
     elapsed_time_ms = std::chrono::duration<double, std::milli>(t_metal_end - t_metal_start).count();
 
     std::cout << "Metal Pipeline Execution Time: " << (int)elapsed_time_ms << std::endl;
 
-    // CVPixelBufferRef pixelBuffer = buildCVPixelBuffer<gls::rgba_pixel_16>(*srgbImage);
-    CVPixelBufferRef pixelBuffer = buildCVPixelBuffer<gls::rgb_pixel>(*srgbImage);
+    /*
+     Supported image types are:
+         gls::rgb_pixel
+         gls::rgba_pixel_16
+         gls::rgba_pixel_fp16
+     */
+
+    t_start = std::chrono::high_resolution_clock::now();
+
+    const auto& rgbImageCPU = rgbImage->mapImage();
+    // CVPixelBufferRef pixelBuffer = buildCVPixelBuffer<gls::rgba_pixel_16>(*rgbImageCPU);
+    CVPixelBufferRef pixelBuffer = CVPixelBufferFromFP16ImageBytes(*rgbImageCPU);
 
     auto t_end = std::chrono::high_resolution_clock::now();
     elapsed_time_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();
-    std::cout << "Total Pipeline Execution Time: " << (int)elapsed_time_ms << std::endl;
+    std::cout << "CVPixelBuffer Creation Time: " << (int)elapsed_time_ms << std::endl;
 
     return pixelBuffer;
 }

@@ -150,26 +150,24 @@ func removeFile(at url:URL) {
     }
 }
 
-func encodeImageToHeif(_ image: CIImage, compressionQuality: CGFloat, use10BitRepresentation: Bool = false ) -> Data? {
+func encodeImageToHeif(_ image: CIImage, compressionQuality: CGFloat, colorSpace: CGColorSpace, use10BitRepresentation: Bool = false ) -> Data? {
     return autoreleasepool(invoking: { () -> Data? in
-        let color = CGColorSpace(name: CGColorSpace.sRGB)  // TODO: use displayP3
-        let context = CIContext()
-
+        let ciContext = CIContext()
         if use10BitRepresentation {
             do {
-                return try context.heif10Representation(of: image,
-                                                        colorSpace: color!,
-                                                        options: [kCGImageDestinationLossyCompressionQuality
-                                                                  as CIImageRepresentationOption : compressionQuality] )
+                return try ciContext.heif10Representation(of: image,
+                                                          colorSpace: image.colorSpace!,
+                                                          options: [kCGImageDestinationLossyCompressionQuality
+                                                                    as CIImageRepresentationOption : compressionQuality] )
             } catch {
                 return nil
             }
         } else {
-            return context.heifRepresentation(of: image,
-                                              format: CIFormat.RGBA8,
-                                              colorSpace: color!,
-                                              options: [kCGImageDestinationLossyCompressionQuality
-                                                        as CIImageRepresentationOption : compressionQuality] )
+            return ciContext.heifRepresentation(of: image,
+                                                format: CIFormat.RGBA8,
+                                                colorSpace: image.colorSpace!,
+                                                options: [kCGImageDestinationLossyCompressionQuality
+                                                          as CIImageRepresentationOption : compressionQuality] )
         }
     })
 }
@@ -199,24 +197,26 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
         }
     }
 
-    func createCGImage(from pixelBuffer: CVPixelBuffer) -> CGImage? {
-        if let displayP3 = CGColorSpace(name: CGColorSpace.displayP3) {
-            let pixelFormatType = CVPixelBufferGetPixelFormatType(pixelBuffer)
+    func createCGImage(from pixelBuffer: CVPixelBuffer, colorSpace: CGColorSpace) -> CGImage? {
+        let pixelFormatType = CVPixelBufferGetPixelFormatType(pixelBuffer)
 
-            if (pixelFormatType == kCVPixelFormatType_24RGB) {
-                let ciContext = CIContext()
-                let ciImage = CIImage(cvImageBuffer: pixelBuffer)
-                return ciContext.createCGImage(ciImage, from: ciImage.extent)?.copy(colorSpace: displayP3)
-            } else if (pixelFormatType == kCVPixelFormatType_64RGBALE) {
-                let ciContext = CIContext()
-                let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
-                return ciContext.createCGImage(ciImage, from: ciImage.extent, format: CIFormat.RGBA16, colorSpace: displayP3)
-            } else {
-                print("Cannot deal with format ", pixelFormatType)
-                return nil
-            }
+        let imageFormat:CIFormat
+        if (pixelFormatType == kCVPixelFormatType_24RGB) {
+            // NOTE: kCVPixelFormatType_32RGBA doesn't seem to work
+            imageFormat = CIFormat.RGBA8
+        } else if (pixelFormatType == kCVPixelFormatType_64RGBALE) {
+            imageFormat =  CIFormat.RGBA16
+        } else if (pixelFormatType == kCVPixelFormatType_64RGBAHalf) {
+            imageFormat = CIFormat.RGBAh
+        } else {
+            print("Cannot deal with format ", pixelFormatType)
+            return nil
         }
-        return nil
+
+        let ciImage = CIImage(cvPixelBuffer: pixelBuffer,
+                              options: [CIImageOption.colorSpace : colorSpace as Any])
+        let ciContext = CIContext()
+        return ciContext.createCGImage(ciImage, from: ciImage.extent, format: imageFormat, colorSpace: colorSpace)
     }
 
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
@@ -238,21 +238,17 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
                     if let captureData = photo.fileDataRepresentation() {
                         try captureData.write(to: rawImage)
 
-                        var displayP3iCCData:CFData? = nil
                         if let displayP3 = CGColorSpace(name: CGColorSpace.displayP3) {
-                            displayP3iCCData = displayP3.copyICCData()
-                            print("displayP3", displayP3, CFDataGetLength(displayP3iCCData))
-
                             let usePixelBuffer = true
                             if (usePixelBuffer) {
                                 let pixelBuffer = rawProcessor.cvPixelBuffer(fromDngFile: rawImage.path()).takeRetainedValue()
-                                let cgImage = createCGImage(from: pixelBuffer)
+                                let cgImage = createCGImage(from: pixelBuffer, colorSpace: displayP3)
 
                                 print("Image bit depth: ", cgImage!.bitsPerComponent)
 
                                 procesedImage = encodeImageToHeif(CIImage(cgImage: cgImage!),
-                                                                  compressionQuality: 0.8,
-                                                                  use10BitRepresentation: cgImage!.bitsPerComponent > 8)
+                                                                  compressionQuality: 0.8, colorSpace: displayP3,
+                                                                  use10BitRepresentation: false /*cgImage!.bitsPerComponent > 8*/)
                             } else {
                                 // Convert DNG file to PNG.
                                 let pngImagePath = rawProcessor.convertDngFile(rawImage.path())
@@ -265,7 +261,7 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
                                 print("PNG image bit depth: ", png_image!.cgImage!.bitsPerComponent)
 
                                 procesedImage = encodeImageToHeif(CIImage(image: png_image!)!,
-                                                                  compressionQuality: 0.8,
+                                                                  compressionQuality: 0.8, colorSpace: displayP3,
                                                                   use10BitRepresentation: png_image!.cgImage!.bitsPerComponent > 8)
 
                                 // Remove PNG file.

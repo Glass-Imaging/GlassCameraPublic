@@ -1211,5 +1211,5 @@ kernel void convertTosRGB(texture2d<float> linearImage                  [[textur
         rgb = (rgb - parameters.blacks) / (1 - parameters.blacks);
     }
 
-    write_imagef(rgbImage, imageCoordinates, float4(clamp(rgb, 0.0, 1.0), 0.0));
+    write_imagef(rgbImage, imageCoordinates, float4(clamp(rgb, 0.0, 1.0), 1.0));
 }
