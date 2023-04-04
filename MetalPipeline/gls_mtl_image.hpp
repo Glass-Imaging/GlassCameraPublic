@@ -113,7 +113,7 @@ public:
     }
 
     mtl_image_2d(MTL::Device* device, int _width, int _height)
-    : mtl_image<T>(_width, _height), stride(computeStride(device, mtl_image<T>::ImageFormat(), _width)) {
+        : mtl_image<T>(_width, _height), stride(computeStride(device, mtl_image<T>::ImageFormat(), _width)) {
         assert(device != nullptr);
         uint32_t bytesPerRow = sizeof(T) * stride;
 
@@ -125,6 +125,9 @@ public:
 
         _texture = NS::TransferPtr(_buffer->newTexture(textureDesc, 0, bytesPerRow));
     }
+
+    mtl_image_2d(MTL::Device* device, const gls::size& imageSize)
+        : mtl_image_2d(device, imageSize.width, imageSize.height) { }
 
     mtl_image_2d(MTL::Device* device, const gls::image<T>& other)
         : mtl_image_2d(device, other.width, other.height) {
