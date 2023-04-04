@@ -72,6 +72,9 @@ class PhotoCaptureProcessor: NSObject {
 
     private let rawProcessor = RawProcessor()
 
+    // Save the location of captured photos
+    var location: CLLocation?
+
     init(with requestedPhotoSettings: AVCapturePhotoSettings,
          willCapturePhotoAnimation: @escaping () -> Void,
          completionHandler: @escaping (PhotoCaptureProcessor) -> Void,
@@ -313,6 +316,9 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
                         let creationRequest = PHAssetCreationRequest.forAsset()
                         creationRequest.addResource(with: .photo, data: capturedImage, options: nil)
 
+                        // Specify the location the photo was taken
+                        creationRequest.location = self.location
+
                         // Add the RAW (DNG) file as an altenate resource.
                         if let rawImage = self.rawImage {
                             let options = PHAssetResourceCreationOptions()
@@ -347,6 +353,9 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
                         PHPhotoLibrary.shared().performChanges({
                             let creationRequest = PHAssetCreationRequest.forAsset()
                             creationRequest.addResource(with: .photo, data: heicData, options: nil)
+
+                            // Specify the location the photo was taken
+                            creationRequest.location = self.location
                         }, completionHandler: { _, error in
                             if let error = error {
                                 print("Error occurred while saving photo to photo library: \(error)")

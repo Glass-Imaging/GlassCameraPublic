@@ -624,10 +624,12 @@
 					"\"$(SRCROOT)/metal-cpp\"",
 				);
 				INFOPLIST_FILE = GlassCamera/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.photography";
 				INFOPLIST_KEY_MetalCaptureEnabled = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "GlassCamera needs access to your camera to capture photo and video";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "GlassCamera captures photos and saves them into your photo library";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "GlassCamera uses your location to tag where photos and videos are taken.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "GlassCamera saves captured photos to your photo library.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
@@ -678,10 +680,12 @@
 					"\"$(SRCROOT)/metal-cpp\"",
 				);
 				INFOPLIST_FILE = GlassCamera/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.photography";
 				INFOPLIST_KEY_MetalCaptureEnabled = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "GlassCamera needs access to your camera to capture photo and video";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "GlassCamera captures photos and saves them into your photo library";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "GlassCamera uses your location to tag where photos and videos are taken.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "GlassCamera saves captured photos to your photo library.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;

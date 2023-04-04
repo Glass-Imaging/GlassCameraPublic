@@ -16,6 +16,7 @@
 import Foundation
 import Combine
 import AVFoundation
+import CoreLocation
 import Photos
 import UIKit
 
@@ -97,6 +98,8 @@ public class CameraService: NSObject, Identifiable {
 
     var keyValueObservations = [NSKeyValueObservation]()
 
+    let locationManager = CLLocationManager()
+
     override public init() {
         super.init()
 
@@ -104,6 +107,11 @@ public class CameraService: NSObject, Identifiable {
         DispatchQueue.main.async {
             self.isCameraButtonDisabled = true
             self.isCameraUnavailable = true
+        }
+
+        // Request location authorization so photos and videos can be tagged with their location.
+        if locationManager.authorizationStatus == .notDetermined {
+            locationManager.requestWhenInUseAuthorization()
         }
     }
 
@@ -579,6 +587,9 @@ public class CameraService: NSObject, Identifiable {
                         self.shouldShowSpinner = false
                     }
                 })
+
+                // Specify the location the photo was taken
+                photoCaptureProcessor.location = self.locationManager.location
 
                 // The photo output holds a weak reference to the photo capture delegate and stores it in an array to maintain a strong reference.
                 self.inProgressPhotoCaptureDelegates[photoCaptureProcessor.requestedPhotoSettings.uniqueID] = photoCaptureProcessor
