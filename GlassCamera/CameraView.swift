@@ -57,13 +57,11 @@ final class CameraModel: ObservableObject {
         .store(in: &self.subscriptions)
 
         service.$willCapturePhoto.sink { [weak self] (val) in
-            print("willCapturePhoto", val)
             self?.willCapturePhoto = val
         }
         .store(in: &self.subscriptions)
 
         service.$shouldShowSpinner.sink { [weak self] (val) in
-            print("showSpinner", val)
             self?.showSpinner = val
         }
         .store(in: &self.subscriptions)

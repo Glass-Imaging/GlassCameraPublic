@@ -53,6 +53,10 @@ std::vector<uint8_t> ICCProfileData(const CFStringRef colorSpaceName) {
     throw std::runtime_error("Cannot get CGColorSpaceCopyICCProfile()");
 }
 
+@implementation RawMetadata : NSObject
+
+@end
+
 @implementation RawProcessor : NSObject
 
 static std::unique_ptr<RawConverter> _rawConverter = nullptr;
@@ -226,6 +230,77 @@ CVPixelBufferRef buildCVPixelBuffer(const gls::image<gls::rgba_pixel_float>& rgb
     auto t_end = std::chrono::high_resolution_clock::now();
     elapsed_time_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();
     std::cout << "CVPixelBuffer Creation Time: " << (int)elapsed_time_ms << std::endl;
+
+    return pixelBuffer;
+}
+
+- (CVPixelBufferRef) convertRawPixelBuffer: (CVPixelBufferRef) rawPixelBuffer withMetadata: (RawMetadata*) metadata {
+
+    CVPixelBufferLockBaseAddress(rawPixelBuffer, 0);
+    size_t width = CVPixelBufferGetWidth(rawPixelBuffer);
+    size_t height = CVPixelBufferGetHeight(rawPixelBuffer);
+    size_t bytesPerRow = CVPixelBufferGetBytesPerRow(rawPixelBuffer);
+    size_t stride = (int) bytesPerRow / sizeof(gls::luma_pixel_16);
+    gls::luma_pixel_16* data = (gls::luma_pixel_16*) CVPixelBufferGetBaseAddress(rawPixelBuffer);
+
+    auto rawImage = gls::image<gls::luma_pixel_16>((int) width, (int) height, (int) stride, std::span(data, stride * height));
+
+    gls::tiff_metadata dng_metadata, exif_metadata;
+
+    // float exposureBiasValue = [metadata exposureBiasValue];
+    float baselineExposure = [metadata baselineExposure];
+    float exposureTime = [metadata exposureTime];
+    int isoSpeedRating = [metadata isoSpeedRating];
+    int blackLevel = [metadata blackLevel];
+    int whiteLevel = [metadata whiteLevel];
+    // int calibrationIlluminant1 = [metadata calibrationIlluminant1];
+    // int calibrationIlluminant2 = [metadata calibrationIlluminant2];
+    // NSArray<NSNumber*>* colorMatrix1 = [metadata colorMatrix1];
+    NSArray<NSNumber*>* colorMatrix2 = [metadata colorMatrix2];
+    NSArray<NSNumber*>* asShotNeutral = [metadata asShotNeutral];
+    // NSArray<NSNumber*>* noiseProfile = [metadata noiseProfile];
+
+    std::vector<float> as_shot_neutral(3);
+    for (int i = 0; i < 3; i++) {
+        as_shot_neutral[i] = [asShotNeutral[i] floatValue];
+    }
+
+    std::vector<float> color_matrix(9);
+    for (int i = 0; i < 9; i++) {
+        color_matrix[i] = [colorMatrix2[i] floatValue];
+    }
+
+    // Basic DNG image interpretation metadata
+    dng_metadata.insert({ TIFFTAG_COLORMATRIX1, color_matrix });
+    dng_metadata.insert({ TIFFTAG_ASSHOTNEUTRAL, as_shot_neutral });
+
+    dng_metadata.insert({ TIFFTAG_BASELINEEXPOSURE, baselineExposure });
+    dng_metadata.insert({ TIFFTAG_CFAREPEATPATTERNDIM, std::vector<uint16_t>{ 2, 2 } });
+    dng_metadata.insert({ TIFFTAG_CFAPATTERN, std::vector<uint8_t>{ 0, 1, 1, 2 } });
+    dng_metadata.insert({ TIFFTAG_BLACKLEVEL, std::vector<float>{ (float) blackLevel } });
+    dng_metadata.insert({ TIFFTAG_WHITELEVEL, std::vector<uint32_t>{ (uint32_t) whiteLevel } });
+
+    // Basic EXIF metadata
+    exif_metadata.insert({ EXIFTAG_ISOSPEEDRATINGS, std::vector<uint16_t>{ (uint16_t) isoSpeedRating } });
+    exif_metadata.insert({ EXIFTAG_EXPOSURETIME, std::vector<float>{ (float) exposureTime } });
+
+    auto demosaicParameters = unpackiPhoneRawImage(rawImage, _rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
+
+    _rawConverter->allocateTextures(rawImage.size());
+
+    auto t_metal_start = std::chrono::high_resolution_clock::now();
+
+    auto rgbImage = _rawConverter->demosaic(rawImage, demosaicParameters.get());
+
+    CVPixelBufferUnlockBaseAddress(rawPixelBuffer, 0);
+
+    auto t_metal_end = std::chrono::high_resolution_clock::now();
+    auto elapsed_time_ms = std::chrono::duration<double, std::milli>(t_metal_end - t_metal_start).count();
+
+    std::cout << "Metal Pipeline Execution Time: " << (int)elapsed_time_ms << std::endl;
+
+    const auto& rgbImageCPU = rgbImage->mapImage();
+    CVPixelBufferRef pixelBuffer = CVPixelBufferFromFP16ImageBytes(*rgbImageCPU);
 
     return pixelBuffer;
 }

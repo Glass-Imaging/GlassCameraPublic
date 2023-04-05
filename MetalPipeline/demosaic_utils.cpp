@@ -290,8 +290,6 @@ float unpackDNGMetadata(const gls::image<gls::luma_pixel_16>& rawImage, gls::tif
     demosaicParameters->black_level = black_level_vec.empty() ? 0 : black_level_vec[0] / 0xffff;
     demosaicParameters->white_level = white_level_vec.empty() ? 0xffff : white_level_vec[0];
 
-    std::cout << "exposure_multiplier: " << exposure_multiplier << std::endl;
-
     demosaicParameters->raw_exposure_multiplier = exposure_multiplier;
     demosaicParameters->exposure_multiplier = std::min(exposure_multiplier, 1.0f);
 
@@ -299,7 +297,6 @@ float unpackDNGMetadata(const gls::image<gls::luma_pixel_16>& rawImage, gls::tif
                                        : std::memcmp(cfa_pattern.data(), "\02\01\01\00", 4) == 0 ? BayerPattern::bggr
                                        : std::memcmp(cfa_pattern.data(), "\01\00\02\01", 4) == 0 ? BayerPattern::grbg
                                                                                                  : BayerPattern::gbrg;
-
     LOG_INFO(TAG) << "bayerPattern: " << BayerPatternName[demosaicParameters->bayerPattern] << std::endl;
 
     gls::Vector<3> pre_mul;

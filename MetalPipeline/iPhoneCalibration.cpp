@@ -143,9 +143,9 @@ public:
 };
 
 std::unique_ptr<DemosaicParameters> unpackiPhoneRawImage(const gls::image<gls::luma_pixel_16>& inputImage,
-                                                            const gls::Matrix<3, 3>& xyz_rgb,
-                                                            gls::tiff_metadata* dng_metadata,
-                                                            gls::tiff_metadata* exif_metadata) {
+                                                         const gls::Matrix<3, 3>& xyz_rgb,
+                                                         gls::tiff_metadata* dng_metadata,
+                                                         gls::tiff_metadata* exif_metadata) {
     iPhoneCalibration calibration;
     return calibration.getDemosaicParameters(inputImage, xyz_rgb, dng_metadata, exif_metadata);
 }

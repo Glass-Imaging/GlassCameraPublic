@@ -57,6 +57,33 @@ class AtomicCounter {
     }
 }
 
+extension [String : Any] {
+    subscript<T>(section: String, key: String) -> T? {
+        return (self[section] as? [String : Any])?[key] as? T
+    }
+}
+
+extension RawMetadata {
+    convenience init(from metadata: [String : Any]) {
+        self.init()
+
+        // let metadata = metadata as NSDictionary
+
+        exposureBiasValue = Float32(metadata["{Exif}", "ExposureBiasValue"] as Double? ?? 0)
+        baselineExposure = Float32(metadata["{DNG}", "BaselineExposure"] as Double? ?? 0)
+        exposureTime = Float32(metadata["{Exif}", "ExposureTime"] as Double? ?? 0)
+        isoSpeedRating = Int32((metadata["{Exif}", "ISOSpeedRatings"] as [Int]?)?[0] ?? 0)
+        blackLevel = metadata["{DNG}", "BlackLevel"] as Int32? ?? 0
+        whiteLevel = metadata["{DNG}", "WhiteLevel"] as Int32? ?? 0
+        calibrationIlluminant1 = metadata["{DNG}", "CalibrationIlluminant1"] as Int32? ?? 0
+        calibrationIlluminant2 = metadata["{DNG}", "CalibrationIlluminant2"] as Int32? ?? 0
+        colorMatrix1 = metadata["{DNG}", "ColorMatrix1"] as [NSNumber]? ?? []
+        colorMatrix2 = metadata["{DNG}", "ColorMatrix2"] as [NSNumber]? ?? []
+        asShotNeutral = metadata["{DNG}", "AsShotNeutral"] as [NSNumber]? ?? []
+        noiseProfile = metadata["{DNG}", "NoiseProfile"] as [NSNumber]? ?? []
+    }
+}
+
 class PhotoCaptureProcessor: NSObject {
     private(set) var requestedPhotoSettings: AVCapturePhotoSettings
 
@@ -99,11 +126,12 @@ class PhotoCaptureProcessor: NSObject {
                 if let captureData = photo.fileDataRepresentation() {
                     try captureData.write(to: rawImage)
 
-                    if let displayP3 = CGColorSpace(name: CGColorSpace.displayP3) {
-                        let pixelBuffer = rawProcessor.cvPixelBuffer(fromDngFile: rawImage.path()).takeRetainedValue()
-                        let cgImage = pixelBuffer.createCGImage(colorSpace: displayP3)
+                    if let displayP3 = CGColorSpace(name: CGColorSpace.displayP3),
+                       let rawPixelBuffer = photo.pixelBuffer {
+                        let rawMetadata = RawMetadata(from: photo.metadata)
+                        let pixelBuffer = rawProcessor.convertRawPixelBuffer(rawPixelBuffer, with: rawMetadata).takeRetainedValue()
 
-                        print("Image bit depth: ", cgImage!.bitsPerComponent)
+                        let cgImage = pixelBuffer.createCGImage(colorSpace: displayP3)
 
                         procesedImage = encodeImageToHeif(CIImage(cgImage: cgImage!),
                                                           compressionQuality: 0.8, colorSpace: displayP3,
