@@ -20,13 +20,15 @@ import AVFoundation
 final class CameraModel: ObservableObject {
     private let service = CameraService()
 
-    @Published var photo: Thumbnail!
+    @Published var photo: UIImage!
 
     @Published var showAlertError = false
 
     @Published var isFlashOn = false
 
     @Published var willCapturePhoto = false
+
+    @Published var showSpinner = false
 
     var alertError: AlertError!
 
@@ -55,7 +57,14 @@ final class CameraModel: ObservableObject {
         .store(in: &self.subscriptions)
 
         service.$willCapturePhoto.sink { [weak self] (val) in
+            print("willCapturePhoto", val)
             self?.willCapturePhoto = val
+        }
+        .store(in: &self.subscriptions)
+
+        service.$shouldShowSpinner.sink { [weak self] (val) in
+            print("showSpinner", val)
+            self?.showSpinner = val
         }
         .store(in: &self.subscriptions)
     }
@@ -104,7 +113,7 @@ struct CameraView: View {
 
     var capturedPhotoThumbnail: some View {
         Group {
-            if let thumbnail = model.photo?.thumbnailImage {
+            if let thumbnail = model.photo {
                 Image(uiImage: thumbnail)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
@@ -176,13 +185,25 @@ struct CameraView: View {
                                 model.alertError.primaryAction?()
                             }))
                         })
-                        .overlay(
-                            Group {
-                                if model.willCapturePhoto {
+                        .overlay(Group {
+                            if model.showSpinner {
+                                Color.black.opacity(0.2)
+
+                                ProgressView()
+                                    .scaleEffect(2, anchor: .center)
+                                    .progressViewStyle(CircularProgressViewStyle(tint: Color.white))
+                            }
+
+                            if model.willCapturePhoto {
+                                Group {
                                     Color.black
+                                }.onAppear {
+                                    withAnimation {
+                                        model.willCapturePhoto = false
+                                    }
                                 }
                             }
-                        )
+                        })
 
                     HStack {
                         capturedPhotoThumbnail

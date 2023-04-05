@@ -71,6 +71,7 @@ class PhotoCaptureProcessor: NSObject {
     private var maxPhotoProcessingTime: CMTime?
 
     private let rawProcessor = RawProcessor()
+    private let rawProcessingQueue = OperationQueue()
 
     // Save the location of captured photos
     var location: CLLocation?
@@ -83,6 +84,36 @@ class PhotoCaptureProcessor: NSObject {
         self.willCapturePhotoAnimation = willCapturePhotoAnimation
         self.completionHandler = completionHandler
         self.photoProcessingHandler = photoProcessingHandler
+
+        rawProcessingQueue.qualityOfService = QualityOfService.userInitiated
+        rawProcessingQueue.maxConcurrentOperationCount = 1
+    }
+
+    func processPhoto(photo: AVCapturePhoto) {
+        // Generate a unique URL to write the RAW file.
+        rawImage = makeUniqueDNGFileURL()
+
+        if let rawImage = rawImage {
+            do {
+                // Write the RAW data to a DNG file.
+                if let captureData = photo.fileDataRepresentation() {
+                    try captureData.write(to: rawImage)
+
+                    if let displayP3 = CGColorSpace(name: CGColorSpace.displayP3) {
+                        let pixelBuffer = rawProcessor.cvPixelBuffer(fromDngFile: rawImage.path()).takeRetainedValue()
+                        let cgImage = pixelBuffer.createCGImage(colorSpace: displayP3)
+
+                        print("Image bit depth: ", cgImage!.bitsPerComponent)
+
+                        procesedImage = encodeImageToHeif(CIImage(cgImage: cgImage!),
+                                                          compressionQuality: 0.8, colorSpace: displayP3,
+                                                          use10BitRepresentation: false /*cgImage!.bitsPerComponent > 8*/)
+                    }
+                }
+            } catch {
+                fatalError("Couldn't write DNG file to the URL.")
+            }
+        }
     }
 }
 
@@ -144,15 +175,6 @@ extension CGImage {
     }
 }
 
-func removeFile(at url:URL) {
-    do {
-        let fileManager = FileManager()
-        try fileManager.removeItem(at: url)
-    } catch {
-        print("can't remove item: ", url)
-    }
-}
-
 func encodeImageToHeif(_ image: CIImage, compressionQuality: CGFloat, colorSpace: CGColorSpace, use10BitRepresentation: Bool = false ) -> Data? {
     return autoreleasepool(invoking: { () -> Data? in
         let ciContext = CIContext()
@@ -175,6 +197,30 @@ func encodeImageToHeif(_ image: CIImage, compressionQuality: CGFloat, colorSpace
     })
 }
 
+extension CVPixelBuffer {
+    func createCGImage(colorSpace: CGColorSpace) -> CGImage? {
+        let pixelFormatType = CVPixelBufferGetPixelFormatType(self)
+
+        let imageFormat:CIFormat
+        if (pixelFormatType == kCVPixelFormatType_24RGB) {
+            // NOTE: kCVPixelFormatType_32RGBA doesn't seem to work
+            imageFormat = CIFormat.RGBA8
+        } else if (pixelFormatType == kCVPixelFormatType_64RGBALE) {
+            imageFormat =  CIFormat.RGBA16
+        } else if (pixelFormatType == kCVPixelFormatType_64RGBAHalf) {
+            imageFormat = CIFormat.RGBAh
+        } else {
+            print("Unsupported pixelFormatType: ", pixelFormatType)
+            return nil
+        }
+
+        let ciImage = CIImage(cvPixelBuffer: self,
+                              options: [CIImageOption.colorSpace : colorSpace as Any])
+        let ciContext = CIContext()
+        return ciContext.createCGImage(ciImage, from: ciImage.extent, format: imageFormat, colorSpace: colorSpace)
+    }
+}
+
 extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
     // This extension adopts all of the AVCapturePhotoCaptureDelegate protocol methods.
 
@@ -187,95 +233,30 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
             self.willCapturePhotoAnimation()
         }
 
-        guard let maxPhotoProcessingTime = maxPhotoProcessingTime else {
-            return
-        }
-
-        // Show a spinner if processing time exceeds one second.
-        let oneSecond = CMTime(seconds: 2, preferredTimescale: 1)
-        if maxPhotoProcessingTime > oneSecond {
-            DispatchQueue.main.async {
+//        guard let maxPhotoProcessingTime = maxPhotoProcessingTime else {
+//            return
+//        }
+//
+//        // Show a spinner if processing time exceeds one second.
+//        let oneSecond = CMTime(seconds: 2, preferredTimescale: 1)
+//        if maxPhotoProcessingTime > oneSecond {
+             DispatchQueue.main.async {
                 self.photoProcessingHandler(true)
-            }
-        }
-    }
-
-    func createCGImage(from pixelBuffer: CVPixelBuffer, colorSpace: CGColorSpace) -> CGImage? {
-        let pixelFormatType = CVPixelBufferGetPixelFormatType(pixelBuffer)
-
-        let imageFormat:CIFormat
-        if (pixelFormatType == kCVPixelFormatType_24RGB) {
-            // NOTE: kCVPixelFormatType_32RGBA doesn't seem to work
-            imageFormat = CIFormat.RGBA8
-        } else if (pixelFormatType == kCVPixelFormatType_64RGBALE) {
-            imageFormat =  CIFormat.RGBA16
-        } else if (pixelFormatType == kCVPixelFormatType_64RGBAHalf) {
-            imageFormat = CIFormat.RGBAh
-        } else {
-            print("Cannot deal with format ", pixelFormatType)
-            return nil
-        }
-
-        let ciImage = CIImage(cvPixelBuffer: pixelBuffer,
-                              options: [CIImageOption.colorSpace : colorSpace as Any])
-        let ciContext = CIContext()
-        return ciContext.createCGImage(ciImage, from: ciImage.extent, format: imageFormat, colorSpace: colorSpace)
+             }
+//        }
     }
 
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
-        DispatchQueue.main.async {
-            self.photoProcessingHandler(false)
-        }
-
         if let error = error {
             print("Error capturing photo: \(error)")
         }
 
         if photo.isRawPhoto {
-            // Generate a unique URL to write the RAW file.
-            rawImage = makeUniqueDNGFileURL()
-
-            if let rawImage = rawImage {
-                do {
-                    // Write the RAW data to a DNG file.
-                    if let captureData = photo.fileDataRepresentation() {
-                        try captureData.write(to: rawImage)
-
-                        if let displayP3 = CGColorSpace(name: CGColorSpace.displayP3) {
-                            let usePixelBuffer = true
-                            if (usePixelBuffer) {
-                                let pixelBuffer = rawProcessor.cvPixelBuffer(fromDngFile: rawImage.path()).takeRetainedValue()
-                                let cgImage = createCGImage(from: pixelBuffer, colorSpace: displayP3)
-
-                                print("Image bit depth: ", cgImage!.bitsPerComponent)
-
-                                procesedImage = encodeImageToHeif(CIImage(cgImage: cgImage!),
-                                                                  compressionQuality: 0.8, colorSpace: displayP3,
-                                                                  use10BitRepresentation: false /*cgImage!.bitsPerComponent > 8*/)
-                            } else {
-                                // Convert DNG file to PNG.
-                                let pngImagePath = rawProcessor.convertDngFile(rawImage.path())
-
-                                // TODO: add some error checking here...
-
-                                // Convert PNG to HEIC.
-                                let png_image = UIImage(contentsOfFile: pngImagePath)
-
-                                print("PNG image bit depth: ", png_image!.cgImage!.bitsPerComponent)
-
-                                procesedImage = encodeImageToHeif(CIImage(image: png_image!)!,
-                                                                  compressionQuality: 0.8, colorSpace: displayP3,
-                                                                  use10BitRepresentation: png_image!.cgImage!.bitsPerComponent > 8)
-
-                                // Remove PNG file.
-                                removeFile(at: URL(fileURLWithPath: pngImagePath))
-                            }
-                        }
-                    }
-                } catch {
-                    fatalError("Couldn't write DNG file to the URL.")
-                }
+            // Process RAW data on a separate queue
+            let rawProcessingOperation = BlockOperation {
+                self.processPhoto(photo: photo)
             }
+            rawProcessingQueue.addOperation(rawProcessingOperation)
         } else {
             // Store compressed bitmap data.
             capturedImage = photo.fileDataRepresentation()
@@ -337,6 +318,9 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
             }
         }
 
+        // Wait for RAW data to be processed
+        rawProcessingQueue.waitUntilAllOperationsAreFinished();
+
         // Save the processed RAW image as a separate file
         if let procesedImage = self.procesedImage {
             let finalize = {
@@ -371,6 +355,10 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
     }
 
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishCaptureFor resolvedSettings: AVCaptureResolvedPhotoSettings, error: Error?) {
+        DispatchQueue.main.async {
+            self.photoProcessingHandler(false)
+        }
+
         if let error = error {
             print("Error capturing photo: \(error)")
             DispatchQueue.main.async {

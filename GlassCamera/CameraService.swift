@@ -21,19 +21,6 @@ import Photos
 import UIKit
 
 //  MARK: Class Camera Service, handles setup of AVFoundation needed for a basic camera app.
-public struct Thumbnail: Identifiable, Equatable {
-    public var id: String
-    public var originalData: Data
-
-    public init(id: String = UUID().uuidString, originalData: Data) {
-        self.id = id
-        self.originalData = originalData
-    }
-
-    public var thumbnailImage: UIImage? {
-        return UIImage(data: originalData)!.preparingThumbnail(of: CGSize(width: 100, height: 100))
-    }
-}
 
 public struct AlertError {
     public var title: String = ""
@@ -64,7 +51,7 @@ public class CameraService: NSObject, Identifiable {
     @Published public var willCapturePhoto = false
     @Published public var isCameraButtonDisabled = false
     @Published public var isCameraUnavailable = false
-    @Published public var thumbnail: Thumbnail?
+    @Published public var thumbnail: UIImage?
 
     // MARK: Alert properties
 
@@ -165,6 +152,7 @@ public class CameraService: NSObject, Identifiable {
             // The user has previously denied access.
             setupResult = .notAuthorized
 
+            // FIXME: This is terrible
             DispatchQueue.main.async {
                 self.alertError = AlertError(title: "Camera Access",
                                              message: "No Camera Access Permission, please update configuration.",
@@ -562,30 +550,30 @@ public class CameraService: NSObject, Identifiable {
 
                 let photoCaptureProcessor = PhotoCaptureProcessor(with: photoSettings, willCapturePhotoAnimation: {
                     // Flash the screen to signal that AVCam took a photo.
-                    DispatchQueue.main.async {
-                        self.willCapturePhoto.toggle()
-                        self.willCapturePhoto.toggle()
-                    }
+                    self.willCapturePhoto = true
                 }, completionHandler: { (photoCaptureProcessor) in
                     // When the capture is complete, remove a reference to the photo capture delegate so it can be deallocated.
                     if let data = photoCaptureProcessor.capturedImage {
-                        self.thumbnail = Thumbnail(originalData: data)
+                        UIImage(data: data)!.prepareThumbnail(of: CGSize(width: 100, height: 100)) { thumbnail in
+                            DispatchQueue.main.async {
+                                self.thumbnail = thumbnail
+                            }
+                        }
                     } else {
                         print("No photo data")
                     }
 
                     self.isCameraButtonDisabled = false
 
+                    // This should go off by itself, but it might stay set when there is too much pressure
+                    self.willCapturePhoto = false
+
                     self.sessionQueue.async {
                         self.inProgressPhotoCaptureDelegates[photoCaptureProcessor.requestedPhotoSettings.uniqueID] = nil
                     }
                 }, photoProcessingHandler: { animate in
                     // Animates a spinner while photo is processing
-                    if animate {
-                        self.shouldShowSpinner = true
-                    } else {
-                        self.shouldShowSpinner = false
-                    }
+                    self.shouldShowSpinner = animate
                 })
 
                 // Specify the location the photo was taken
