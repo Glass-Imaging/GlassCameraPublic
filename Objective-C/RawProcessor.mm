@@ -17,23 +17,6 @@
 
 #include "CameraCalibration.hpp"
 
-template <typename pixel_type>
-void saveImage(const gls::image<gls::rgba_pixel_float>& image, const std::string& path,
-               const std::vector<uint8_t>* icc_profile_data) {
-    gls::image<pixel_type> saveImage(image.width, image.height);
-    saveImage.apply([&](pixel_type* p, int x, int y) {
-        float scale = std::numeric_limits<typename pixel_type::value_type>::max();
-
-        const auto& pi = image[y][x];
-        *p = {
-            (uint8_t) (scale * pi.red),
-            (uint8_t) (scale * pi.green),
-            (uint8_t) (scale * pi.blue)
-        };
-    });
-    saveImage.write_png_file(path, /*skip_alpha=*/true, icc_profile_data);
-}
-
 std::vector<uint8_t> ICCProfileData(const CFStringRef colorSpaceName) {
     CGColorSpaceRef colorSpace = CGColorSpaceCreateWithName(colorSpaceName);
     if (colorSpace) {
@@ -61,7 +44,8 @@ std::vector<uint8_t> ICCProfileData(const CFStringRef colorSpaceName) {
 
 static std::unique_ptr<RawConverter> _rawConverter = nullptr;
 
-- (instancetype)init {
+- (instancetype) init
+{
     if (self = [super init]) {
         // Initialize self
     }
@@ -78,47 +62,6 @@ static std::unique_ptr<RawConverter> _rawConverter = nullptr;
     return self;
 }
 
-- (NSString*) convertDngFile: (NSString*) path {
-    std::string input_path = std::string([path UTF8String]);
-
-    auto t_start = std::chrono::high_resolution_clock::now();
-
-    gls::tiff_metadata dng_metadata, exif_metadata;
-    const auto rawImage =
-        gls::image<gls::luma_pixel_16>::read_dng_file(input_path, &dng_metadata, &exif_metadata);
-    auto demosaicParameters = unpackiPhoneRawImage(*rawImage, _rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
-
-    auto t_dng_end = std::chrono::high_resolution_clock::now();
-    double elapsed_time_ms = std::chrono::duration<double, std::milli>(t_dng_end - t_start).count();
-
-    std::cout << "DNG file read time: " << (int)elapsed_time_ms << std::endl;
-
-    _rawConverter->allocateTextures(rawImage->size());
-
-    auto t_metal_start = std::chrono::high_resolution_clock::now();
-
-    auto srgbImage = _rawConverter->demosaic(*rawImage, demosaicParameters.get());
-
-    auto t_metal_end = std::chrono::high_resolution_clock::now();
-    elapsed_time_ms = std::chrono::duration<double, std::milli>(t_metal_end - t_metal_start).count();
-
-    std::cout << "Metal Pipeline Execution Time: " << (int)elapsed_time_ms << std::endl;
-
-    auto position = input_path.find_last_of(".dng");
-    assert(position != std::string::npos);
-    const auto output_path = input_path.replace(position - 3, 4, ".png");
-
-    const auto srgbImageCpu = srgbImage->mapImage();
-    saveImage<gls::rgb_pixel>(*srgbImageCpu, output_path, _rawConverter->icc_profile_data());
-
-    auto t_end = std::chrono::high_resolution_clock::now();
-    elapsed_time_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();
-
-    std::cout << "Total Pipeline Execution Time: " << (int)elapsed_time_ms << std::endl;
-
-    return [NSString stringWithUTF8String:output_path.c_str()];
-}
-
 /*
  Note: This really fast but it is just a wrapper around the gls::image data, which itself wraps a MTL::Buffer
        This method is not reentrant and the pipeline should not be invoked till the PixelBuffer is released
@@ -132,6 +75,7 @@ CVPixelBufferRef CVPixelBufferFromFP16ImageBytes(const gls::image<gls::rgba_pixe
     return pixelBuffer;
 }
 
+// Not used, in case we want to make a copy of the pixelBuffer data
 template <typename pixel_type>
 CVPixelBufferRef buildCVPixelBuffer(const gls::image<gls::rgba_pixel_float>& rgbImage) {
     typename pixel_type::value_type max_value =
@@ -188,54 +132,8 @@ CVPixelBufferRef buildCVPixelBuffer(const gls::image<gls::rgba_pixel_float>& rgb
     return pixelBuffer;
 }
 
-- (CVPixelBufferRef) CVPixelBufferFromDngFile: (NSString*) path {
-    std::string input_path = std::string([path UTF8String]);
-
-    auto t_start = std::chrono::high_resolution_clock::now();
-
-    gls::tiff_metadata dng_metadata, exif_metadata;
-    const auto rawImage =
-        gls::image<gls::luma_pixel_16>::read_dng_file(input_path, &dng_metadata, &exif_metadata);
-    auto demosaicParameters = unpackiPhoneRawImage(*rawImage, _rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
-
-    auto t_dng_end = std::chrono::high_resolution_clock::now();
-    double elapsed_time_ms = std::chrono::duration<double, std::milli>(t_dng_end - t_start).count();
-
-    std::cout << "DNG file read time: " << (int)elapsed_time_ms << std::endl;
-
-    _rawConverter->allocateTextures(rawImage->size());
-
-    auto t_metal_start = std::chrono::high_resolution_clock::now();
-
-    auto rgbImage = _rawConverter->demosaic(*rawImage, demosaicParameters.get());
-
-    auto t_metal_end = std::chrono::high_resolution_clock::now();
-    elapsed_time_ms = std::chrono::duration<double, std::milli>(t_metal_end - t_metal_start).count();
-
-    std::cout << "Metal Pipeline Execution Time: " << (int)elapsed_time_ms << std::endl;
-
-    /*
-     Supported image types are:
-         gls::rgb_pixel
-         gls::rgba_pixel_16
-         gls::rgba_pixel_fp16
-     */
-
-    t_start = std::chrono::high_resolution_clock::now();
-
-    const auto& rgbImageCPU = rgbImage->mapImage();
-    // CVPixelBufferRef pixelBuffer = buildCVPixelBuffer<gls::rgba_pixel_16>(*rgbImageCPU);
-    CVPixelBufferRef pixelBuffer = CVPixelBufferFromFP16ImageBytes(*rgbImageCPU);
-
-    auto t_end = std::chrono::high_resolution_clock::now();
-    elapsed_time_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();
-    std::cout << "CVPixelBuffer Creation Time: " << (int)elapsed_time_ms << std::endl;
-
-    return pixelBuffer;
-}
-
-- (CVPixelBufferRef) convertRawPixelBuffer: (CVPixelBufferRef) rawPixelBuffer withMetadata: (RawMetadata*) metadata {
-
+- (CVPixelBufferRef) convertRawPixelBuffer: (CVPixelBufferRef) rawPixelBuffer withMetadata: (RawMetadata*) metadata
+{
     CVPixelBufferLockBaseAddress(rawPixelBuffer, 0);
     size_t width = CVPixelBufferGetWidth(rawPixelBuffer);
     size_t height = CVPixelBufferGetHeight(rawPixelBuffer);
@@ -286,16 +184,14 @@ CVPixelBufferRef buildCVPixelBuffer(const gls::image<gls::rgba_pixel_float>& rgb
 
     auto demosaicParameters = unpackiPhoneRawImage(rawImage, _rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
 
-    _rawConverter->allocateTextures(rawImage.size());
-
     auto t_metal_start = std::chrono::high_resolution_clock::now();
 
     auto rgbImage = _rawConverter->demosaic(rawImage, demosaicParameters.get());
 
-    CVPixelBufferUnlockBaseAddress(rawPixelBuffer, 0);
-
     auto t_metal_end = std::chrono::high_resolution_clock::now();
     auto elapsed_time_ms = std::chrono::duration<double, std::milli>(t_metal_end - t_metal_start).count();
+
+    CVPixelBufferUnlockBaseAddress(rawPixelBuffer, 0);
 
     std::cout << "Metal Pipeline Execution Time: " << (int)elapsed_time_ms << std::endl;
 

@@ -113,7 +113,6 @@ class PhotoCaptureProcessor: NSObject {
         self.photoProcessingHandler = photoProcessingHandler
 
         rawProcessingQueue.qualityOfService = QualityOfService.userInitiated
-        rawProcessingQueue.maxConcurrentOperationCount = 1
     }
 
     func processPhoto(photo: AVCapturePhoto) {
@@ -249,6 +248,12 @@ extension CVPixelBuffer {
     }
 }
 
+private func makeUniqueDNGFileURL() -> URL {
+    let tempDir = FileManager.default.temporaryDirectory
+    let fileName = ProcessInfo.processInfo.globallyUniqueString
+    return tempDir.appendingPathComponent(fileName).appendingPathExtension("dng")
+}
+
 extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
     // This extension adopts all of the AVCapturePhotoCaptureDelegate protocol methods.
 
@@ -261,17 +266,17 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
             self.willCapturePhotoAnimation()
         }
 
-//        guard let maxPhotoProcessingTime = maxPhotoProcessingTime else {
-//            return
-//        }
-//
-//        // Show a spinner if processing time exceeds one second.
-//        let oneSecond = CMTime(seconds: 2, preferredTimescale: 1)
-//        if maxPhotoProcessingTime > oneSecond {
+        guard let maxPhotoProcessingTime = maxPhotoProcessingTime else {
+            return
+        }
+
+        // Show a spinner if processing time exceeds one second.
+        let oneSecond = CMTime(seconds: 2, preferredTimescale: 1)
+        if maxPhotoProcessingTime > oneSecond {
              DispatchQueue.main.async {
                 self.photoProcessingHandler(true)
              }
-//        }
+        }
     }
 
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
@@ -280,11 +285,36 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
         }
 
         if photo.isRawPhoto {
-            // Process RAW data on a separate queue
-            let rawProcessingOperation = BlockOperation {
-                self.processPhoto(photo: photo)
+            // Process DNG file creation and RAW conversion in parallel with an OperationQueue
+
+            // Write raw image to DNG file
+            let dngCreationOperation = BlockOperation {
+                let rawImage = makeUniqueDNGFileURL()
+                do {
+                    if let captureData = photo.fileDataRepresentation() {
+                        try captureData.write(to: rawImage)
+                    }
+                } catch {
+                    fatalError("Couldn't write DNG file to the URL.")
+                }
             }
-            rawProcessingQueue.addOperation(rawProcessingOperation)
+            rawProcessingQueue.addOperation(dngCreationOperation)
+
+            // Process RAW pixelBuffer
+            let rawConversionOperation = BlockOperation { [self] in
+                if let displayP3 = CGColorSpace(name: CGColorSpace.displayP3),
+                   let rawPixelBuffer = photo.pixelBuffer {
+                    let rawMetadata = RawMetadata(from: photo.metadata)
+                    let pixelBuffer = rawProcessor.convertRawPixelBuffer(rawPixelBuffer, with: rawMetadata).takeRetainedValue()
+
+                    let cgImage = pixelBuffer.createCGImage(colorSpace: displayP3)
+
+                    procesedImage = encodeImageToHeif(CIImage(cgImage: cgImage!),
+                                                      compressionQuality: 0.8, colorSpace: displayP3,
+                                                      use10BitRepresentation: false /*cgImage!.bitsPerComponent > 8*/)
+                }
+            }
+            rawProcessingQueue.addOperation(rawConversionOperation)
         } else {
             // Store compressed bitmap data.
             capturedImage = photo.fileDataRepresentation()
@@ -292,12 +322,6 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
             // Save metadata for reprocessed image.
             imageMetadata = photo.metadata as NSDictionary
         }
-    }
-
-    private func makeUniqueDNGFileURL() -> URL {
-        let tempDir = FileManager.default.temporaryDirectory
-        let fileName = ProcessInfo.processInfo.globallyUniqueString
-        return tempDir.appendingPathComponent(fileName).appendingPathExtension("dng")
     }
 
     // MARK: Saves capture to photo library

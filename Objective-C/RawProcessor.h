@@ -33,10 +33,6 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface RawProcessor : NSObject
 
-- (NSString*) convertDngFile: (NSString*) path;
-
-- (CVPixelBufferRef) CVPixelBufferFromDngFile: (NSString*) path;
-
 - (CVPixelBufferRef) convertRawPixelBuffer: (CVPixelBufferRef) rawPixelBuffer withMetadata: (RawMetadata*) metadata;
 
 @end
