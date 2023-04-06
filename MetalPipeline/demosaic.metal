@@ -67,6 +67,18 @@ half4 read_imageh(texture2d<half> image, sampler s, float2 coord) {
     return image.sample(s, coord);
 }
 
+void write_imageui(texture2d<uint, access::write> image, int2 coord, uint4 value) {
+    image.write(value, static_cast<uint2>(coord));
+}
+
+uint4 read_imageui(texture2d<uint> image, int2 coord) {
+    return image.read(static_cast<uint2>(coord));
+}
+
+uint4 read_imageui(texture2d<uint> image, sampler s, float2 coord) {
+    return image.sample(s, coord);
+}
+
 template <typename T, access a>
 int2 get_image_dim(texture2d<T, a> image) {
     return int2(image.get_width(), image.get_height());
@@ -665,6 +677,91 @@ kernel void denoiseImage(texture2d<half> inputImage                     [[textur
 
     write_imageh(denoisedImage, imageCoordinates, half4(denoisedPixel, magnitude));
 }
+
+//half __attribute__((overloadable)) length(half8 v) {
+//    half d1 = dot(v.lo, v.lo);
+//    half d2 = dot(v.hi, v.hi);
+//    return sqrt(d1 + d2);
+//}
+
+struct _half8 {
+    half4 hi;
+    half4 lo;
+
+    _half8(uint4 uintVal) : hi((half4) uintVal.xy), lo((half4) uintVal.zw) { }
+
+    _half8(half4 _hi, half4 _lo) : hi(_hi), lo(_lo) { }
+
+    _half8 operator - (_half8 other) {
+        return _half8(this->hi + other.hi, this->lo + other.lo);
+    }
+};
+
+half length(_half8 x) {
+    return sqrt(dot(x.hi, x.hi) + dot(x.lo, x.lo));
+}
+
+kernel void denoiseImagePatch(texture2d<half> inputImage                     [[texture(0)]],
+                              texture2d<half> gradientImage                  [[texture(1)]],
+                              texture2d<uint> pcaImage                       [[texture(2)]],
+                              constant float3& var_a                         [[buffer(4)]],
+                              constant float3& var_b                         [[buffer(5)]],
+                              constant float3& thresholdMultipliers          [[buffer(6)]],
+                              constant float& chromaBoost                    [[buffer(7)]],
+                              constant float& gradientBoost                  [[buffer(8)]],
+                              constant float& gradientThreshold              [[buffer(9)]],
+                              texture2d<half, access::write> denoisedImage   [[texture(10)]],
+                              uint2 index                                    [[thread_position_in_grid]]) {
+    const int2 imageCoordinates = (int2) index;
+
+    const half3 inputYCC = read_imageh(inputImage, imageCoordinates).xyz;
+    const _half8 inputPCA = _half8(read_imageui(pcaImage, imageCoordinates));
+
+    half3 sigma = half3(sqrt(var_a + var_b * inputYCC.x));
+
+//    // Low level signal sigma boost
+//    half threshold = 0.2;
+//    if (inputYCC.x <= threshold) {
+//        half3 sigma_001 = convert_half3(sqrt(var_a + var_b * threshold));
+//        sigma = sigma_001 * (0.6h + 0.4h * inputYCC.x / threshold);
+//    }
+
+    /*
+     TODO: See if it would help to boost the sigma for pure red or blue pixels
+     */
+
+    half3 diffMultiplier = 1 / (half3(thresholdMultipliers) * sigma);
+
+    half2 gradient = read_imageh(gradientImage, imageCoordinates).xy;
+    half magnitude = length(gradient);
+    half edge = smoothstep(4, 16, gradientThreshold * magnitude / sigma.x);
+
+    const int size = 10;
+
+    half3 filtered_pixel = 0;
+    half3 kernel_norm = 0;
+    for (int y = -size; y <= size; y++) {
+        for (int x = -size; x <= size; x++) {
+            half3 inputSampleYCC = read_imageh(inputImage, imageCoordinates + int2(x, y)).xyz;
+            _half8 samplePCA = _half8(read_imageui(pcaImage, imageCoordinates + int2(x, y)));
+
+            half pcaDiff = length(samplePCA - inputPCA);
+            half lumaWeight = 1 - step(1 + (half) gradientBoost * edge, pcaDiff * diffMultiplier.x);
+
+            half3 inputDiff = (inputSampleYCC - inputYCC) * diffMultiplier;
+            half chromaWeight = (abs(x) <= 4 && abs(y) <= 4) ? 1 - step((half) chromaBoost, length(inputDiff)) : 0;
+
+            half3 sampleWeight = half3(lumaWeight, chromaWeight, chromaWeight);
+
+            filtered_pixel += sampleWeight * inputSampleYCC;
+            kernel_norm += sampleWeight;
+        }
+    }
+    half3 denoisedPixel = filtered_pixel / kernel_norm;
+
+    write_imageh(denoisedImage, imageCoordinates, half4(denoisedPixel, kernel_norm.x));
+}
+
 
 kernel void downsampleImageXYZ(texture2d<float> inputImage                  [[texture(0)]],
                                texture2d<float, access::write> outputImage  [[texture(1)]],

@@ -40,6 +40,8 @@
 		E5D4D8A327D183D900F1D944 /* CameraService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5D4D89E27D183D800F1D944 /* CameraService.swift */; };
 		E5D4D8A427D183D900F1D944 /* CameraService+Enums.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5D4D89F27D183D800F1D944 /* CameraService+Enums.swift */; };
 		E5D4D8A627D183F700F1D944 /* PhotoCaptureProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5D4D8A527D183F700F1D944 /* PhotoCaptureProcessor.swift */; };
+		E5E7CBA929DF593200067C0B /* PCA.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5E7CBA829DF593200067C0B /* PCA.cpp */; };
+		E5E7CBAA29DF593200067C0B /* PCA.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5E7CBA829DF593200067C0B /* PCA.cpp */; };
 		E5FAE7AD29C50D2C00213AE6 /* gls_mtl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5FAE7AB29C50D2C00213AE6 /* gls_mtl.cpp */; };
 		E5FAE7E429C5420200213AE6 /* pipelineTest.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5FAE7E329C5420200213AE6 /* pipelineTest.cpp */; };
 		E5FAE7EB29C5425300213AE6 /* gls_mtl_image.hpp in Sources */ = {isa = PBXBuildFile; fileRef = E5FAE7A629C1368900213AE6 /* gls_mtl_image.hpp */; };
@@ -137,6 +139,8 @@
 		E5D4D89E27D183D800F1D944 /* CameraService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CameraService.swift; sourceTree = "<group>"; };
 		E5D4D89F27D183D800F1D944 /* CameraService+Enums.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "CameraService+Enums.swift"; sourceTree = "<group>"; };
 		E5D4D8A527D183F700F1D944 /* PhotoCaptureProcessor.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PhotoCaptureProcessor.swift; sourceTree = "<group>"; };
+		E5E7CBA729DF593200067C0B /* PCA.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = PCA.hpp; sourceTree = "<group>"; };
+		E5E7CBA829DF593200067C0B /* PCA.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = PCA.cpp; sourceTree = "<group>"; };
 		E5FAE7A629C1368900213AE6 /* gls_mtl_image.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = gls_mtl_image.hpp; sourceTree = "<group>"; };
 		E5FAE7AB29C50D2C00213AE6 /* gls_mtl.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = gls_mtl.cpp; sourceTree = "<group>"; };
 		E5FAE7AC29C50D2C00213AE6 /* gls_mtl.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = gls_mtl.hpp; sourceTree = "<group>"; };
@@ -264,6 +268,8 @@
 				E59FB6A129D5FB1C008FD7AA /* demosaic_kernels.hpp */,
 				E5C6985E29C91EF600F7062C /* demosaic.hpp */,
 				E5C6986529C9269400F7062C /* demosaic_utils.cpp */,
+				E5E7CBA829DF593200067C0B /* PCA.cpp */,
+				E5E7CBA729DF593200067C0B /* PCA.hpp */,
 				E522296629CD646600D13A4F /* pyramid_processor.cpp */,
 				E522296729CD646600D13A4F /* pyramid_processor.hpp */,
 				E5C6984C29C906FC00F7062C /* raw_converter.hpp */,
@@ -442,6 +448,7 @@
 				E5C5BFF929BD36B600AAB593 /* gls_color_science.cpp in Sources */,
 				E5D4D88F27D1798D00F1D944 /* CameraView.swift in Sources */,
 				E5C5BFFA29BD36B600AAB593 /* gls_image_png.cpp in Sources */,
+				E5E7CBA929DF593200067C0B /* PCA.cpp in Sources */,
 				E5C6984629C805B500F7062C /* demosaic.metal in Sources */,
 				E5D4D8A627D183F700F1D944 /* PhotoCaptureProcessor.swift in Sources */,
 				E5C6986D29C926F100F7062C /* Sonya6400Calibration.cpp in Sources */,
@@ -478,6 +485,7 @@
 				E5FAE7F129C5425300213AE6 /* gls_image_png.cpp in Sources */,
 				E5C6984E29C906FC00F7062C /* raw_converter.cpp in Sources */,
 				E5FAE7F229C5425300213AE6 /* gls_image_tiff.cpp in Sources */,
+				E5E7CBAA29DF593200067C0B /* PCA.cpp in Sources */,
 				E5FAE7F329C5425300213AE6 /* gls_logging.cpp in Sources */,
 				E5FAE7F429C5425300213AE6 /* gls_tiff_metadata.cpp in Sources */,
 				E5FAE7E429C5420200213AE6 /* pipelineTest.cpp in Sources */,
@@ -612,6 +620,7 @@
 				CLANG_CXX_LIBRARY = "";
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = GlassCamera/GlassCamera.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"GlassCamera/Preview Content\"";
@@ -622,6 +631,7 @@
 				HEADER_SEARCH_PATHS = (
 					"\"$(SRCROOT)/GlassImage/include\"",
 					"\"$(SRCROOT)/metal-cpp\"",
+					/opt/homebrew/include/eigen3,
 				);
 				INFOPLIST_FILE = GlassCamera/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "";
@@ -646,6 +656,7 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.glass-imaging.GlassCamera";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				STRIP_INSTALLED_PRODUCT = NO;
 				STRIP_SWIFT_SYMBOLS = NO;
 				SUPPORTS_MACCATALYST = YES;
@@ -667,6 +678,7 @@
 				CLANG_CXX_LIBRARY = "";
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = GlassCamera/GlassCamera.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"GlassCamera/Preview Content\"";
@@ -678,6 +690,7 @@
 				HEADER_SEARCH_PATHS = (
 					"\"$(SRCROOT)/GlassImage/include\"",
 					"\"$(SRCROOT)/metal-cpp\"",
+					/opt/homebrew/include/eigen3,
 				);
 				INFOPLIST_FILE = GlassCamera/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "";
@@ -704,6 +717,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.glass-imaging.GlassCamera";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				STRIP_INSTALLED_PRODUCT = NO;
 				STRIP_SWIFT_SYMBOLS = NO;
 				SUPPORTS_MACCATALYST = YES;
@@ -728,6 +742,7 @@
 					"\"$(SRCROOT)/metal-cpp\"",
 					"\"$(SRCROOT)/GlassImage/include\"",
 					"\"$(SRCROOT)/sciplot\"",
+					/opt/homebrew/include/eigen3,
 				);
 				INFOPLIST_KEY_MetalCaptureEnabled = YES;
 				LIBRARY_SEARCH_PATHS = (
@@ -754,6 +769,7 @@
 					"\"$(SRCROOT)/metal-cpp\"",
 					"\"$(SRCROOT)/GlassImage/include\"",
 					"\"$(SRCROOT)/sciplot\"",
+					/opt/homebrew/include/eigen3,
 				);
 				INFOPLIST_KEY_MetalCaptureEnabled = YES;
 				LIBRARY_SEARCH_PATHS = (

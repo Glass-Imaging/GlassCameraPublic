@@ -34,14 +34,14 @@ class LocalToneMapping {
     localToneMappingMaskKernel _localToneMappingMask;
 
    public:
-    LocalToneMapping(MetalContext* mtlContext) :
-        _localToneMappingMask(mtlContext) {
+    LocalToneMapping(MetalContext* context) :
+        _localToneMappingMask(context) {
         // Placeholder, only allocated if LTM is used
-        ltmMaskImage = std::make_unique<gls::mtl_image_2d<gls::luma_pixel_float>>(mtlContext->device(), 1, 1);
+        ltmMaskImage = std::make_unique<gls::mtl_image_2d<gls::luma_pixel_float>>(context->device(), 1, 1);
     }
 
-    void allocateTextures(MetalContext* mtlContext, int width, int height) {
-        auto mtlDevice = mtlContext->device();
+    void allocateTextures(MetalContext* context, int width, int height) {
+        auto mtlDevice = context->device();
 
         if (ltmMaskImage->width != width || ltmMaskImage->height != height) {
             ltmMaskImage = std::make_unique<gls::mtl_image_2d<gls::luma_pixel_float>>(mtlDevice, width, height);
@@ -58,8 +58,7 @@ class LocalToneMapping {
         }
     }
 
-    template <class Context>
-    void createMask(Context* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& image,
+    void createMask(MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& image,
                     const std::array<const gls::mtl_image_2d<gls::rgba_pixel_float>*, 3>& guideImage,
                     const NoiseModel<5>& noiseModel, const LTMParameters& ltmParameters,
                     MTL::Buffer* histogramBuffer) {
@@ -182,8 +181,7 @@ public:
 
     void allocateHighNoiseTextures(const gls::size& imageSize);
 
-    template <class Context>
-    gls::mtl_image_2d<gls::rgba_pixel_float>* denoise(Context* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
+    gls::mtl_image_2d<gls::rgba_pixel_float>* denoise(MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
                                                       DemosaicParameters* demosaicParameters, bool calibrateFromImage);
 
     gls::mtl_image_2d<gls::rgba_pixel_float>* demosaic(const gls::image<gls::luma_pixel_16>& rawImage,

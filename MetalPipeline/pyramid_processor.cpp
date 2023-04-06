@@ -21,14 +21,14 @@
 static const char* TAG = "DEMOSAIC";
 
 template <size_t levels>
-PyramidProcessor<levels>::PyramidProcessor(MetalContext* mtlContext, int _width, int _height)
+PyramidProcessor<levels>::PyramidProcessor(MetalContext* context, int _width, int _height)
     : width(_width), height(_height), fusedFrames(0),
-    _denoiseImage(mtlContext),
-    _subtractNoiseImage(mtlContext),
-    _resampleImage(mtlContext, "downsampleImageXYZ"),
-    _resampleGradientImage(mtlContext, "downsampleImageXY")
+    _denoiseImage(context),
+    _subtractNoiseImage(context),
+    _resampleImage(context, "downsampleImageXYZ"),
+    _resampleGradientImage(context, "downsampleImageXY")
 {
-    auto mtlDevice = mtlContext->device();
+    auto mtlDevice = context->device();
     for (int i = 0, scale = 2; i < levels - 1; i++, scale *= 2) {
         imagePyramid[i] = std::make_unique<imageType>(mtlDevice, width / scale, height / scale);
         gradientPyramid[i] = std::make_unique<gls::mtl_image_2d<gls::luma_alpha_pixel_float>>(
@@ -72,9 +72,8 @@ void dumpGradientImage(const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& ima
 static const constexpr float lumaDenoiseWeight[4] = {1, 1, 1, 1};
 
 template <size_t levels>
-template <class Context>
 typename PyramidProcessor<levels>::imageType* PyramidProcessor<levels>::denoise(
-    Context* context, std::array<DenoiseParameters, levels>* denoiseParameters, const imageType& image,
+    MetalContext* context, std::array<DenoiseParameters, levels>* denoiseParameters, const imageType& image,
     const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& gradientImage, std::array<YCbCrNLF, levels>* nlfParameters,
     float exposure_multiplier, bool calibrateFromImage) {
     std::array<gls::Vector<3>, levels> thresholdMultipliers;
@@ -92,7 +91,7 @@ typename PyramidProcessor<levels>::imageType* PyramidProcessor<levels>::denoise(
 
 //        if (calibrateFromImage) {
 //            (*nlfParameters)[i] =
-//                MeasureYCbCrNLF(mtlContext, *currentLayer, *currentGradientLayer, exposure_multiplier);
+//                MeasureYCbCrNLF(context, *currentLayer, *currentGradientLayer, exposure_multiplier);
 //        }
 
         thresholdMultipliers[i] = nflMultiplier((*denoiseParameters)[i]);
@@ -118,8 +117,10 @@ typename PyramidProcessor<levels>::imageType* PyramidProcessor<levels>::denoise(
         // LOG_INFO(TAG) << "Denoising image level " << i << " with multipliers " << thresholdMultipliers[i] <<
         // std::endl;
 
+        const auto layerImage = i < levels - 1 ? subtractedImagePyramid[i].get() : denoiseInput;
+
         // Denoise current layer
-        _denoiseImage(context, i < levels - 1 ? *(subtractedImagePyramid[i]) : *denoiseInput, *gradientInput,
+        _denoiseImage(context, *layerImage, *gradientInput,
                       (*nlfParameters)[i].first, (*nlfParameters)[i].second, thresholdMultipliers[i],
                       (*denoiseParameters)[i].chromaBoost, (*denoiseParameters)[i].gradientBoost,
                       (*denoiseParameters)[i].gradientThreshold, denoisedImagePyramid[i].get());
@@ -130,13 +131,3 @@ typename PyramidProcessor<levels>::imageType* PyramidProcessor<levels>::denoise(
 }
 
 template struct PyramidProcessor<5>;
-
-template typename PyramidProcessor<5>::imageType* PyramidProcessor<5>::denoise(
-    MetalContext* context, std::array<DenoiseParameters, 5>* denoiseParameters, const imageType& image,
-    const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& gradientImage, std::array<YCbCrNLF, 5>* nlfParameters,
-    float exposure_multiplier, bool calibrateFromImage);
-
-template typename PyramidProcessor<5>::imageType* PyramidProcessor<5>::denoise(
-    MTL::ComputeCommandEncoder* context, std::array<DenoiseParameters, 5>* denoiseParameters, const imageType& image,
-    const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& gradientImage, std::array<YCbCrNLF, 5>* nlfParameters,
-    float exposure_multiplier, bool calibrateFromImage);

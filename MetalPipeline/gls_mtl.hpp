@@ -165,7 +165,7 @@ class Kernel {
     }
 
 public:
-    Kernel(MetalContext* mtlContext, const std::string& name) {
+    Kernel(MetalContext* context, const std::string& name) {
         if (kernelStateMap == nullptr) {
             kernelStateMap = std::make_unique<std::map<const std::string,
                                                        NS::SharedPtr<MTL::ComputePipelineState>>>();
@@ -174,7 +174,7 @@ public:
         _pipelineState = (*kernelStateMap)[name];
 
         if (!_pipelineState) {
-            _pipelineState = NS::TransferPtr(mtlContext->newKernelPipelineState(name));
+            _pipelineState = NS::TransferPtr(context->newKernelPipelineState(name));
             (*kernelStateMap)[name] = _pipelineState;
         }
     }

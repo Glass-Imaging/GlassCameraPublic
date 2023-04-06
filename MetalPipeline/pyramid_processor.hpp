@@ -41,21 +41,20 @@ struct PyramidProcessor {
 //    std::array<gls::mtl_image_2d<gls::luma_alpha_pixel_float>::unique_ptr, levels> fusionReferenceGradientPyramid;
 //    std::array<imageType::unique_ptr, levels>* fusionBuffer[2];
 
-    PyramidProcessor(MetalContext* mtlContext, int width, int height);
+    PyramidProcessor(MetalContext* context, int width, int height);
 
-    template <class Context>
-    imageType* denoise(Context* context, std::array<DenoiseParameters, levels>* denoiseParameters,
+    imageType* denoise(MetalContext* context, std::array<DenoiseParameters, levels>* denoiseParameters,
                        const imageType& image, const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& gradientImage,
                        std::array<YCbCrNLF, levels>* nlfParameters, float exposure_multiplier,
                        bool calibrateFromImage = false);
 
-//    void fuseFrame(MetalContext* mtlContext, std::array<DenoiseParameters, levels>* denoiseParameters,
+//    void fuseFrame(MetalContext* context, std::array<DenoiseParameters, levels>* denoiseParameters,
 //                   const imageType& image, const gls::Matrix<3, 3>& homography,
 //                   const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& gradientImage,
 //                   std::array<YCbCrNLF, levels>* nlfParameters, float exposure_multiplier,
 //                   bool calibrateFromImage = false);
 //
-//    imageType* getFusedImage(MetalContext* mtlContext);
+//    imageType* getFusedImage(MetalContext* context);
 };
 
 #endif /* pyramid_processor_hpp */
