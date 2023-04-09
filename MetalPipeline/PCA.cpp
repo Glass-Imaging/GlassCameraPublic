@@ -16,6 +16,8 @@ namespace egn = Eigen;
 
 #include "gls_image.hpp"
 
+#include "ThreadPool.hpp"
+
 template<typename pixel_type>
 void pca(const gls::image<pixel_type>& input, int channel, int patch_size, gls::image<std::array<gls::float16_t, 8>>* pca_image) {
     std::cout << "PCA Begin" << std::endl;
@@ -28,15 +30,26 @@ void pca(const gls::image<pixel_type>& input, int channel, int patch_size, gls::
 
     std::cout << "Assembling patches" << std::endl;
 
-    for (int y = 0; y < input.height; y++) {
-        for (int x = 0; x < input.width; x++) {
-            const int patch_index = y * input.width + x;
-            for (int j = 0; j < patch_size; j++) {
-                for (int i = 0; i < patch_size; i++) {
-                    const auto& p = input.getPixel(x + i - radius, y + j - radius);
-                    vectors(patch_index, j * patch_size + i) = p[channel];
+    const int slices = input.height % 8 == 0 ? 8 : input.height % 4 == 0 ? 4 : input.height % 2 == 0 ? 2 : 1;
+    const int slice_size = input.height / slices;
+
+    {
+        ThreadPool threadPool(slices);
+
+        for (int s = 0; s < slices; s++) {
+            threadPool.enqueue([s, slices, slice_size, patch_size, radius, &input, &vectors](){
+                for (int y = s * slice_size; y < (s + 1) * slice_size; y++) {
+                    for (int x = 0; x < input.width; x++) {
+                        const int patch_index = y * input.width + x;
+                        for (int j = 0; j < patch_size; j++) {
+                            for (int i = 0; i < patch_size; i++) {
+                                const auto& p = input.getPixel(x + i - radius, y + j - radius);
+                                vectors(patch_index, j * patch_size + i) = p.x;
+                            }
+                        }
+                    }
                 }
-            }
+            });
         }
     }
 
@@ -47,9 +60,17 @@ void pca(const gls::image<pixel_type>& input, int channel, int patch_size, gls::
 
     std::cout << "Computing covariance" << std::endl;
 
+    egn::MatrixXf vectorsSmall = vectors(egn::seq(0, egn::last, 32), egn::all);
+
     // Compute variance matrix for the patch data
-    egn::MatrixXf centered = vectors.rowwise() - vectors.colwise().mean();
-    egn::MatrixXf covariance = (centered.transpose() * centered) / double(vectors.rows() - 1);
+    egn::MatrixXf centered = vectorsSmall.rowwise() - vectorsSmall.colwise().mean();
+    // egn::MatrixXf covariance = (centered.transpose() * centered) / (vectors.rows() - 1);
+
+    // Faster way to perform "centered.transpose() * centered", see:
+    // https://stackoverflow.com/questions/39606224/does-eigen-have-self-transpose-multiply-optimization-like-h-transposeh
+    egn::MatrixXf covariance = egn::MatrixXf::Zero(25, 25);
+    covariance.template selfadjointView<egn::Lower>().rankUpdate(centered.transpose());
+    covariance /= vectors.rows() - 1;
 
     std::cout << "Running solver" << std::endl;
 
@@ -62,7 +83,7 @@ void pca(const gls::image<pixel_type>& input, int channel, int patch_size, gls::
     auto t_end = std::chrono::high_resolution_clock::now();
     auto solver_time_ms = std::chrono::duration<double, std::milli>(t_end - t_patches_end).count();
 
-    std::cout << "Solver Time: " << (int)elapsed_time_ms << std::endl;
+    std::cout << "Solver Time: " << (int)solver_time_ms << std::endl;
 
     elapsed_time_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();
 
@@ -108,12 +129,11 @@ void pca4c(const gls::image<gls::rgba_pixel_float>& input, int patch_size, gls::
 
     auto t_start = std::chrono::high_resolution_clock::now();
 
-    egn::MatrixXf vectors(input.height * input.width, 3 * patch_size * patch_size);
-
     const int radius = patch_size / 2;
 
     std::cout << "Assembling patches" << std::endl;
 
+    egn::MatrixXf vectors(4 * input.height * input.width, patch_size * patch_size);
     for (int y = 0; y < input.height; y++) {
         for (int x = 0; x < input.width; x++) {
             const int patch_index = y * input.width + x;
@@ -123,6 +143,7 @@ void pca4c(const gls::image<gls::rgba_pixel_float>& input, int patch_size, gls::
                     vectors(patch_index, 4 * (j * patch_size + i) + 0) = p[0];
                     vectors(patch_index, 4 * (j * patch_size + i) + 1) = p[1];
                     vectors(patch_index, 4 * (j * patch_size + i) + 2) = p[2];
+                    vectors(patch_index, 4 * (j * patch_size + i) + 3) = p[3];
                 }
             }
         }

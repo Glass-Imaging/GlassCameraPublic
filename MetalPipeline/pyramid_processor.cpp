@@ -135,7 +135,7 @@ typename PyramidProcessor<levels>::imageType* PyramidProcessor<levels>::denoise(
             auto pca_span = std::span((std::array<gls::float16_t, 8>*) pca_memory, imageCPU->width * imageCPU->height);
 
             gls::image<std::array<gls::float16_t, 8>> pca_image(pcaImageCPU->width, pcaImageCPU->height, pcaImageCPU->stride, pca_span);
-            pca(*imageCPU, 0, /*i == 0 ? 3 : */ 5, &pca_image);
+            pca(*imageCPU, /*luma channel*/ 0, 5, &pca_image);
 
             // Denoise current layer
             _denoiseImagePatch(context, *layerImage, *gradientInput, *pcaImagePyramid[i],
