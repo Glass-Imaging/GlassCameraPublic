@@ -40,6 +40,11 @@ void pca(const gls::image<pixel_type>& input, int channel, int patch_size, gls::
         }
     }
 
+    auto t_patches_end = std::chrono::high_resolution_clock::now();
+    double elapsed_time_ms = std::chrono::duration<double, std::milli>(t_patches_end - t_start).count();
+
+    std::cout << "Patches time: " << (int)elapsed_time_ms << std::endl;
+
     std::cout << "Computing covariance" << std::endl;
 
     // Compute variance matrix for the patch data
@@ -55,7 +60,11 @@ void pca(const gls::image<pixel_type>& input, int channel, int patch_size, gls::
     egn::MatrixXf principal_components = diag.eigenvectors();
 
     auto t_end = std::chrono::high_resolution_clock::now();
-    double elapsed_time_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();
+    auto solver_time_ms = std::chrono::duration<double, std::milli>(t_end - t_patches_end).count();
+
+    std::cout << "Solver Time: " << (int)elapsed_time_ms << std::endl;
+
+    elapsed_time_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();
 
     std::cout << "PCA Execution Time: " << (int)elapsed_time_ms << std::endl;
 
@@ -99,7 +108,7 @@ void pca4c(const gls::image<gls::rgba_pixel_float>& input, int patch_size, gls::
 
     auto t_start = std::chrono::high_resolution_clock::now();
 
-    egn::MatrixXf vectors(input.height * input.width, 4 * patch_size * patch_size);
+    egn::MatrixXf vectors(input.height * input.width, 3 * patch_size * patch_size);
 
     const int radius = patch_size / 2;
 
@@ -114,7 +123,6 @@ void pca4c(const gls::image<gls::rgba_pixel_float>& input, int patch_size, gls::
                     vectors(patch_index, 4 * (j * patch_size + i) + 0) = p[0];
                     vectors(patch_index, 4 * (j * patch_size + i) + 1) = p[1];
                     vectors(patch_index, 4 * (j * patch_size + i) + 2) = p[2];
-                    vectors(patch_index, 4 * (j * patch_size + i) + 3) = p[3];
                 }
             }
         }

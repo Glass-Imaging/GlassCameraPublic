@@ -25,6 +25,7 @@ struct PyramidProcessor {
     int fusedFrames;
 
     denoiseImageKernel _denoiseImage;
+    denoiseImagePatchKernel _denoiseImagePatch;
     subtractNoiseImageKernel _subtractNoiseImage;
     resampleImageKernel _resampleImage;
     resampleImageKernel _resampleGradientImage;
@@ -34,6 +35,7 @@ struct PyramidProcessor {
     std::array<gls::mtl_image_2d<gls::luma_alpha_pixel_float>::unique_ptr, levels - 1> gradientPyramid;
     std::array<imageType::unique_ptr, levels> subtractedImagePyramid;
     std::array<imageType::unique_ptr, levels> denoisedImagePyramid;
+    std::array<gls::mtl_image_2d<gls::pixel<uint32_t, 4>>::unique_ptr, levels> pcaImagePyramid;
 
 //    std::array<imageType::unique_ptr, levels> fusionImagePyramidA;
 //    std::array<imageType::unique_ptr, levels> fusionImagePyramidB;

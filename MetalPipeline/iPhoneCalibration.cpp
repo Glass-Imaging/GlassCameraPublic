@@ -61,15 +61,15 @@ public:
 
         std::cout << "iPhone DenoiseParameters nlf_alpha: " << nlf_alpha << ", ISO: " << iso << std::endl;
 
-        float lerp = 0.55 * std::lerp(0.125f, 2.0f, nlf_alpha);
+        float lerp = std::lerp(0.25f, 1.0f, nlf_alpha);
         float lerp_c = 1;
 
-        float lmult[5] = { 0.5, 1, 0.5, 0.25, 0.125 };
+        float lmult[5] = { 1.5, 2, 0.5, 0.25, 0.125 };
         float cmult[5] = { 1, 0.5, 0.5, 0.5, 0.25 };
 
         float chromaBoost = 8;
 
-        float gradientBoost = 4 * smoothstep(0, 0.3, nlf_alpha);
+        float gradientBoost = 1 + smoothstep(0, 0.3, nlf_alpha);
         float gradientThreshold = 1 + 2 * smoothstep(0, 0.3, nlf_alpha);
 
         std::cout << "gradientBoost: " << gradientBoost << ", gradientThreshold: " << gradientThreshold << std::endl;

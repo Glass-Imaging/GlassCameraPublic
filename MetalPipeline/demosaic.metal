@@ -693,7 +693,7 @@ struct _half8 {
     _half8(half4 _hi, half4 _lo) : hi(_hi), lo(_lo) { }
 
     _half8 operator - (_half8 other) {
-        return _half8(this->hi + other.hi, this->lo + other.lo);
+        return _half8(this->hi - other.hi, this->lo - other.lo);
     }
 };
 
@@ -701,16 +701,16 @@ half length(_half8 x) {
     return sqrt(dot(x.hi, x.hi) + dot(x.lo, x.lo));
 }
 
-kernel void denoiseImagePatch(texture2d<half> inputImage                     [[texture(0)]],
+kernel void denoiseImagePatchOld(texture2d<half> inputImage                     [[texture(0)]],
                               texture2d<half> gradientImage                  [[texture(1)]],
                               texture2d<uint> pcaImage                       [[texture(2)]],
-                              constant float3& var_a                         [[buffer(4)]],
-                              constant float3& var_b                         [[buffer(5)]],
-                              constant float3& thresholdMultipliers          [[buffer(6)]],
-                              constant float& chromaBoost                    [[buffer(7)]],
-                              constant float& gradientBoost                  [[buffer(8)]],
-                              constant float& gradientThreshold              [[buffer(9)]],
-                              texture2d<half, access::write> denoisedImage   [[texture(10)]],
+                              constant float3& var_a                         [[buffer(3)]],
+                              constant float3& var_b                         [[buffer(4)]],
+                              constant float3& thresholdMultipliers          [[buffer(5)]],
+                              constant float& chromaBoost                    [[buffer(6)]],
+                              constant float& gradientBoost                  [[buffer(7)]],
+                              constant float& gradientThreshold              [[buffer(8)]],
+                              texture2d<half, access::write> denoisedImage   [[texture(9)]],
                               uint2 index                                    [[thread_position_in_grid]]) {
     const int2 imageCoordinates = (int2) index;
 
@@ -738,8 +738,8 @@ kernel void denoiseImagePatch(texture2d<half> inputImage                     [[t
 
     const int size = 10;
 
-    half3 filtered_pixel = 0;
-    half3 kernel_norm = 0;
+    float3 filtered_pixel = 0;
+    float3 kernel_norm = 0;
     for (int y = -size; y <= size; y++) {
         for (int x = -size; x <= size; x++) {
             half3 inputSampleYCC = read_imageh(inputImage, imageCoordinates + int2(x, y)).xyz;
@@ -753,13 +753,68 @@ kernel void denoiseImagePatch(texture2d<half> inputImage                     [[t
 
             half3 sampleWeight = half3(lumaWeight, chromaWeight, chromaWeight);
 
-            filtered_pixel += sampleWeight * inputSampleYCC;
-            kernel_norm += sampleWeight;
+            filtered_pixel += float3(sampleWeight * inputSampleYCC);
+            kernel_norm += float3(sampleWeight);
         }
     }
-    half3 denoisedPixel = filtered_pixel / kernel_norm;
+    half3 denoisedPixel = half3(filtered_pixel / kernel_norm);
 
     write_imageh(denoisedImage, imageCoordinates, half4(denoisedPixel, kernel_norm.x));
+}
+
+kernel void denoiseImagePatch(texture2d<half> inputImage                     [[texture(0)]],
+                              texture2d<half> gradientImage                  [[texture(1)]],
+                              texture2d<uint> pcaImage                       [[texture(2)]],
+                              constant float3& var_a                         [[buffer(3)]],
+                              constant float3& var_b                         [[buffer(4)]],
+                              constant float3& thresholdMultipliers          [[buffer(5)]],
+                              constant float& chromaBoost                    [[buffer(6)]],
+                              constant float& gradientBoost                  [[buffer(7)]],
+                              constant float& gradientThreshold              [[buffer(8)]],
+                              texture2d<half, access::write> denoisedImage   [[texture(9)]],
+                              uint2 index                                    [[thread_position_in_grid]]) {
+    const int2 imageCoordinates = (int2) index;
+
+    const half3 inputYCC = read_imageh(inputImage, imageCoordinates).xyz;
+    const _half8 inputPCA = _half8(read_imageui(pcaImage, imageCoordinates));
+
+    half3 sigma = half3(sqrt(var_a + var_b * inputYCC.x));
+    half3 diffMultiplier = 1 / (half3(thresholdMultipliers) * sigma);
+
+    half2 gradient = read_imageh(gradientImage, imageCoordinates).xy;
+    // half angle = atan2(gradient.y, gradient.x);
+    half magnitude = length(gradient);
+    half edge = smoothstep(4, 16, gradientThreshold * magnitude / sigma.x);
+
+    const int size = 10;
+
+    // Use high precision accumulator
+    float3 filtered_pixel = 0;
+    float3 kernel_norm = 0;
+    for (int y = -size; y <= size; y++) {
+        for (int x = -size; x <= size; x++) {
+            half3 inputSampleYCC = read_imageh(inputImage, imageCoordinates + (int2){x, y}).xyz;
+            _half8 samplePCA = _half8(read_imageui(pcaImage, imageCoordinates + int2(x, y)));
+
+            half pcaDiff = length(samplePCA - inputPCA);
+
+            half2 inputChromaDiff = (inputSampleYCC.yz - inputYCC.yz) * diffMultiplier.yz;
+
+            // half directionWeight = mix(1, tunnel(x, y, angle, (half) 0.25), edge);
+
+            half pcaMultDiff = pcaDiff * diffMultiplier.x;
+            half lumaWeight = 1 - step(1 + (half) gradientBoost * edge, pcaMultDiff);
+            half chromaWeight = 1 - step((half) chromaBoost, length(half3(pcaMultDiff, inputChromaDiff)));
+
+            half3 sampleWeight = (half3) {/*directionWeight * */ lumaWeight, chromaWeight, chromaWeight};
+
+            filtered_pixel += float3(sampleWeight * inputSampleYCC);
+            kernel_norm += float3(sampleWeight);
+        }
+    }
+    half3 denoisedPixel = half3(filtered_pixel / kernel_norm);
+
+    write_imageh(denoisedImage, imageCoordinates, half4(denoisedPixel, magnitude));
 }
 
 
