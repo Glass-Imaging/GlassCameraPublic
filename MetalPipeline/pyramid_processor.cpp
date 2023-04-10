@@ -25,6 +25,7 @@ template <size_t levels>
 PyramidProcessor<levels>::PyramidProcessor(MetalContext* context, int _width, int _height)
     : width(_width), height(_height), fusedFrames(0),
     _denoiseImage(context),
+    _patchStatistics(context),
     _denoiseImagePatch(context),
     _subtractNoiseImage(context),
     _resampleImage(context, "downsampleImageXYZ"),
@@ -41,6 +42,9 @@ PyramidProcessor<levels>::PyramidProcessor(MetalContext* context, int _width, in
         subtractedImagePyramid[i] = std::make_unique<imageType>(mtlDevice, width / scale, height / scale);
         pcaImagePyramid[i] = std::make_unique<gls::mtl_image_2d<gls::pixel<uint32_t, 4>>>(mtlDevice, width / scale, height / scale);
     }
+
+    patches = std::make_unique<gls::Buffer<std::array<float, 25>>>(context->device(), width * height);
+    patchesSmall = std::make_unique<gls::Buffer<std::array<float, 25>>>(context->device(), width * height / 64);
 }
 
 gls::Vector<3> nflMultiplier(const DenoiseParameters& denoiseParameters) {
@@ -135,7 +139,24 @@ typename PyramidProcessor<levels>::imageType* PyramidProcessor<levels>::denoise(
             auto pca_span = std::span((std::array<gls::float16_t, 8>*) pca_memory, imageCPU->width * imageCPU->height);
 
             gls::image<std::array<gls::float16_t, 8>> pca_image(pcaImageCPU->width, pcaImageCPU->height, pcaImageCPU->stride, pca_span);
-            pca(*imageCPU, /*luma channel*/ 0, 5, &pca_image);
+
+            auto t_start = std::chrono::high_resolution_clock::now();
+
+            _patchStatistics(context, *layerImage, patches->buffer(), patchesSmall->buffer());
+
+            context->waitForCompletion();
+
+            auto t_end = std::chrono::high_resolution_clock::now();
+            auto solver_time_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();
+
+            std::cout << "_patchStatistics Time: " << (int)solver_time_ms << std::endl;
+
+            pca(*imageCPU,
+                std::span(patches->data(), patches->size()),
+                std::span(patchesSmall->data(), patchesSmall->size()),
+                5, &pca_image);
+
+            // pca(*imageCPU, /*luma channel*/ 0, 5, &pca_image);
 
             // Denoise current layer
             _denoiseImagePatch(context, *layerImage, *gradientInput, *pcaImagePyramid[i],

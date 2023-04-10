@@ -346,6 +346,22 @@ struct denoiseImagePatchKernel {
     }
 };
 
+struct patchStatisticsKernel {
+    Kernel<MTL::Texture*, // inputImage
+           MTL::Buffer*,  // patches
+           MTL::Buffer*   // smallPatches
+    > kernel;
+
+    patchStatisticsKernel(MetalContext* context) : kernel(context, "patchStatistics") { }
+
+    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
+                     MTL::Buffer* patches, MTL::Buffer* smallPatches) {
+
+        kernel(context, /*gridSize=*/ MTL::Size(inputImage.width, inputImage.height, 1),
+               inputImage.texture(), patches, smallPatches);
+    }
+};
+
 struct subtractNoiseImageKernel {
     Kernel<MTL::Texture*,  // inputImage
            MTL::Texture*,  // inputImage1

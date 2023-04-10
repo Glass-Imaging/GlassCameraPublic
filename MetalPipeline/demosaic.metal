@@ -762,6 +762,31 @@ kernel void denoiseImagePatchOld(texture2d<half> inputImage                     
     write_imageh(denoisedImage, imageCoordinates, half4(denoisedPixel, kernel_norm.x));
 }
 
+kernel void patchStatistics(texture2d<half> inputImage             [[texture(0)]],
+                            device array<float, 25>* patches        [[buffer(1)]],
+                            device array<float, 25>* smallPatches   [[buffer(2)]],
+                            uint2 index                             [[thread_position_in_grid]]) {
+    const int2 imageCoordinates = (int2) index;
+
+    const int x = imageCoordinates.x;
+    const int y = imageCoordinates.y;
+    const int width = inputImage.get_width();
+
+    for (int j = -2; j <= 2; j++) {
+        for (int i = -2; i <= 2; i++) {
+            const half inputLuma = read_imageh(inputImage, imageCoordinates + int2(i, j)).x;
+
+            const int patch_index = y * width + x;
+            patches[patch_index][(j + 2) * 5 + (i + 2)] = inputLuma;
+
+            if (x % 8 == 0 && y % 8 == 0) {
+                const int small_patch_index = y * width / 64 + x / 8;
+                smallPatches[small_patch_index][(j + 2) * 5 + (i + 2)] = inputLuma;
+            }
+        }
+    }
+}
+
 kernel void denoiseImagePatch(texture2d<half> inputImage                     [[texture(0)]],
                               texture2d<half> gradientImage                  [[texture(1)]],
                               texture2d<uint> pcaImage                       [[texture(2)]],
@@ -816,7 +841,6 @@ kernel void denoiseImagePatch(texture2d<half> inputImage                     [[t
 
     write_imageh(denoisedImage, imageCoordinates, half4(denoisedPixel, magnitude));
 }
-
 
 kernel void downsampleImageXYZ(texture2d<float> inputImage                  [[texture(0)]],
                                texture2d<float, access::write> outputImage  [[texture(1)]],
