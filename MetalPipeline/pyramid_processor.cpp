@@ -26,6 +26,7 @@ PyramidProcessor<levels>::PyramidProcessor(MetalContext* context, int _width, in
     : width(_width), height(_height), fusedFrames(0),
     _denoiseImage(context),
     _patchStatistics(context),
+    _patchProjection(context),
     _denoiseImagePatch(context),
     _subtractNoiseImage(context),
     _resampleImage(context, "downsampleImageXYZ"),
@@ -43,7 +44,6 @@ PyramidProcessor<levels>::PyramidProcessor(MetalContext* context, int _width, in
         pcaImagePyramid[i] = std::make_unique<gls::mtl_image_2d<gls::pixel<uint32_t, 4>>>(mtlDevice, width / scale, height / scale);
     }
 
-    patches = std::make_unique<gls::Buffer<std::array<float, 25>>>(context->device(), width * height);
     patchesSmall = std::make_unique<gls::Buffer<std::array<float, 25>>>(context->device(), width * height / 64);
 }
 
@@ -128,33 +128,36 @@ typename PyramidProcessor<levels>::imageType* PyramidProcessor<levels>::denoise(
 
         const bool usePatchSimiliarity = true;
         if (usePatchSimiliarity) {
-            context->waitForCompletion();
+            // context->waitForCompletion();
 
             assert(layerImage->size() == pcaImagePyramid[i]->size());
 
             const auto imageCPU = layerImage->mapImage();
 
-            auto pcaImageCPU = pcaImagePyramid[i]->mapImage();
-            auto pca_memory = (std::array<gls::float16_t, 8> *) pcaImageCPU->pixels().data();
-            auto pca_span = std::span((std::array<gls::float16_t, 8>*) pca_memory, imageCPU->width * imageCPU->height);
+            // auto t_start = std::chrono::high_resolution_clock::now();
 
-            gls::image<std::array<gls::float16_t, 8>> pca_image(pcaImageCPU->width, pcaImageCPU->height, pcaImageCPU->stride, pca_span);
-
-            auto t_start = std::chrono::high_resolution_clock::now();
-
-            _patchStatistics(context, *layerImage, patches->buffer(), patchesSmall->buffer());
-
+            _patchStatistics(context, *layerImage, patchesSmall->buffer());
             context->waitForCompletion();
 
-            auto t_end = std::chrono::high_resolution_clock::now();
-            auto solver_time_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();
+            // auto t_end = std::chrono::high_resolution_clock::now();
+            // auto solver_time_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();
+            // std::cout << "_patchStatistics Time: " << (int)solver_time_ms << std::endl;
 
-            std::cout << "_patchStatistics Time: " << (int)solver_time_ms << std::endl;
+            // auto pcaImageCPU = pcaImagePyramid[i]->mapImage();
+            // auto pca_memory = (std::array<gls::float16_t, 8> *) pcaImageCPU->pixels().data();
+            // auto pca_span = std::span((std::array<gls::float16_t, 8>*) pca_memory, imageCPU->width * imageCPU->height);
+            // gls::image<std::array<gls::float16_t, 8>> pca_image(pcaImageCPU->width, pcaImageCPU->height, pcaImageCPU->stride, pca_span);
+
+            // pca(*imageCPU,
+            //     std::span(patches->data(), patches->size()),
+            //     std::span(patchesSmall->data(), patchesSmall->size()),
+            //     5, &pca_image);
 
             pca(*imageCPU,
-                std::span(patches->data(), patches->size()),
                 std::span(patchesSmall->data(), patchesSmall->size()),
-                5, &pca_image);
+                5, &pca_space);
+
+            _patchProjection(context, *layerImage, pca_space, pcaImagePyramid[i].get());
 
             // pca(*imageCPU, /*luma channel*/ 0, 5, &pca_image);
 

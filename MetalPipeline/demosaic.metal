@@ -688,6 +688,8 @@ struct _half8 {
     half4 hi;
     half4 lo;
 
+    _half8(half val) : hi(val), lo(val) { }
+
     _half8(uint4 uintVal) : hi((half4) uintVal.xy), lo((half4) uintVal.zw) { }
 
     _half8(half4 _hi, half4 _lo) : hi(_hi), lo(_lo) { }
@@ -695,6 +697,8 @@ struct _half8 {
     _half8 operator - (_half8 other) {
         return _half8(this->hi - other.hi, this->lo - other.lo);
     }
+
+    operator uint4() const { return uint4(uint2(hi), uint2(lo)); }
 };
 
 half length(_half8 x) {
@@ -762,10 +766,9 @@ kernel void denoiseImagePatchOld(texture2d<half> inputImage                     
     write_imageh(denoisedImage, imageCoordinates, half4(denoisedPixel, kernel_norm.x));
 }
 
-kernel void patchStatistics(texture2d<half> inputImage             [[texture(0)]],
-                            device array<float, 25>* patches        [[buffer(1)]],
-                            device array<float, 25>* smallPatches   [[buffer(2)]],
-                            uint2 index                             [[thread_position_in_grid]]) {
+kernel void patchStatistics(texture2d<half> inputImage        [[texture(0)]],
+                            device array<float, 25>* patches  [[buffer(1)]],
+                            uint2 index                       [[thread_position_in_grid]]) {
     const int2 imageCoordinates = (int2) index;
 
     const int x = imageCoordinates.x;
@@ -774,17 +777,36 @@ kernel void patchStatistics(texture2d<half> inputImage             [[texture(0)]
 
     for (int j = -2; j <= 2; j++) {
         for (int i = -2; i <= 2; i++) {
-            const half inputLuma = read_imageh(inputImage, imageCoordinates + int2(i, j)).x;
+            const half inputLuma = read_imageh(inputImage, 8 * imageCoordinates + int2(i, j)).x;
 
-            const int patch_index = y * width + x;
+            const int patch_index = y * width / 8 + x;
             patches[patch_index][(j + 2) * 5 + (i + 2)] = inputLuma;
-
-            if (x % 8 == 0 && y % 8 == 0) {
-                const int small_patch_index = y * width / 64 + x / 8;
-                smallPatches[small_patch_index][(j + 2) * 5 + (i + 2)] = inputLuma;
-            }
         }
     }
+}
+
+kernel void patchProjection(texture2d<half> inputImage                      [[texture(0)]],
+                            constant array<array<half, 8>, 25>* pcaSpace    [[buffer(1)]],
+                            texture2d<uint, access::write> projectedImage   [[texture(2)]],
+                            uint2 index                                     [[thread_position_in_grid]]) {
+    const int2 imageCoordinates = (int2) index;
+
+    _half8 v_result(0);
+    thread array<half, 8>* result = (thread array<half, 8>*) &v_result;
+
+    int row = 0;
+    for (int j = -2; j <= 2; j++) {
+        for (int i = -2; i <= 2; i++) {
+            const half val = read_imageh(inputImage, imageCoordinates + int2(i, j)).x;
+
+            for (int c = 0; c < 8; c++) {
+                (*result)[c] += (*pcaSpace)[row][c] * val;
+            }
+            row++;
+        }
+    }
+
+    write_imageui(projectedImage, imageCoordinates, uint4(v_result));
 }
 
 kernel void denoiseImagePatch(texture2d<half> inputImage                     [[texture(0)]],

@@ -18,6 +18,61 @@ namespace egn = Eigen;
 
 #include "ThreadPool.hpp"
 
+typedef egn::Map<egn::Matrix<float, egn::Dynamic, egn::Dynamic, egn::RowMajor>> MatrixXfrm;
+
+void pca(const gls::image<gls::rgba_pixel_float>& input,
+         const std::span<std::array<float, 25>>& patchesSmall,
+         int patch_size, std::array<std::array<float16_t, 8>, 25>* pca_space) {
+    std::cout << "PCA Begin" << std::endl;
+
+    auto t_start = std::chrono::high_resolution_clock::now();
+
+    MatrixXfrm vectorsSmall((float *) patchesSmall.data(), input.height * input.width / 64, patch_size * patch_size);
+
+    std::cout << "Computing covariance" << std::endl;
+
+    // Compute variance matrix for the patch data
+    egn::MatrixXf centered = vectorsSmall.rowwise() - vectorsSmall.colwise().mean();
+
+    // egn::MatrixXf covariance = (centered.transpose() * centered) / (vectors.rows() - 1);
+
+    // (Slightly) Faster way to perform "centered.transpose() * centered", see:
+    // https://stackoverflow.com/questions/39606224/does-eigen-have-self-transpose-multiply-optimization-like-h-transposeh
+    egn::MatrixXf covariance = egn::MatrixXf::Zero(patch_size * patch_size, patch_size * patch_size);
+    covariance.template selfadjointView<egn::Lower>().rankUpdate(centered.transpose());
+    // TODO: Is this right
+    covariance /= /*vectors.rows()*/ input.width * input.height - 1;
+
+    std::cout << "Running solver" << std::endl;
+
+    // Note: The eigenvectors are the *columns* of the principal_components matrix and they are already normalized
+
+    egn::SelfAdjointEigenSolver<egn::MatrixXf> diag(covariance);
+    egn::VectorXf variances = diag.eigenvalues();
+    egn::MatrixXf principal_components = diag.eigenvectors();
+
+    auto t_end = std::chrono::high_resolution_clock::now();
+    auto solver_time_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();
+
+    std::cout << "Solver Time: " << (int)solver_time_ms << std::endl;
+
+    auto elapsed_time_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();
+
+    std::cout << "PCA Execution Time: " << (int)elapsed_time_ms << std::endl;
+
+    int components = 8;
+
+    // Select eight largest eigenvectors in decreasing order
+    egn::MatrixXf main_components(patch_size * patch_size, components);
+    for (int c = 0; c < components; c++) {
+        const auto& pci = principal_components.innerVector(principal_components.cols()-1 - c);
+
+        for (int r = 0; r < 25; r++) {
+            (*pca_space)[r][c] = pci[r];
+        }
+    }
+}
+
 void pca(const gls::image<gls::rgba_pixel_float>& input,
          const std::span<std::array<float, 25>>& patches,
          const std::span<std::array<float, 25>>& patchesSmall,
@@ -26,13 +81,8 @@ void pca(const gls::image<gls::rgba_pixel_float>& input,
 
     auto t_start = std::chrono::high_resolution_clock::now();
 
-    egn::Map<egn::Matrix<float, egn::Dynamic, egn::Dynamic, egn::RowMajor>> vectors((float *) patches.data(),
-                                                                                    input.height * input.width,
-                                                                                    patch_size * patch_size);
-
-    egn::Map<egn::Matrix<float, egn::Dynamic, egn::Dynamic, egn::RowMajor>> vectorsSmall((float *) patchesSmall.data(),
-                                                                                         input.height * input.width / 64,
-                                                                                         patch_size * patch_size);
+    MatrixXfrm vectors((float *) patches.data(), input.height * input.width, patch_size * patch_size);
+    MatrixXfrm vectorsSmall((float *) patchesSmall.data(), input.height * input.width / 64, patch_size * patch_size);
 
     std::cout << "Computing covariance" << std::endl;
 

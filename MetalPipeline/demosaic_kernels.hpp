@@ -348,17 +348,34 @@ struct denoiseImagePatchKernel {
 
 struct patchStatisticsKernel {
     Kernel<MTL::Texture*, // inputImage
-           MTL::Buffer*,  // patches
-           MTL::Buffer*   // smallPatches
+           MTL::Buffer*   // patches
     > kernel;
 
     patchStatisticsKernel(MetalContext* context) : kernel(context, "patchStatistics") { }
 
+    void operator() (MetalContext* context,
+                     const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
+                     MTL::Buffer* patches) {
+
+        kernel(context, /*gridSize=*/ MTL::Size(inputImage.width / 8, inputImage.height / 8, 1),
+               inputImage.texture(), patches);
+    }
+};
+
+struct patchProjectionKernel {
+    Kernel<MTL::Texture*,                         // inputImage
+           std::array<std::array<half, 8>, 25>,  // pcaSpace
+           MTL::Texture*                          // projectedImage
+    > kernel;
+
+    patchProjectionKernel(MetalContext* context) : kernel(context, "patchProjection") { }
+
     void operator() (MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
-                     MTL::Buffer* patches, MTL::Buffer* smallPatches) {
+                     const std::array<std::array<half, 8>, 25>& pcaSpace,
+                     gls::mtl_image_2d<gls::pixel<uint32_t, 4>>* projectedImage) {
 
         kernel(context, /*gridSize=*/ MTL::Size(inputImage.width, inputImage.height, 1),
-               inputImage.texture(), patches, smallPatches);
+               inputImage.texture(), pcaSpace, projectedImage->texture());
     }
 };
 
