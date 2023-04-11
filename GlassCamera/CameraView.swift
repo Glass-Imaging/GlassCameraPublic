@@ -19,6 +19,7 @@ import AVFoundation
 
 final class CameraModel: ObservableObject {
     private let service = CameraService()
+    private let networkAdapter: NetworkAdapter
 
     @Published var photo: UIImage!
 
@@ -37,6 +38,9 @@ final class CameraModel: ObservableObject {
     private var subscriptions = Set<AnyCancellable>()
 
     init() {
+        self.networkAdapter = NetworkAdapter(cameraService: service)
+        self.networkAdapter.start()
+        
         self.session = service.session
 
         service.$thumbnail.sink { [weak self] (photo) in

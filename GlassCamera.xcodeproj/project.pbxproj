@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		8626127629DB4EC80038C622 /* NetworkAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8626127529DB4EC80038C622 /* NetworkAdapter.swift */; };
 		E522296829CD646600D13A4F /* pyramid_processor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E522296629CD646600D13A4F /* pyramid_processor.cpp */; };
 		E522296929CD646600D13A4F /* pyramid_processor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E522296629CD646600D13A4F /* pyramid_processor.cpp */; };
 		E522296D29D026DA00D13A4F /* iPhoneCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E522296C29D026DA00D13A4F /* iPhoneCalibration.cpp */; };
@@ -84,6 +85,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		8626127529DB4EC80038C622 /* NetworkAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkAdapter.swift; sourceTree = "<group>"; };
 		E522296629CD646600D13A4F /* pyramid_processor.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = pyramid_processor.cpp; sourceTree = "<group>"; };
 		E522296729CD646600D13A4F /* pyramid_processor.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = pyramid_processor.hpp; sourceTree = "<group>"; };
 		E522296B29CE421000D13A4F /* tinyicc.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = tinyicc.hpp; sourceTree = "<group>"; };
@@ -324,6 +326,7 @@
 				E5D4D8A527D183F700F1D944 /* PhotoCaptureProcessor.swift */,
 				E5D4D89027D1798E00F1D944 /* Assets.xcassets */,
 				E5D4D89227D1798E00F1D944 /* Preview Content */,
+				8626127529DB4EC80038C622 /* NetworkAdapter.swift */,
 			);
 			path = GlassCamera;
 			sourceTree = "<group>";
@@ -441,6 +444,7 @@
 				E522296D29D026DA00D13A4F /* iPhoneCalibration.cpp in Sources */,
 				E5C6986A29C926CD00F7062C /* ThreadPool.cpp in Sources */,
 				E5C6986329C925A600F7062C /* CameraCalibration.cpp in Sources */,
+				8626127629DB4EC80038C622 /* NetworkAdapter.swift in Sources */,
 				E522296829CD646600D13A4F /* pyramid_processor.cpp in Sources */,
 				E5D4D8A027D183D800F1D944 /* CameraPreview.swift in Sources */,
 				E5D4D8A327D183D900F1D944 /* CameraService.swift in Sources */,
@@ -624,7 +628,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"GlassCamera/Preview Content\"";
-				DEVELOPMENT_TEAM = 4A4DGXV9V7;
+				DEVELOPMENT_TEAM = WM2UUQMK8D;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = NO;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -682,7 +686,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"GlassCamera/Preview Content\"";
-				DEVELOPMENT_TEAM = 4A4DGXV9V7;
+				DEVELOPMENT_TEAM = WM2UUQMK8D;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = NO;
 				ENABLE_TESTABILITY = YES;
@@ -736,7 +740,7 @@
 				CODE_SIGN_ENTITLEMENTS = PipelineTest/PipelineTest.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				DEAD_CODE_STRIPPING = YES;
-				DEVELOPMENT_TEAM = 4A4DGXV9V7;
+				DEVELOPMENT_TEAM = WM2UUQMK8D;
 				ENABLE_HARDENED_RUNTIME = YES;
 				HEADER_SEARCH_PATHS = (
 					"\"$(SRCROOT)/metal-cpp\"",
@@ -763,7 +767,7 @@
 				CODE_SIGN_ENTITLEMENTS = PipelineTest/PipelineTest.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				DEAD_CODE_STRIPPING = YES;
-				DEVELOPMENT_TEAM = 4A4DGXV9V7;
+				DEVELOPMENT_TEAM = WM2UUQMK8D;
 				ENABLE_HARDENED_RUNTIME = YES;
 				HEADER_SEARCH_PATHS = (
 					"\"$(SRCROOT)/metal-cpp\"",
