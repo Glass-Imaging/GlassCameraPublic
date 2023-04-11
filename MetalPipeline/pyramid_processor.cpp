@@ -153,9 +153,7 @@ typename PyramidProcessor<levels>::imageType* PyramidProcessor<levels>::denoise(
             //     std::span(patchesSmall->data(), patchesSmall->size()),
             //     5, &pca_image);
 
-            pca(*imageCPU,
-                std::span(patchesSmall->data(), patchesSmall->size()),
-                5, &pca_space);
+            build_pca_space(std::span(patchesSmall->data(), patchesSmall->size()), &pca_space);
 
             _patchProjection(context, *layerImage, pca_space, pcaImagePyramid[i].get());
 
