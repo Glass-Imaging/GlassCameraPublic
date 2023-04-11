@@ -316,7 +316,7 @@ struct denoiseImageKernel {
     }
 };
 
-struct denoiseImagePatchKernel {
+struct pcaDenoiseImageKernel {
     Kernel<MTL::Texture*,  // inputImage
            MTL::Texture*,  // gradientImage
            MTL::Texture*,  // pcaImage
@@ -329,7 +329,7 @@ struct denoiseImagePatchKernel {
            MTL::Texture*   // outputImage
     > kernel;
 
-    denoiseImagePatchKernel(MetalContext* context) : kernel(context, "denoiseImagePatch") { }
+    pcaDenoiseImageKernel(MetalContext* context) : kernel(context, "pcaDenoiseImage") { }
 
     void operator() (MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
                      const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& gradientImage,
@@ -346,12 +346,12 @@ struct denoiseImagePatchKernel {
     }
 };
 
-struct patchStatisticsKernel {
+struct collectPatchesKernel {
     Kernel<MTL::Texture*, // inputImage
            MTL::Buffer*   // patches
     > kernel;
 
-    patchStatisticsKernel(MetalContext* context) : kernel(context, "patchStatistics") { }
+    collectPatchesKernel(MetalContext* context) : kernel(context, "collectPatches") { }
 
     void operator() (MetalContext* context,
                      const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
@@ -362,13 +362,13 @@ struct patchStatisticsKernel {
     }
 };
 
-struct patchProjectionKernel {
+struct pcaProjectionKernel {
     Kernel<MTL::Texture*,                         // inputImage
-           std::array<std::array<half, 8>, 25>,  // pcaSpace
+           std::array<std::array<half, 8>, 25>,   // pcaSpace
            MTL::Texture*                          // projectedImage
     > kernel;
 
-    patchProjectionKernel(MetalContext* context) : kernel(context, "patchProjection") { }
+    pcaProjectionKernel(MetalContext* context) : kernel(context, "pcaProjection") { }
 
     void operator() (MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
                      const std::array<std::array<half, 8>, 25>& pcaSpace,

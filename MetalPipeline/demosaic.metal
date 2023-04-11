@@ -678,12 +678,6 @@ kernel void denoiseImage(texture2d<half> inputImage                     [[textur
     write_imageh(denoisedImage, imageCoordinates, half4(denoisedPixel, magnitude));
 }
 
-//half __attribute__((overloadable)) length(half8 v) {
-//    half d1 = dot(v.lo, v.lo);
-//    half d2 = dot(v.hi, v.hi);
-//    return sqrt(d1 + d2);
-//}
-
 struct _half8 {
     half4 hi;
     half4 lo;
@@ -705,68 +699,7 @@ half length(_half8 x) {
     return sqrt(dot(x.hi, x.hi) + dot(x.lo, x.lo));
 }
 
-kernel void denoiseImagePatchOld(texture2d<half> inputImage                     [[texture(0)]],
-                              texture2d<half> gradientImage                  [[texture(1)]],
-                              texture2d<uint> pcaImage                       [[texture(2)]],
-                              constant float3& var_a                         [[buffer(3)]],
-                              constant float3& var_b                         [[buffer(4)]],
-                              constant float3& thresholdMultipliers          [[buffer(5)]],
-                              constant float& chromaBoost                    [[buffer(6)]],
-                              constant float& gradientBoost                  [[buffer(7)]],
-                              constant float& gradientThreshold              [[buffer(8)]],
-                              texture2d<half, access::write> denoisedImage   [[texture(9)]],
-                              uint2 index                                    [[thread_position_in_grid]]) {
-    const int2 imageCoordinates = (int2) index;
-
-    const half3 inputYCC = read_imageh(inputImage, imageCoordinates).xyz;
-    const _half8 inputPCA = _half8(read_imageui(pcaImage, imageCoordinates));
-
-    half3 sigma = half3(sqrt(var_a + var_b * inputYCC.x));
-
-//    // Low level signal sigma boost
-//    half threshold = 0.2;
-//    if (inputYCC.x <= threshold) {
-//        half3 sigma_001 = convert_half3(sqrt(var_a + var_b * threshold));
-//        sigma = sigma_001 * (0.6h + 0.4h * inputYCC.x / threshold);
-//    }
-
-    /*
-     TODO: See if it would help to boost the sigma for pure red or blue pixels
-     */
-
-    half3 diffMultiplier = 1 / (half3(thresholdMultipliers) * sigma);
-
-    half2 gradient = read_imageh(gradientImage, imageCoordinates).xy;
-    half magnitude = length(gradient);
-    half edge = smoothstep(4, 16, gradientThreshold * magnitude / sigma.x);
-
-    const int size = 10;
-
-    float3 filtered_pixel = 0;
-    float3 kernel_norm = 0;
-    for (int y = -size; y <= size; y++) {
-        for (int x = -size; x <= size; x++) {
-            half3 inputSampleYCC = read_imageh(inputImage, imageCoordinates + int2(x, y)).xyz;
-            _half8 samplePCA = _half8(read_imageui(pcaImage, imageCoordinates + int2(x, y)));
-
-            half pcaDiff = length(samplePCA - inputPCA);
-            half lumaWeight = 1 - step(1 + (half) gradientBoost * edge, pcaDiff * diffMultiplier.x);
-
-            half3 inputDiff = (inputSampleYCC - inputYCC) * diffMultiplier;
-            half chromaWeight = (abs(x) <= 4 && abs(y) <= 4) ? 1 - step((half) chromaBoost, length(inputDiff)) : 0;
-
-            half3 sampleWeight = half3(lumaWeight, chromaWeight, chromaWeight);
-
-            filtered_pixel += float3(sampleWeight * inputSampleYCC);
-            kernel_norm += float3(sampleWeight);
-        }
-    }
-    half3 denoisedPixel = half3(filtered_pixel / kernel_norm);
-
-    write_imageh(denoisedImage, imageCoordinates, half4(denoisedPixel, kernel_norm.x));
-}
-
-kernel void patchStatistics(texture2d<half> inputImage        [[texture(0)]],
+kernel void collectPatches(texture2d<half> inputImage         [[texture(0)]],
                             device array<float, 25>* patches  [[buffer(1)]],
                             uint2 index                       [[thread_position_in_grid]]) {
     const int2 imageCoordinates = (int2) index;
@@ -785,7 +718,7 @@ kernel void patchStatistics(texture2d<half> inputImage        [[texture(0)]],
     }
 }
 
-kernel void patchProjection(texture2d<half> inputImage                      [[texture(0)]],
+kernel void pcaProjection(texture2d<half> inputImage                        [[texture(0)]],
                             constant array<array<half, 8>, 25>* pcaSpace    [[buffer(1)]],
                             texture2d<uint, access::write> projectedImage   [[texture(2)]],
                             uint2 index                                     [[thread_position_in_grid]]) {
@@ -809,7 +742,7 @@ kernel void patchProjection(texture2d<half> inputImage                      [[te
     write_imageui(projectedImage, imageCoordinates, uint4(v_result));
 }
 
-kernel void denoiseImagePatch(texture2d<half> inputImage                     [[texture(0)]],
+kernel void pcaDenoiseImage(texture2d<half> inputImage                       [[texture(0)]],
                               texture2d<half> gradientImage                  [[texture(1)]],
                               texture2d<uint> pcaImage                       [[texture(2)]],
                               constant float3& var_a                         [[buffer(3)]],

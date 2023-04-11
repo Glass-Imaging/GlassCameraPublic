@@ -180,9 +180,9 @@ int main(int argc, const char * argv[]) {
     if (argc > 1) {
         auto input_path = std::filesystem::path(argv[1]);
 
-        // demosaicFile(&rawConverter, input_path);
+        demosaicFile(&rawConverter, input_path);
 
-        demosaicDirectory(&rawConverter, input_path);
+        // demosaicDirectory(&rawConverter, input_path);
 
         return 0;
     } else {

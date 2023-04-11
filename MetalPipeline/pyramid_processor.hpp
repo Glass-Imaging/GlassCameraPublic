@@ -24,10 +24,14 @@ struct PyramidProcessor {
     const int width, height;
     int fusedFrames;
 
+    static constexpr bool usePatchSimiliarity = true;
+    static constexpr int pcaPatchSize = 25;
+    static constexpr int pcaSpaceSize = 8;
+
     denoiseImageKernel _denoiseImage;
-    patchStatisticsKernel _patchStatistics;
-    patchProjectionKernel _patchProjection;
-    denoiseImagePatchKernel _denoiseImagePatch;
+    collectPatchesKernel _collectPatches;
+    pcaProjectionKernel _pcaProjection;
+    pcaDenoiseImageKernel _pcaDenoiseImage;
     subtractNoiseImageKernel _subtractNoiseImage;
     resampleImageKernel _resampleImage;
     resampleImageKernel _resampleGradientImage;
@@ -38,8 +42,8 @@ struct PyramidProcessor {
     std::array<imageType::unique_ptr, levels> subtractedImagePyramid;
     std::array<imageType::unique_ptr, levels> denoisedImagePyramid;
     std::array<gls::mtl_image_2d<gls::pixel<uint32_t, 4>>::unique_ptr, levels> pcaImagePyramid;
-    std::unique_ptr<gls::Buffer<std::array<float, 25>>> patchesSmall;
-    std::array<std::array<float16_t, 8>, 25> pca_space;
+    std::unique_ptr<gls::Buffer<std::array<float, pcaPatchSize>>> pcaPatches;
+    std::array<std::array<float16_t, pcaSpaceSize>, pcaPatchSize> pcaSpace;
 
 //    std::array<imageType::unique_ptr, levels> fusionImagePyramidA;
 //    std::array<imageType::unique_ptr, levels> fusionImagePyramidB;

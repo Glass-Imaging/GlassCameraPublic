@@ -25,9 +25,9 @@ template <size_t levels>
 PyramidProcessor<levels>::PyramidProcessor(MetalContext* context, int _width, int _height)
     : width(_width), height(_height), fusedFrames(0),
     _denoiseImage(context),
-    _patchStatistics(context),
-    _patchProjection(context),
-    _denoiseImagePatch(context),
+    _collectPatches(context),
+    _pcaProjection(context),
+    _pcaDenoiseImage(context),
     _subtractNoiseImage(context),
     _resampleImage(context, "downsampleImageXYZ"),
     _resampleGradientImage(context, "downsampleImageXY")
@@ -44,7 +44,7 @@ PyramidProcessor<levels>::PyramidProcessor(MetalContext* context, int _width, in
         pcaImagePyramid[i] = std::make_unique<gls::mtl_image_2d<gls::pixel<uint32_t, 4>>>(mtlDevice, width / scale, height / scale);
     }
 
-    patchesSmall = std::make_unique<gls::Buffer<std::array<float, 25>>>(context->device(), width * height / 64);
+    pcaPatches = std::make_unique<gls::Buffer<std::array<float, pcaPatchSize>>>(context->device(), width * height / 64);
 }
 
 gls::Vector<3> nflMultiplier(const DenoiseParameters& denoiseParameters) {
@@ -126,41 +126,24 @@ typename PyramidProcessor<levels>::imageType* PyramidProcessor<levels>::denoise(
 
         const auto layerImage = i < levels - 1 ? subtractedImagePyramid[i].get() : denoiseInput;
 
-        const bool usePatchSimiliarity = true;
         if (usePatchSimiliarity) {
-            // context->waitForCompletion();
-
             assert(layerImage->size() == pcaImagePyramid[i]->size());
 
             const auto imageCPU = layerImage->mapImage();
 
-            // auto t_start = std::chrono::high_resolution_clock::now();
+            const int sample_size = imageCPU->width * imageCPU->height / 64;
 
-            _patchStatistics(context, *layerImage, patchesSmall->buffer());
+            assert(pcaPatches->size() >= sample_size);
+
+            _collectPatches(context, *layerImage, pcaPatches->buffer());
             context->waitForCompletion();
 
-            // auto t_end = std::chrono::high_resolution_clock::now();
-            // auto solver_time_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();
-            // std::cout << "_patchStatistics Time: " << (int)solver_time_ms << std::endl;
+            build_pca_space(std::span(pcaPatches->data(), sample_size), &pcaSpace);
 
-            // auto pcaImageCPU = pcaImagePyramid[i]->mapImage();
-            // auto pca_memory = (std::array<gls::float16_t, 8> *) pcaImageCPU->pixels().data();
-            // auto pca_span = std::span((std::array<gls::float16_t, 8>*) pca_memory, imageCPU->width * imageCPU->height);
-            // gls::image<std::array<gls::float16_t, 8>> pca_image(pcaImageCPU->width, pcaImageCPU->height, pcaImageCPU->stride, pca_span);
-
-            // pca(*imageCPU,
-            //     std::span(patches->data(), patches->size()),
-            //     std::span(patchesSmall->data(), patchesSmall->size()),
-            //     5, &pca_image);
-
-            build_pca_space(std::span(patchesSmall->data(), patchesSmall->size()), &pca_space);
-
-            _patchProjection(context, *layerImage, pca_space, pcaImagePyramid[i].get());
-
-            // pca(*imageCPU, /*luma channel*/ 0, 5, &pca_image);
+            _pcaProjection(context, *layerImage, pcaSpace, pcaImagePyramid[i].get());
 
             // Denoise current layer
-            _denoiseImagePatch(context, *layerImage, *gradientInput, *pcaImagePyramid[i],
+            _pcaDenoiseImage(context, *layerImage, *gradientInput, *pcaImagePyramid[i],
                               (*nlfParameters)[i].first, (*nlfParameters)[i].second, thresholdMultipliers[i],
                               (*denoiseParameters)[i].chromaBoost, (*denoiseParameters)[i].gradientBoost,
                               (*denoiseParameters)[i].gradientThreshold, denoisedImagePyramid[i].get());

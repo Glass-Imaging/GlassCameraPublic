@@ -18,9 +18,9 @@ void pca(const gls::image<gls::rgba_pixel_float>& input,
          const std::span<std::array<float, 25>>& patchesSmall,
          int patch_size, gls::image<std::array<gls::float16_t, 8>>* pca_image);
 
-template <size_t components, size_t principal_components>
+template <size_t components, size_t principalComponents>
 void build_pca_space(const std::span<std::array<float, components>>& patches,
-                     std::array<std::array<float16_t, principal_components>, components>* pca_space);
+                     std::array<std::array<float16_t, principalComponents>, components>* pcaSpace);
 
 void pca4c(const gls::image<gls::rgba_pixel_float>& input, int patch_size, gls::image<std::array<gls::float16_t, 8>>* pca_image);
 
