@@ -539,6 +539,8 @@ public class CameraService: NSObject, Identifiable {
                     if self.videoDeviceInput.device.isFlashAvailable {
                         photoSettings.flashMode = self.flashMode
                     }
+                    
+                    // self.videoDeviceInput.device.setExposureModeCustom(duration: 10000, iso: 100)
 
                     photoSettings.isHighResolutionPhotoEnabled = true
                     if !photoSettings.__availablePreviewPhotoPixelFormatTypes.isEmpty {

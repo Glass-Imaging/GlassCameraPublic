@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import CoreMedia.CMTime
 
 private struct PollData: Decodable {
     let id: Int
@@ -13,11 +14,30 @@ private struct PollData: Decodable {
     let data: String
 }
 
-private struct ExposureParams: Decodable {
+private struct ResponseData: Encodable {
+    let id: Int
+    // let data: Data
+    let data: String
+}
+
+private struct ExposureParams: Decodable, Encodable {
     let aeValue: Int
     let iso: Int
     let exposureDuration: Int
-    let focusDistance: Int
+    let focusDistance: Float
+}
+
+private struct ServerCaptureParamsRange: Encodable {
+    let minIso: Int
+    let maxIso: Int
+    let minExposureDuration: Int
+    let maxExposureDuration: Int
+}
+
+extension CMTime {
+    func toMicroSeconds() -> Int {
+        return Int(self.seconds * pow(10, 6))
+    }
 }
 
 class NetworkAdapter {
@@ -47,10 +67,10 @@ class NetworkAdapter {
     private func pollServer() {
         if let serverURL = serverURL {
             let pollURL = serverURL.appendingPathComponent("poll")
-            print("Polling! :: \(pollURL.absoluteString)")
+            // print("Polling! :: \(pollURL.absoluteString)")
             URLSession.shared.dataTask(with: pollURL) { (data, response, error) in
                 if error != nil {
-                    print("Got Error! \(String(describing: error))")
+                    print("Got Polling Error! \(String(describing: error))")
                 }
                 
                 guard let data = data else {
@@ -59,9 +79,10 @@ class NetworkAdapter {
                 }
                 
                 let pollData = try! JSONDecoder().decode(PollData.self, from: data)
-                print("Got Poll Response :: \(pollData.id) | \(pollData.function_id) | \(pollData.data)")
-                self.networkFunctionDispatch(functionName: pollData.function_id)(pollData.data) { result in
-                    print("Finished calling Function! Result :: \(result)")
+                // print("Got Poll Response :: \(pollData.id) | \(pollData.function_id) | \(pollData.data)")
+                self.networkFunctionDispatch(functionName: pollData.function_id)(pollData.data) { resultData in
+                    // print("Finished calling Function \(pollData.function_id) :: \(String(decoding: resultData, as: UTF8.self))")
+                    self.respondToServer(id: pollData.id, function_id: pollData.function_id, data: resultData)
                 }
             }.resume()
         } else {
@@ -69,108 +90,123 @@ class NetworkAdapter {
         }
     }
     
-    private func networkFunctionDispatch(functionName: String) -> ((String, (String) -> Void) -> Void) {
+    private func respondToServer(id: Int, function_id: String, data: Data) {
+        if let serverURL = serverURL {
+            // let response = ResponseData(id: id, data: "test")
+            let response = ResponseData(id: id, data: String(decoding: data, as: UTF8.self))
+            // let response = ResponseData(id: id, data: data)
+            let responseData = try! JSONEncoder().encode(response)
+            // let responseData = "{\"id\": 1, \"data\": \"test\"}".data(using: .utf8)!
+            
+            let responseURL = serverURL.appendingPathComponent("response")
+            var responseURLRequest = URLRequest(url: responseURL)
+            responseURLRequest.httpMethod = "POST"
+            responseURLRequest.httpBody = responseData
+            
+            print("Responding! (FID \(function_id)) :: \(responseURL.absoluteString) , \(String(decoding: responseData, as: UTF8.self))")
+            URLSession.shared.dataTask(with: responseURLRequest) {data, response, error in
+            // URLSession.shared.uploadTask(with: responseURLRequest, from: responseData) {data, response, error in
+                if error != nil {
+                    print("Got Upload Error! \(String(describing: error))")
+                }
+                
+                print("Upload to server done!")
+                
+            }.resume()
+            
+        } else {
+            print("Server URL is not defined!")
+        }
+    }
+    
+    private func networkFunctionDispatch(functionName: String) -> ((String, (Data) -> Void) -> Void) {
         switch functionName {
         case "no_requests": return noRequests
         case "preview_disable_auto_exposure": return preview_disable_auto_exposure_handler
         case "preview_update_auto_exposure": return preview_update_auto_exposure_handler
         case "preview_get_exposure_params": return preview_get_exposure_params_handler
         case "preview_get_camera_capabilities": return preview_get_camera_capabilities_handler
-        case "preview_update_roi": return preview_update_roi_handler
-        case "preview_end_session": return preview_end_session_handler
-        case "preview_start_session": return preview_start_session_handler
-        case "preview_next_frame": return preview_next_frame_handler
         case "capture_update_exposure_params": return capture_update_exposure_params_handler
-        case "capture_get_sensor_crop": return capture_get_sensor_crop_handler
-        case "capture_get_sensor_resolution": return capture_get_sensor_resolution_handler
-        case "capture_update_roi": return capture_update_roi_handler
-        case "capture_end_session": return capture_end_session_handler
-        case "capture_start_hibernate": return capture_start_hibernate_handler
-        case "capture_end_hibernate": return capture_end_hibernate_handler
-        case "capture_start_session": return capture_start_session_handler
         case "capture_start_capture": return capture_start_capture_handle
+        case "preview_update_roi": return notImplemented
+        case "preview_end_session": return notImplemented
+        case "preview_start_session": return notImplemented
+        case "preview_next_frame": return notImplemented
+        case "capture_get_sensor_crop": return notImplemented
+        case "capture_get_sensor_resolution": return notImplemented
+        case "capture_update_roi": return notImplemented
+        case "capture_end_session": return notImplemented
+        case "capture_start_hibernate": return notImplemented
+        case "capture_end_hibernate": return notImplemented
+        case "capture_start_session": return notImplemented
         default: return noFunctionFound
         }
         
     }
     
-    private func noRequests(data: String, cb: (String) -> Void) { cb("No Op") }
+    private func noRequests(data: String, cb: (Data) -> Void) { cb("No Op".data(using: .utf8)!) }
     
 
-    private func preview_disable_auto_exposure_handler(data: String, cb: (String) -> Void) {
-        cb("Preview: Disabling auto exposure!")
+    private func preview_disable_auto_exposure_handler(data: String, cb: (Data) -> Void) {
+        cb("Preview: Disabling auto exposure!".data(using: .utf8)!)
     }
     
-    private func preview_update_auto_exposure_handler(data: String, cb: (String) -> Void) {
-        cb("Preview: Update Auto Exposure with exposure params :: \(data)")
+    private func preview_update_auto_exposure_handler(data: String, cb: (Data) -> Void) {
+        cb("Preview: Update Auto Exposure with exposure params :: \(data)".data(using: .utf8)!)
         
     }
     
-    private func preview_get_exposure_params_handler(data: String, cb: (String) -> Void) {
-        cb("Preview: Get Exposure Params Handler")
+    private func preview_get_exposure_params_handler(data: String, cb: (Data) -> Void) {
+        cb("Preview: Get Exposure Params Handler".data(using: .utf8)!)
+        cameraService.videoDeviceInput.device.exposureDuration.toMicroSeconds()
         
-    }
-    
-    private func preview_get_camera_capabilities_handler(data: String, cb: (String) -> Void) {
-        cb("Preview: Get Camera Capabilities!")
-    }
-    
-    private func preview_update_roi_handler(data: String, cb: (String) -> Void) {
+        let exposureParams = ExposureParams(aeValue: 50,
+                                            iso: Int(cameraService.videoDeviceInput.device.iso),
+                                            exposureDuration: cameraService.videoDeviceInput.device.exposureDuration.toMicroSeconds(),
+                                            focusDistance: cameraService.videoDeviceInput.device.lensPosition)
         
+
+        let exposureParamsData = try! JSONEncoder().encode(exposureParams)
+        cb(exposureParamsData)
     }
     
-    private func preview_end_session_handler(data: String, cb: (String) -> Void) {
+    private func preview_get_camera_capabilities_handler(data: String, cb: (Data) -> Void) {
+        let minIso = cameraService.videoDeviceInput.device.activeFormat.minISO
+        let maxIso = cameraService.videoDeviceInput.device.activeFormat.maxISO
         
+        let minExposureDuration = cameraService.videoDeviceInput.device.activeFormat.minExposureDuration
+        let maxExposureDuration = cameraService.videoDeviceInput.device.activeFormat.maxExposureDuration
+        
+        let captureParamRange = ServerCaptureParamsRange(minIso: Int(minIso),
+                                                         maxIso: Int(maxIso),
+                                                         minExposureDuration: minExposureDuration.toMicroSeconds(),
+                                                         maxExposureDuration: maxExposureDuration.toMicroSeconds())
+                                                         //minExposureDuration: Int(minExposureDuration.seconds * pow(10, 6)),
+                                                         //maxExposureDuration: Int(maxExposureDuration.seconds * pow(10, 6)))
+        
+        
+        let captureParamRangeString = try! JSONEncoder().encode(captureParamRange)
+        cb(captureParamRangeString)
     }
     
-    private func preview_start_session_handler(data: String, cb: (String) -> Void) {
-    }
-    
-    
-    private func preview_next_frame_handler(data: String, cb: (String) -> Void) {
-    }
-    
-    
-    private func capture_update_exposure_params_handler(data: String, cb: (String) -> Void) {
+    private func capture_update_exposure_params_handler(data: String, cb: (Data) -> Void) {
         let exposureParams = try! JSONDecoder().decode(ExposureParams.self, from: Data(data.utf8))
-        cb("Capture: Update exposure params handler :: \(exposureParams)")
+        cb("Capture: Update exposure params handler :: \(exposureParams)".data(using: .utf8)!)
     }
     
-    
-    private func capture_get_sensor_crop_handler(data: String, cb: (String) -> Void) {
-    }
-    
-    
-    private func capture_get_sensor_resolution_handler(data: String, cb: (String) -> Void) {
-    }
-    
-    
-    private func capture_update_roi_handler(data: String, cb: (String) -> Void) {
-    }
-    
-    
-    private func capture_end_session_handler(data: String, cb: (String) -> Void) {
-    }
-    
-    
-    private func capture_start_hibernate_handler(data: String, cb: (String) -> Void) {
-    }
-    
-    
-    private func capture_end_hibernate_handler(data: String, cb: (String) -> Void) {
-    }
-    
-    
-    private func capture_start_session_handler(data: String, cb: (String) -> Void) {
-    }
-    
-    
-    private func capture_start_capture_handle(data: String, cb: (String) -> Void) {
+    private func capture_start_capture_handle(data: String, cb: (Data) -> Void) {
         let exposureParams = try! JSONDecoder().decode(ExposureParams.self, from: Data(data.utf8))
-        cb("Capture: Start capture! :: \(exposureParams)")
+        cb("Capture: Start capture! :: \(exposureParams)".data(using: .utf8)!)
+        self.cameraService.capturePhoto()
     }
     
-    private func noFunctionFound(data: String, cb: (String) -> Void) {
-        cb("ERROR: NO FUNCTION FOUND MATCHING FUNCTION_NAME")
+    private func noFunctionFound(data: String, cb: (Data) -> Void) {
+        cb("ERROR: NO FUNCTION FOUND MATCHING FUNCTION_NAME".data(using: .utf8)!)
     }
+    
+    private func notImplemented(data: String, cb: (Data) -> Void) {
+        cb("ERROR: FUNCTION NOT IMPLEMENTED".data(using: .utf8)!)
+    }
+
 }
+
