@@ -75,6 +75,18 @@ void dumpGradientImage(const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& ima
 
 #endif  // DEBUG_PYRAMID
 
+void savePatchMap(const gls::mtl_image_2d<gls::rgba_pixel_float>& denoisedImage) {
+    gls::image<gls::luma_pixel> out(denoisedImage.width, denoisedImage.height);
+    const auto denoisedImageCPU = denoisedImage.mapImage();
+    out.apply([&denoisedImageCPU](gls::luma_pixel* p, int x, int y) {
+        const auto& ip = (*denoisedImageCPU)[y][x];
+        *p = gls::luma_pixel{(uint8_t)(ip.w)};
+    });
+    // denoisedImage.unmapImage(denoisedImageCPU);
+    static int count = 1;
+    out.write_png_file("/Users/fabio/patch_map" + std::to_string(count++) + ".png");
+}
+
 // TODO: Make this a tunable
 static const constexpr float lumaDenoiseWeight[4] = {1, 1, 1, 1};
 
@@ -136,8 +148,8 @@ typename PyramidProcessor<levels>::imageType* PyramidProcessor<levels>::denoise(
             assert(pcaPatches->size() >= sample_size);
 
             _collectPatches(context, *layerImage, pcaPatches->buffer());
-            context->waitForCompletion();
 
+            context->waitForCompletion();
             build_pca_space(std::span(pcaPatches->data(), sample_size), &pcaSpace);
 
             _pcaProjection(context, *layerImage, pcaSpace, pcaImagePyramid[i].get());
@@ -148,7 +160,8 @@ typename PyramidProcessor<levels>::imageType* PyramidProcessor<levels>::denoise(
                               (*denoiseParameters)[i].chromaBoost, (*denoiseParameters)[i].gradientBoost,
                               (*denoiseParameters)[i].gradientThreshold, denoisedImagePyramid[i].get());
 
-            // savePatchMap(*(denoisedImagePyramid[i]));
+//            context->waitForCompletion();
+//            savePatchMap(*(denoisedImagePyramid[i]));
         } else {
             // Denoise current layer
             _denoiseImage(context, *layerImage, *gradientInput,
@@ -157,7 +170,6 @@ typename PyramidProcessor<levels>::imageType* PyramidProcessor<levels>::denoise(
                           (*denoiseParameters)[i].gradientThreshold, denoisedImagePyramid[i].get());
         }
     }
-
 
     return denoisedImagePyramid[0].get();
 }

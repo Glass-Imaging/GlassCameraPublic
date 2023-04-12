@@ -100,7 +100,10 @@ kernel void scaleRawData(texture2d<half> rawImage                       [[textur
         float2 imageCenter = float2(get_image_dim(rawImage) / 2);
         float distance_from_center = length(float2(imageCoordinates) - imageCenter) / length(imageCenter);
         // FIXME: the attenuation is a fuzz factor
-        lens_shading = 0.8 + lensShadingCorrection * distance_from_center * distance_from_center;
+        // New iPhones
+        // lens_shading = 0.8 + lensShadingCorrection * distance_from_center * distance_from_center;
+        // Old iPhones
+        lens_shading = 1 + distance_from_center * distance_from_center;
     }
 
     for (int c = 0; c < 4; c++) {
@@ -742,17 +745,21 @@ kernel void pcaProjection(texture2d<half> inputImage                        [[te
     write_imageui(projectedImage, imageCoordinates, uint4(v_result));
 }
 
-kernel void pcaDenoiseImage(texture2d<half> inputImage                       [[texture(0)]],
-                              texture2d<half> gradientImage                  [[texture(1)]],
-                              texture2d<uint> pcaImage                       [[texture(2)]],
-                              constant float3& var_a                         [[buffer(3)]],
-                              constant float3& var_b                         [[buffer(4)]],
-                              constant float3& thresholdMultipliers          [[buffer(5)]],
-                              constant float& chromaBoost                    [[buffer(6)]],
-                              constant float& gradientBoost                  [[buffer(7)]],
-                              constant float& gradientThreshold              [[buffer(8)]],
-                              texture2d<half, access::write> denoisedImage   [[texture(9)]],
-                              uint2 index                                    [[thread_position_in_grid]]) {
+half gaussian(half x) {
+    return exp(- 2 * x * x);
+}
+
+kernel void pcaDenoiseImage(texture2d<half> inputImage                     [[texture(0)]],
+                            texture2d<half> gradientImage                  [[texture(1)]],
+                            texture2d<uint> pcaImage                       [[texture(2)]],
+                            constant float3& var_a                         [[buffer(3)]],
+                            constant float3& var_b                         [[buffer(4)]],
+                            constant float3& thresholdMultipliers          [[buffer(5)]],
+                            constant float& chromaBoost                    [[buffer(6)]],
+                            constant float& gradientBoost                  [[buffer(7)]],
+                            constant float& gradientThreshold              [[buffer(8)]],
+                            texture2d<half, access::write> denoisedImage   [[texture(9)]],
+                            uint2 index                                    [[thread_position_in_grid]]) {
     const int2 imageCoordinates = (int2) index;
 
     const half3 inputYCC = read_imageh(inputImage, imageCoordinates).xyz;
@@ -762,7 +769,7 @@ kernel void pcaDenoiseImage(texture2d<half> inputImage                       [[t
     half3 diffMultiplier = 1 / (half3(thresholdMultipliers) * sigma);
 
     half2 gradient = read_imageh(gradientImage, imageCoordinates).xy;
-    // half angle = atan2(gradient.y, gradient.x);
+    half angle = atan2(gradient.y, gradient.x);
     half magnitude = length(gradient);
     half edge = smoothstep(4, 16, gradientThreshold * magnitude / sigma.x);
 
@@ -773,20 +780,25 @@ kernel void pcaDenoiseImage(texture2d<half> inputImage                       [[t
     float3 kernel_norm = 0;
     for (int y = -size; y <= size; y++) {
         for (int x = -size; x <= size; x++) {
-            half3 inputSampleYCC = read_imageh(inputImage, imageCoordinates + (int2){x, y}).xyz;
+            half3 inputSampleYCC = read_imageh(inputImage, imageCoordinates + int2(x, y)).xyz;
             _half8 samplePCA = _half8(read_imageui(pcaImage, imageCoordinates + int2(x, y)));
 
             half pcaDiff = length(samplePCA - inputPCA);
 
             half2 inputChromaDiff = (inputSampleYCC.yz - inputYCC.yz) * diffMultiplier.yz;
 
-            // half directionWeight = mix(1, tunnel(x, y, angle, (half) 0.25), edge);
+            half directionWeight = mix(1, tunnel(x, y, angle, (half) 0.25), edge);
 
             half pcaMultDiff = pcaDiff * diffMultiplier.x;
-            half lumaWeight = 1 - step(1 + (half) gradientBoost * edge, pcaMultDiff);
-            half chromaWeight = 1 - step((half) chromaBoost, length(half3(pcaMultDiff, inputChromaDiff)));
+            // half lumaWeight = 1 - step(1 + (half) gradientBoost * edge, pcaMultDiff);
+            half lumaWeight = gaussian(pcaMultDiff / (1 + (half) gradientBoost * edge));
 
-            half3 sampleWeight = (half3) {/*directionWeight * */ lumaWeight, chromaWeight, chromaWeight};
+            // half chromaWeight = 1 - step((half) chromaBoost, length(half3(pcaMultDiff, inputChromaDiff)));
+            half chromaWeight = gaussian(length(half3(pcaMultDiff, inputChromaDiff)) / (half) chromaBoost);
+
+            half distanceWeight = gaussian(0.1 * length(float2(x, y)));
+
+            half3 sampleWeight = distanceWeight * half3(directionWeight * lumaWeight, chromaWeight, chromaWeight);
 
             filtered_pixel += float3(sampleWeight * inputSampleYCC);
             kernel_norm += float3(sampleWeight);
@@ -794,7 +806,7 @@ kernel void pcaDenoiseImage(texture2d<half> inputImage                       [[t
     }
     half3 denoisedPixel = half3(filtered_pixel / kernel_norm);
 
-    write_imageh(denoisedImage, imageCoordinates, half4(denoisedPixel, magnitude));
+    write_imageh(denoisedImage, imageCoordinates, half4(denoisedPixel, kernel_norm.x));
 }
 
 kernel void downsampleImageXYZ(texture2d<float> inputImage                  [[texture(0)]],
@@ -1279,10 +1291,13 @@ kernel void histogramStatistics(device histogram_data& histogram_data [[buffer(0
             (*plain_histogram)[i] = (histogramSize - 1) * log(entry / (float) (histogramSize - 1));
         }
 
-        histogram_data.highlights = 1.5 + smoothstep(0.01, 0.1, histogram_data.bands[7] / (float) image_size);
-        histogram_data.shadows = 0.8 - 0.5 * smoothstep(0.25, 0.5,
-                                                        (histogram_data.bands[0] +
-                                                         histogram_data.bands[1]) / (float) image_size);
+        // FIXME: need a reasonable way to control this
+        histogram_data.highlights = 1;
+        histogram_data.shadows = 1;
+//        histogram_data.highlights = 1.5 + smoothstep(0.01, 0.1, histogram_data.bands[7] / (float) image_size);
+//        histogram_data.shadows = 0.8 - 0.5 * smoothstep(0.25, 0.5,
+//                                                        (histogram_data.bands[0] +
+//                                                         histogram_data.bands[1]) / (float) image_size);
     }
 }
 

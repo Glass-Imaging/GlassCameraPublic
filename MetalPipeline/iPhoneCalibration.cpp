@@ -57,20 +57,20 @@ public:
     }
 
     std::pair<float, std::array<DenoiseParameters, levels>> getDenoiseParameters(int iso) const override {
-        const float nlf_alpha = std::clamp((log2(iso) - log2(32)) / (log2(3200) - log2(32)), 0.0, 1.0);
+        const float nlf_alpha = std::clamp((log2(iso) - log2(32)) / (log2(2500) - log2(32)), 0.0, 1.0);
 
         std::cout << "iPhone DenoiseParameters nlf_alpha: " << nlf_alpha << ", ISO: " << iso << std::endl;
 
         float lerp = std::lerp(0.25f, 1.0f, nlf_alpha);
         float lerp_c = 1;
 
-        float lmult[5] = { 1.5, 2, 0.5, 0.25, 0.125 };
+        float lmult[5] = { 2, 2, 1, 0.5, 0.25 };
         float cmult[5] = { 1, 0.5, 0.5, 0.5, 0.25 };
 
         float chromaBoost = 8;
 
-        float gradientBoost = 1 + smoothstep(0, 0.3, nlf_alpha);
-        float gradientThreshold = 1 + 2 * smoothstep(0, 0.3, nlf_alpha);
+        float gradientBoost = 4; // + smoothstep(0, 0.3, nlf_alpha);
+        float gradientThreshold = 2; // + 2 * smoothstep(0, 0.3, nlf_alpha);
 
         std::cout << "gradientBoost: " << gradientBoost << ", gradientThreshold: " << gradientThreshold << std::endl;
 
@@ -79,7 +79,7 @@ public:
                 .luma = lmult[0] * lerp,
                 .chroma = cmult[0] * lerp_c,
                 .chromaBoost = chromaBoost,
-                .gradientBoost = 4 * gradientBoost,
+                .gradientBoost = gradientBoost,
                 .gradientThreshold = gradientThreshold,
                 .sharpening = std::lerp(1.5f, 1.0f, nlf_alpha)
             },
@@ -88,6 +88,7 @@ public:
                 .chroma = cmult[1] * lerp_c,
                 .chromaBoost = chromaBoost,
                 .gradientBoost = gradientBoost,
+                .gradientThreshold = gradientThreshold,
                 .sharpening = 1.1
             },
             {
@@ -95,6 +96,7 @@ public:
                 .chroma = cmult[2] * lerp_c,
                 .chromaBoost = chromaBoost,
                 .gradientBoost = gradientBoost,
+                .gradientThreshold = gradientThreshold,
                 .sharpening = 1
             },
             {
@@ -102,6 +104,7 @@ public:
                 .chroma = cmult[3] * lerp_c,
                 .chromaBoost = chromaBoost,
                 .gradientBoost = gradientBoost,
+                .gradientThreshold = gradientThreshold,
                 .sharpening = 1
             },
             {
@@ -109,6 +112,7 @@ public:
                 .chroma = cmult[4] * lerp_c,
                 .chromaBoost = chromaBoost,
                 .gradientBoost = gradientBoost,
+                .gradientThreshold = gradientThreshold,
                 .sharpening = 1
             }
         }};

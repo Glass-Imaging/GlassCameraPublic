@@ -121,7 +121,7 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
     const auto cam_to_ycbcr = cam_ycbcr(demosaicParameters->rgb_cam, xyz_rgb());
 
     // Convert result back to camera RGB
-    const auto normalized_ycbcr_to_cam = inverse(cam_to_ycbcr) * demosaicParameters->exposure_multiplier;
+    const auto ycbcr_to_cam = inverse(cam_to_ycbcr);
 
     _rawImage->copyPixelsFrom(rawImage);
 
@@ -160,9 +160,12 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
     denoisedImage = denoise(context, *_linearRGBImageA, demosaicParameters, /*calibrateFromImage=*/ false);
 
     // Convert to RGB
-    _transformImage(context, *denoisedImage, _linearRGBImageA.get(), normalized_ycbcr_to_cam);
+    _transformImage(context, *denoisedImage, _linearRGBImageA.get(), ycbcr_to_cam);
 
     // --- Image Post Processing ---
+
+    // FIXME: This is horrible!
+    demosaicParameters->rgbConversionParameters.exposureBias += log2(demosaicParameters->exposure_multiplier);
 
     _convertTosRGB(context, *_linearRGBImageA, _localToneMapping->getMask(), *demosaicParameters,
                    _histogramBuffer.get(), _linearRGBImageA.get());
