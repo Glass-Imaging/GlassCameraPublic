@@ -52,12 +52,12 @@ class NetworkAdapter {
     }
     
     func start() {
-        self.dispatchQueue.async {
-            while(self.isPollingServer) {
-                self.pollServer()
-                sleep(1)
-            }
+        func _start() {
+            if(!self.isPollingServer) { return }
+            self.pollServer()
+            self.dispatchQueue.asyncAfter(deadline: .now() + 0.25) { _start() }
         }
+        _start()
     }
     
     func end() {
@@ -144,7 +144,7 @@ class NetworkAdapter {
         
     }
     
-    private func noRequests(data: String, cb: (Data) -> Void) { cb("No Op".data(using: .utf8)!) }
+    private func noRequests(data: String, cb: (Data) -> Void) { print("No Pending Commands") }
     
 
     private func preview_disable_auto_exposure_handler(data: String, cb: (Data) -> Void) {
@@ -157,9 +157,6 @@ class NetworkAdapter {
     }
     
     private func preview_get_exposure_params_handler(data: String, cb: (Data) -> Void) {
-        cb("Preview: Get Exposure Params Handler".data(using: .utf8)!)
-        cameraService.videoDeviceInput.device.exposureDuration.toMicroSeconds()
-        
         let exposureParams = ExposureParams(aeValue: 50,
                                             iso: Int(cameraService.videoDeviceInput.device.iso),
                                             exposureDuration: cameraService.videoDeviceInput.device.exposureDuration.toMicroSeconds(),
@@ -195,9 +192,9 @@ class NetworkAdapter {
     }
     
     private func capture_start_capture_handle(data: String, cb: (Data) -> Void) {
-        let exposureParams = try! JSONDecoder().decode(ExposureParams.self, from: Data(data.utf8))
-        cb("Capture: Start capture! :: \(exposureParams)".data(using: .utf8)!)
+        // let exposureParams = try! JSONDecoder().decode(ExposureParams.self, from: Data(data.utf8))
         self.cameraService.capturePhoto()
+        cb("Capture: Start capture!".data(using: .utf8)!)// :: \(exposureParams)".data(using: .utf8)!)
     }
     
     private func noFunctionFound(data: String, cb: (Data) -> Void) {
