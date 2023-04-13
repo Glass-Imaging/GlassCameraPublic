@@ -80,9 +80,7 @@ class NetworkAdapter {
             let pollURL = serverURL.appendingPathComponent("poll")
             
             URLSession.shared.dataTask(with: pollURL) { (data, response, error) in
-                if error != nil {
-                    print("Got Polling Error! \(String(describing: error))")
-                }
+                if error != nil { print("Got Polling Error! \(String(describing: error))") }
                 
                 guard let data = data else {
                     print("Got Empty Data!")
@@ -110,8 +108,6 @@ class NetworkAdapter {
             
             URLSession.shared.uploadTask(with: responseURLRequest, from: responseData) {data, response, error in
                 if error != nil { print("Got Upload Error! \(String(describing: error))") }
-                
-                // print("Upload to server done!")
             }.resume()
             
         } else {
@@ -119,7 +115,7 @@ class NetworkAdapter {
         }
     }
     
-    private func networkFunctionDispatch(functionName: String) -> ((String, (Encodable) -> Void) -> Void) {
+    private func networkFunctionDispatch(functionName: String) -> ((String, @escaping (Encodable) -> Void) -> Void) {
         switch functionName {
         case "no_requests": return noRequests
         case "preview_disable_auto_exposure": return preview_disable_auto_exposure_handler
@@ -151,8 +147,11 @@ class NetworkAdapter {
         cb("Preview: Disabling auto exposure!")
     }
     
-    private func preview_update_auto_exposure_handler(data: String, cb: (Encodable) -> Void) {
-        cb("Preview: Update Auto Exposure with exposure params :: \(data)")
+    private func preview_update_auto_exposure_handler(data: String, cb: @escaping (Encodable) -> Void) {
+        let exposureParams = try! JSONDecoder().decode(ExposureParams.self, from: Data(data.utf8))
+        print("Preview: Update exposure params handler :: \(exposureParams)")
+        self.cameraService.setExposureParams(exposureDuration: exposureParams.exposureDuration, iso: exposureParams.iso, cb: cb)
+        // cb("Preview: Update Auto Exposure with exposure params :: \(data)")
     }
     
     private func preview_get_exposure_params_handler(data: String, cb: (Encodable) -> Void) {
@@ -179,10 +178,11 @@ class NetworkAdapter {
         cb(captureParamRange)
     }
     
-    private func capture_update_exposure_params_handler(data: String, cb: (Encodable) -> Void) {
+    private func capture_update_exposure_params_handler(data: String, cb: @escaping (Encodable) -> Void) {
         let exposureParams = try! JSONDecoder().decode(ExposureParams.self, from: Data(data.utf8))
         print("Capture: Update exposure params handler :: \(exposureParams)")
-        cb("Capture: Update exposure params handler :: \(exposureParams)")
+        self.cameraService.setExposureParams(exposureDuration: exposureParams.exposureDuration, iso: exposureParams.iso, cb: cb)
+        //cb("Capture: Update exposure params handler :: \(exposureParams)")
     }
     
     private func capture_start_capture_handle(data: String, cb: (Encodable) -> Void) {
@@ -194,5 +194,29 @@ class NetworkAdapter {
         
         let captureResult = CaptureResults(imagePaths: [], exposureParams: exposureParams)
         cb([captureResult])
+    }
+}
+
+extension CameraService {
+    func setExposureParams(exposureDuration: Int, iso: Int, cb: @escaping (Encodable) -> Void) {
+        print("Setting exposure params to :: \(exposureDuration), \(iso)")
+        let exposureDuration = CMTime(value: Int64(exposureDuration), timescale: 1_000_000)
+        let iso = Float(iso)
+        
+        sessionQueue.async {
+            guard let device = self.videoDeviceInput?.device else { return }
+            do {
+                try device.lockForConfiguration()
+                
+                device.exposureMode = .custom
+                device.setExposureModeCustom(duration: exposureDuration, iso: iso) { _ in
+                    cb("Settings Updated")
+                }
+
+                device.unlockForConfiguration()
+            } catch {
+                print("Could not lock device for configuration: \(error)")
+            }
+        }
     }
 }
