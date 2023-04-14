@@ -171,8 +171,23 @@ class NetworkAdapter {
     private func preview_update_auto_exposure_handler(data: String, cb: @escaping (Encodable) -> Void) {
         let exposureParams = try! JSONDecoder().decode(ExposureParams.self, from: Data(data.utf8))
         print("Preview: Update exposure params handler :: \(exposureParams)")
+        
+        let minIso = Int(cameraService.videoDeviceInput.device.activeFormat.minISO)
+        let maxIso = Int(cameraService.videoDeviceInput.device.activeFormat.maxISO)
+        let minExposureDuration = Int(cameraService.videoDeviceInput.device.activeFormat.minExposureDuration.toMicroSeconds())
+        let maxExposureDuration = Int(cameraService.videoDeviceInput.device.activeFormat.maxExposureDuration.toMicroSeconds())
+        
+        if (exposureParams.exposureDuration < minExposureDuration)
+            || (exposureParams.exposureDuration > maxExposureDuration)
+            || (exposureParams.iso < minIso)
+            || (exposureParams.iso > maxIso){
+                let message = "Exposure Params(\(exposureParams.exposureDuration), \(exposureParams.iso)) not within device range (\(minExposureDuration), \(maxExposureDuration)), (\(minIso), \(maxIso)). Skipping."
+                print(message)
+                cb(message)
+                return
+        }
+        
         self.cameraService.setExposureParams(exposureDuration: exposureParams.exposureDuration, iso: exposureParams.iso, cb: cb)
-        // cb("Preview: Update Auto Exposure with exposure params :: \(data)")
     }
     
     private func preview_get_exposure_params_handler(data: String, cb: (Encodable) -> Void) {
@@ -202,8 +217,23 @@ class NetworkAdapter {
     private func capture_update_exposure_params_handler(data: String, cb: @escaping (Encodable) -> Void) {
         let exposureParams = try! JSONDecoder().decode(ExposureParams.self, from: Data(data.utf8))
         print("Capture: Update exposure params handler :: \(exposureParams)")
+        
+        let minIso = Int(cameraService.videoDeviceInput.device.activeFormat.minISO)
+        let maxIso = Int(cameraService.videoDeviceInput.device.activeFormat.maxISO)
+        let minExposureDuration = Int(cameraService.videoDeviceInput.device.activeFormat.minExposureDuration.toMicroSeconds())
+        let maxExposureDuration = Int(cameraService.videoDeviceInput.device.activeFormat.maxExposureDuration.toMicroSeconds())
+        
+        if (exposureParams.exposureDuration < minExposureDuration)
+            || (exposureParams.exposureDuration > maxExposureDuration)
+            || (exposureParams.iso < minIso)
+            || (exposureParams.iso > maxIso){
+                let message = "Exposure Params(\(exposureParams.exposureDuration), \(exposureParams.iso)) not within device range (\(minExposureDuration), \(maxExposureDuration)), (\(minIso), \(maxIso)). Skipping."
+                print(message)
+                cb(message)
+                return
+        }
+        
         self.cameraService.setExposureParams(exposureDuration: exposureParams.exposureDuration, iso: exposureParams.iso, cb: cb)
-        //cb("Capture: Update exposure params handler :: \(exposureParams)")
     }
     
     private func capture_start_capture_handle(data: String, cb: (Encodable) -> Void) {
@@ -229,35 +259,18 @@ class RawUploader: NSObject, AVCapturePhotoCaptureDelegate {
     init(rawDataCB: @escaping (Data) -> Void) {
         self.rawDataCB = rawDataCB
     }
-    
-    func photoOutput(_ output: AVCapturePhotoOutput, willBeginCaptureFor resolvedSettings: AVCaptureResolvedPhotoSettings) {
-        print("Got to willBeginCaptureFor!")
-    }
-
-    func photoOutput(_ output: AVCapturePhotoOutput, willCapturePhotoFor resolvedSettings: AVCaptureResolvedPhotoSettings) {
-        print("Got to willCapturePhotoFor!")
-    }
 
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
         print("Got to didFinishProcessingPhoto!")
-        if let error = error {
-            print("Error capturing photo: \(error)")
-        }
+        if let error = error { fatalError("Error capturing photo: \(error)") }
         
         if photo.isRawPhoto {
-            print("Got Raw Photo!")
-            // Return image over the network!
             if let captureData = photo.fileDataRepresentation() {
                 self.rawDataCB(captureData)
+            } else {
+                fatalError("Could not get file data representation!")
             }
-        } else {
-            print("Got Non Raw Photo!")
-            // fatalError("Got Non Raw Capture!")
-        }
-    }
-
-    func photoOutput(_ output: AVCapturePhotoOutput, didFinishCaptureFor resolvedSettings: AVCaptureResolvedPhotoSettings, error: Error?) {
-        print("Got to didFinishCapture!")
+        } else { print("Got Non Raw Photo!") }
     }
 }
 
@@ -287,19 +300,12 @@ extension CameraService {
     }
     
     public func captureRawPhoto(dataCB: @escaping (Data) -> Void) -> AVCapturePhotoCaptureDelegate? {
-        /*
-         Retrieve the video preview layer's video orientation on the main queue before
-         entering the session queue. This to ensures that UI elements are accessed on
-         the main thread and session configuration is done on the session queue.
-         */
-
         if self.setupResult != .configurationFailed {
             // Take the device orientation into account
             let videoPreviewLayerOrientation = AVCaptureVideoOrientation(deviceOrientation: UIDevice.current.orientation)
 
             self.isCameraButtonDisabled = true
 
-            // sessionQueue.async {
             if let photoOutputConnection = self.photoOutput.connection(with: .video) {
                 if let videoPreviewLayerOrientation = videoPreviewLayerOrientation {
                     photoOutputConnection.videoOrientation = videoPreviewLayerOrientation
@@ -322,32 +328,13 @@ extension CameraService {
             // Capture a RAW format photo, along with a processed format photo.
             photoSettings = AVCapturePhotoSettings(rawPixelFormatType: rawFormat)
 
-            // Select the first available codec type, which is JPEG.
-            guard let thumbnailPhotoCodecType =
-                photoSettings.availableRawEmbeddedThumbnailPhotoCodecTypes.first else {
-                // Handle the failure to find an available thumbnail photo codec type.
-                fatalError("Failed configuring RAW tumbnail.")
-            }
-
-            if self.videoDeviceInput.device.isFlashAvailable {
-                photoSettings.flashMode = self.flashMode
-            }
-
-            // Select the maximum photo dimensions as thumbnail dimensions if a full-size thumbnail is desired.
-            // The system clamps these dimensions to the photo dimensions if the capture produces a photo with smaller than maximum dimensions.
-            let dimensions = photoSettings.maxPhotoDimensions
-            photoSettings.rawEmbeddedThumbnailPhotoFormat = [
-                AVVideoCodecKey: thumbnailPhotoCodecType,
-                AVVideoWidthKey: dimensions.width,
-                AVVideoHeightKey: dimensions.height
-            ]
+            if self.videoDeviceInput.device.isFlashAvailable { photoSettings.flashMode = .off }
 
             let rawUploader = RawUploader(rawDataCB: dataCB)
 
             self.photoOutput.capturePhoto(with: photoSettings, delegate: rawUploader)
             return rawUploader
         }
-        //}
         return nil
     }
 }
