@@ -27,7 +27,7 @@ PyramidProcessor<levels>::PyramidProcessor(MetalContext* context, int _width, in
     _denoiseImage(context),
     _collectPatches(context),
     _pcaProjection(context),
-    _pcaDenoiseImage(context),
+    _blockMatchingDenoiseImage(context),
     _subtractNoiseImage(context),
     _resampleImage(context, "downsampleImageXYZ"),
     _resampleGradientImage(context, "downsampleImageXY")
@@ -155,10 +155,10 @@ typename PyramidProcessor<levels>::imageType* PyramidProcessor<levels>::denoise(
             _pcaProjection(context, *layerImage, pcaSpace, pcaImagePyramid[i].get());
 
             // Denoise current layer
-            _pcaDenoiseImage(context, *layerImage, *gradientInput, *pcaImagePyramid[i],
-                              (*nlfParameters)[i].first, (*nlfParameters)[i].second, thresholdMultipliers[i],
-                              (*denoiseParameters)[i].chromaBoost, (*denoiseParameters)[i].gradientBoost,
-                              (*denoiseParameters)[i].gradientThreshold, denoisedImagePyramid[i].get());
+            _blockMatchingDenoiseImage(context, *layerImage, *gradientInput, *pcaImagePyramid[i],
+                                       (*nlfParameters)[i].first, (*nlfParameters)[i].second, thresholdMultipliers[i],
+                                       (*denoiseParameters)[i].chromaBoost, (*denoiseParameters)[i].gradientBoost,
+                                       (*denoiseParameters)[i].gradientThreshold, denoisedImagePyramid[i].get());
 
 //            context->waitForCompletion();
 //            savePatchMap(*(denoisedImagePyramid[i]));

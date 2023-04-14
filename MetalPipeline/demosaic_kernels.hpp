@@ -316,7 +316,7 @@ struct denoiseImageKernel {
     }
 };
 
-struct pcaDenoiseImageKernel {
+struct blockMatchingDenoiseImageKernel {
     Kernel<MTL::Texture*,  // inputImage
            MTL::Texture*,  // gradientImage
            MTL::Texture*,  // pcaImage
@@ -329,7 +329,7 @@ struct pcaDenoiseImageKernel {
            MTL::Texture*   // outputImage
     > kernel;
 
-    pcaDenoiseImageKernel(MetalContext* context) : kernel(context, "pcaDenoiseImage") { }
+    blockMatchingDenoiseImageKernel(MetalContext* context) : kernel(context, "blockMatchingDenoiseImage") { }
 
     void operator() (MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
                      const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& gradientImage,

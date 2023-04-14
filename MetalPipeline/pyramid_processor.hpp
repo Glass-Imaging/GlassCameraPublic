@@ -31,7 +31,7 @@ struct PyramidProcessor {
     denoiseImageKernel _denoiseImage;
     collectPatchesKernel _collectPatches;
     pcaProjectionKernel _pcaProjection;
-    pcaDenoiseImageKernel _pcaDenoiseImage;
+    blockMatchingDenoiseImageKernel _blockMatchingDenoiseImage;
     subtractNoiseImageKernel _subtractNoiseImage;
     resampleImageKernel _resampleImage;
     resampleImageKernel _resampleGradientImage;
