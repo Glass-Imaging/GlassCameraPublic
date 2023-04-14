@@ -87,7 +87,7 @@ extension RawMetadata {
 class PhotoCaptureProcessor: NSObject {
     private(set) var requestedPhotoSettings: AVCapturePhotoSettings
 
-    private(set) var rawImage: URL?
+    private(set) var dngFile: URL?
     private(set) var procesedImage: Data?
     private(set) var capturedImage: Data?
     private(set) var imageMetadata: NSDictionary?
@@ -116,31 +116,38 @@ class PhotoCaptureProcessor: NSObject {
     }
 
     func processPhoto(photo: AVCapturePhoto) {
-        // Generate a unique URL to write the RAW file.
-        rawImage = makeUniqueDNGFileURL()
+        // Process DNG file creation and RAW conversion in parallel with an OperationQueue
 
-        if let rawImage = rawImage {
+        let dngCreationOperation = BlockOperation {
+            // Write raw image to a DNG file
+
+            self.dngFile = makeUniqueDNGFileURL()
             do {
-                // Write the RAW data to a DNG file.
                 if let captureData = photo.fileDataRepresentation() {
-                    try captureData.write(to: rawImage)
-
-                    if let displayP3 = CGColorSpace(name: CGColorSpace.displayP3),
-                       let rawPixelBuffer = photo.pixelBuffer {
-                        let rawMetadata = RawMetadata(from: photo.metadata)
-                        let pixelBuffer = rawProcessor.convertRawPixelBuffer(rawPixelBuffer, with: rawMetadata).takeRetainedValue()
-
-                        let cgImage = pixelBuffer.createCGImage(colorSpace: displayP3)
-
-                        procesedImage = encodeImageToHeif(CIImage(cgImage: cgImage!),
-                                                          compressionQuality: 0.8, colorSpace: displayP3,
-                                                          use10BitRepresentation: false /*cgImage!.bitsPerComponent > 8*/)
-                    }
+                    try captureData.write(to: self.dngFile!)
                 }
             } catch {
                 fatalError("Couldn't write DNG file to the URL.")
             }
         }
+        rawProcessingQueue.addOperation(dngCreationOperation)
+
+        let rawConversionOperation = BlockOperation { [self] in
+            // Process RAW pixelBuffer
+
+            if let displayP3 = CGColorSpace(name: CGColorSpace.displayP3),
+               let rawPixelBuffer = photo.pixelBuffer {
+                let rawMetadata = RawMetadata(from: photo.metadata)
+                let pixelBuffer = rawProcessor.convertRawPixelBuffer(rawPixelBuffer, with: rawMetadata).takeRetainedValue()
+
+                let cgImage = pixelBuffer.createCGImage(colorSpace: displayP3)
+
+                procesedImage = encodeImageToHeif(CIImage(cgImage: cgImage!),
+                                                  compressionQuality: 0.8, colorSpace: displayP3,
+                                                  use10BitRepresentation: false /*cgImage!.bitsPerComponent > 8*/)
+            }
+        }
+        rawProcessingQueue.addOperation(rawConversionOperation)
     }
 }
 
@@ -285,36 +292,7 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
         }
 
         if photo.isRawPhoto {
-            // Process DNG file creation and RAW conversion in parallel with an OperationQueue
-
-            // Write raw image to DNG file
-            let dngCreationOperation = BlockOperation {
-                let rawImage = makeUniqueDNGFileURL()
-                do {
-                    if let captureData = photo.fileDataRepresentation() {
-                        try captureData.write(to: rawImage)
-                    }
-                } catch {
-                    fatalError("Couldn't write DNG file to the URL.")
-                }
-            }
-            rawProcessingQueue.addOperation(dngCreationOperation)
-
-            // Process RAW pixelBuffer
-            let rawConversionOperation = BlockOperation { [self] in
-                if let displayP3 = CGColorSpace(name: CGColorSpace.displayP3),
-                   let rawPixelBuffer = photo.pixelBuffer {
-                    let rawMetadata = RawMetadata(from: photo.metadata)
-                    let pixelBuffer = rawProcessor.convertRawPixelBuffer(rawPixelBuffer, with: rawMetadata).takeRetainedValue()
-
-                    let cgImage = pixelBuffer.createCGImage(colorSpace: displayP3)
-
-                    procesedImage = encodeImageToHeif(CIImage(cgImage: cgImage!),
-                                                      compressionQuality: 0.8, colorSpace: displayP3,
-                                                      use10BitRepresentation: false /*cgImage!.bitsPerComponent > 8*/)
-                }
-            }
-            rawProcessingQueue.addOperation(rawConversionOperation)
+            processPhoto(photo: photo)
         } else {
             // Store compressed bitmap data.
             capturedImage = photo.fileDataRepresentation()
@@ -339,7 +317,7 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
         if let capturedImage = self.capturedImage {
             let finalize = {
                 completeTransaction()
-                self.rawImage = nil
+                self.dngFile = nil
             }
 
             PHPhotoLibrary.requestAuthorization { status in
@@ -353,7 +331,7 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
                         creationRequest.location = self.location
 
                         // Add the RAW (DNG) file as an altenate resource.
-                        if let rawImage = self.rawImage {
+                        if let rawImage = self.dngFile {
                             let options = PHAssetResourceCreationOptions()
                             options.shouldMoveFile = true
                             creationRequest.addResource(with: .alternatePhoto, fileURL: rawImage, options: options)
