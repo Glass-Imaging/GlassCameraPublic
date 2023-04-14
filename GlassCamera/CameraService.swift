@@ -72,7 +72,8 @@ public class CameraService: NSObject, Identifiable {
 
     // MARK: Device Configuration Properties
 
-    static let videoDevices:[AVCaptureDevice.DeviceType] = [.builtInWideAngleCamera, .builtInDualCamera, .builtInTrueDepthCamera]
+    // static let videoDevices:[AVCaptureDevice.DeviceType] = [.builtInWideAngleCamera, .builtInDualCamera, .builtInTrueDepthCamera]
+    static let videoDevices:[AVCaptureDevice.DeviceType] = [.builtInTelephotoCamera, .builtInDualCamera, .builtInTrueDepthCamera]
     let videoDeviceDiscoverySession = AVCaptureDevice.DiscoverySession(deviceTypes: videoDevices, mediaType: .video, position: .unspecified)
 
     // MARK: Capturing Photos
@@ -188,10 +189,10 @@ public class CameraService: NSObject, Identifiable {
         do {
             var defaultVideoDevice: AVCaptureDevice?
 
-            if let backCameraDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) {
+            if let backCameraDevice = AVCaptureDevice.default(.builtInTelephotoCamera/*.builtInWideAngleCamera*/, for: .video, position: .back) {
                 // If a rear dual camera is not available, default to the rear wide angle camera.
                 defaultVideoDevice = backCameraDevice
-            } else if let frontCameraDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .front) {
+            } else if let frontCameraDevice = AVCaptureDevice.default(.builtInTelephotoCamera/*.builtInWideAngleCamera*/, for: .video, position: .front) {
                 // If the rear wide angle camera isn't available, default to the front wide angle camera.
                 defaultVideoDevice = frontCameraDevice
             }
@@ -290,7 +291,7 @@ public class CameraService: NSObject, Identifiable {
             switch currentPosition {
             case .unspecified, .front:
                 preferredPosition = .back
-                preferredDeviceType = .builtInWideAngleCamera
+                preferredDeviceType = .builtInTelephotoCamera //.builtInWideAngleCamera
 
             case .back:
                 preferredPosition = .front
@@ -299,7 +300,7 @@ public class CameraService: NSObject, Identifiable {
             @unknown default:
                 print("Unknown capture position. Defaulting to back, dual-camera.")
                 preferredPosition = .back
-                preferredDeviceType = .builtInWideAngleCamera
+                preferredDeviceType = .builtInTelephotoCamera //.builtInWideAngleCamera
             }
             let devices = self.videoDeviceDiscoverySession.devices
             var newVideoDevice: AVCaptureDevice? = nil

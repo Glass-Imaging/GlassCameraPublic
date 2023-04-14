@@ -7,6 +7,8 @@
 
 import Foundation
 import CoreMedia.CMTime
+import AVFoundation
+import UIKit
 
 private struct PollData: Decodable {
     let id: Int
@@ -60,6 +62,7 @@ class NetworkAdapter {
     private var isPollingServer: Bool = true
     private let serverURL = URL(string: "http://192.168.50.101/network_camera/")
     private let POLLING_INTERVAL = 0.25 //seconds
+    private var uploader: AVCapturePhotoCaptureDelegate?
     
     init(cameraService: CameraService) {
         self.cameraService = cameraService
@@ -99,10 +102,11 @@ class NetworkAdapter {
     
     private func respondToServer(id: Int, function_id: String, data: Encodable) {
         if let serverURL = serverURL {
+            let responseURL = serverURL.appendingPathComponent("response")
+            
             let response = ResponseData(id: id, data: data)
             let responseData = try! JSONEncoder().encode(response)
             
-            let responseURL = serverURL.appendingPathComponent("response")
             var responseURLRequest = URLRequest(url: responseURL)
             responseURLRequest.httpMethod = "POST"
             
@@ -110,6 +114,23 @@ class NetworkAdapter {
                 if error != nil { print("Got Upload Error! \(String(describing: error))") }
             }.resume()
             
+        } else {
+            print("Server URL is not defined!")
+        }
+    }
+    
+    private func uploadImageToServer(imageData: Data) {
+        if let serverURL = serverURL {
+            let responseURL = serverURL.appendingPathComponent("image_data_response")
+            var responseURLRequest = URLRequest(url: responseURL)
+            responseURLRequest.httpMethod = "POST"
+            
+            print("Beginning Upload!")
+            
+            URLSession.shared.uploadTask(with: responseURLRequest, from: imageData) {data, response, error in
+                if error != nil { print("Got Upload Error! \(String(describing: error))") }
+                print("DONE UPLOAD!")
+            }.resume()
         } else {
             print("Server URL is not defined!")
         }
@@ -186,7 +207,12 @@ class NetworkAdapter {
     }
     
     private func capture_start_capture_handle(data: String, cb: (Encodable) -> Void) {
-        self.cameraService.capturePhoto()
+        self.uploader = self.cameraService.captureRawPhoto() { rawData in
+            print("Got the raw data in callback! \(rawData.count)")
+            
+            self.uploadImageToServer(imageData: rawData)
+        }
+        
         let exposureParams = ExposureParams(aeValue: 50,
                                             iso: Int(cameraService.videoDeviceInput.device.iso),
                                             exposureDuration: cameraService.videoDeviceInput.device.exposureDuration.toMicroSeconds(),
@@ -194,6 +220,44 @@ class NetworkAdapter {
         
         let captureResult = CaptureResults(imagePaths: [], exposureParams: exposureParams)
         cb([captureResult])
+    }
+}
+
+class RawUploader: NSObject, AVCapturePhotoCaptureDelegate {
+    let rawDataCB: (Data) -> Void
+    
+    init(rawDataCB: @escaping (Data) -> Void) {
+        self.rawDataCB = rawDataCB
+    }
+    
+    func photoOutput(_ output: AVCapturePhotoOutput, willBeginCaptureFor resolvedSettings: AVCaptureResolvedPhotoSettings) {
+        print("Got to willBeginCaptureFor!")
+    }
+
+    func photoOutput(_ output: AVCapturePhotoOutput, willCapturePhotoFor resolvedSettings: AVCaptureResolvedPhotoSettings) {
+        print("Got to willCapturePhotoFor!")
+    }
+
+    func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
+        print("Got to didFinishProcessingPhoto!")
+        if let error = error {
+            print("Error capturing photo: \(error)")
+        }
+        
+        if photo.isRawPhoto {
+            print("Got Raw Photo!")
+            // Return image over the network!
+            if let captureData = photo.fileDataRepresentation() {
+                self.rawDataCB(captureData)
+            }
+        } else {
+            print("Got Non Raw Photo!")
+            // fatalError("Got Non Raw Capture!")
+        }
+    }
+
+    func photoOutput(_ output: AVCapturePhotoOutput, didFinishCaptureFor resolvedSettings: AVCaptureResolvedPhotoSettings, error: Error?) {
+        print("Got to didFinishCapture!")
     }
 }
 
@@ -208,15 +272,82 @@ extension CameraService {
             do {
                 try device.lockForConfiguration()
                 
+                device.focusMode = .locked
                 device.exposureMode = .custom
                 device.setExposureModeCustom(duration: exposureDuration, iso: iso) { _ in
                     cb("Settings Updated")
                 }
+                
 
                 device.unlockForConfiguration()
             } catch {
                 print("Could not lock device for configuration: \(error)")
             }
         }
+    }
+    
+    public func captureRawPhoto(dataCB: @escaping (Data) -> Void) -> AVCapturePhotoCaptureDelegate? {
+        /*
+         Retrieve the video preview layer's video orientation on the main queue before
+         entering the session queue. This to ensures that UI elements are accessed on
+         the main thread and session configuration is done on the session queue.
+         */
+
+        if self.setupResult != .configurationFailed {
+            // Take the device orientation into account
+            let videoPreviewLayerOrientation = AVCaptureVideoOrientation(deviceOrientation: UIDevice.current.orientation)
+
+            self.isCameraButtonDisabled = true
+
+            // sessionQueue.async {
+            if let photoOutputConnection = self.photoOutput.connection(with: .video) {
+                if let videoPreviewLayerOrientation = videoPreviewLayerOrientation {
+                    photoOutputConnection.videoOrientation = videoPreviewLayerOrientation
+                } else {
+                    photoOutputConnection.videoOrientation = .portrait
+                }
+            }
+
+            let query = self.photoOutput.isAppleProRAWEnabled ?
+                { !AVCapturePhotoOutput.isAppleProRAWPixelFormat($0) } :
+                { AVCapturePhotoOutput.isBayerRAWPixelFormat($0) }
+
+            var photoSettings: AVCapturePhotoSettings
+
+            // Retrieve the RAW format, favoring the Apple ProRAW format when it's in an enabled state.
+            guard let rawFormat = self.photoOutput.availableRawPhotoPixelFormatTypes.first(where: query) else {
+                fatalError("Raw not available")
+            }
+            
+            // Capture a RAW format photo, along with a processed format photo.
+            photoSettings = AVCapturePhotoSettings(rawPixelFormatType: rawFormat)
+
+            // Select the first available codec type, which is JPEG.
+            guard let thumbnailPhotoCodecType =
+                photoSettings.availableRawEmbeddedThumbnailPhotoCodecTypes.first else {
+                // Handle the failure to find an available thumbnail photo codec type.
+                fatalError("Failed configuring RAW tumbnail.")
+            }
+
+            if self.videoDeviceInput.device.isFlashAvailable {
+                photoSettings.flashMode = self.flashMode
+            }
+
+            // Select the maximum photo dimensions as thumbnail dimensions if a full-size thumbnail is desired.
+            // The system clamps these dimensions to the photo dimensions if the capture produces a photo with smaller than maximum dimensions.
+            let dimensions = photoSettings.maxPhotoDimensions
+            photoSettings.rawEmbeddedThumbnailPhotoFormat = [
+                AVVideoCodecKey: thumbnailPhotoCodecType,
+                AVVideoWidthKey: dimensions.width,
+                AVVideoHeightKey: dimensions.height
+            ]
+
+            let rawUploader = RawUploader(rawDataCB: dataCB)
+
+            self.photoOutput.capturePhoto(with: photoSettings, delegate: rawUploader)
+            return rawUploader
+        }
+        //}
+        return nil
     }
 }
