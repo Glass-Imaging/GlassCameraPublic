@@ -77,7 +77,6 @@ public:
                 .chroma = cmult[0] * lerp_c,
                 .chromaBoost = chromaBoost,
                 .gradientBoost = gradientBoost,
-                .gradientThreshold = nlf_alpha > 0.5 ? 3.f : 4.f,
                 .sharpening = std::lerp(1.5f, 1.0f, nlf_alpha)
             },
             {
@@ -85,7 +84,6 @@ public:
                 .chroma = cmult[1] * lerp_c,
                 .chromaBoost = chromaBoost,
                 .gradientBoost = gradientBoost,
-                .gradientThreshold = nlf_alpha > 0.5 ? 3.f : 4.f,
                 .sharpening = 1.1
             },
             {
@@ -93,7 +91,6 @@ public:
                 .chroma = cmult[2] * lerp_c,
                 .chromaBoost = chromaBoost,
                 .gradientBoost = gradientBoost,
-                .gradientThreshold = nlf_alpha > 0.5 ? 3.f : 4.f,
                 .sharpening = 1
             },
             {
@@ -101,7 +98,6 @@ public:
                 .chroma = cmult[3] * lerp_c,
                 .chromaBoost = chromaBoost,
                 .gradientBoost = gradientBoost,
-                .gradientThreshold = 4,
                 .sharpening = 1
             },
             {
@@ -109,7 +105,6 @@ public:
                 .chroma = cmult[4] * lerp_c,
                 .chromaBoost = chromaBoost,
                 .gradientBoost = gradientBoost,
-                .gradientThreshold = 4,
                 .sharpening = 1
             }
         }};

@@ -35,6 +35,7 @@ struct PyramidProcessor {
     subtractNoiseImageKernel _subtractNoiseImage;
     resampleImageKernel _resampleImage;
     resampleImageKernel _resampleGradientImage;
+    basicNoiseStatisticsKernel _basicNoiseStatistics;
 
     typedef gls::mtl_image_2d<gls::rgba_pixel_float> imageType;
     std::array<imageType::unique_ptr, levels - 1> imagePyramid;
@@ -65,6 +66,11 @@ struct PyramidProcessor {
 //                   bool calibrateFromImage = false);
 //
 //    imageType* getFusedImage(MetalContext* context);
+
+    YCbCrNLF MeasureYCbCrNLF(MetalContext* context,
+                             const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
+                             gls::mtl_image_2d<gls::rgba_pixel_float> *noiseStats,
+                             float exposure_multiplier);
 };
 
 #endif /* pyramid_processor_hpp */

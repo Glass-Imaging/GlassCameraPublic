@@ -702,15 +702,8 @@ struct _half8 {
     operator uint4() const { return uint4(uint2(hi), uint2(lo)); }
 };
 
-// FIXME: this should be dependent on the image noise level
-half length(_half8 x, half edge, int components) {
-//    half low_precision = components == 4 ? length(x.hi) :
-//                         components == 3 ? length(x.hi.xyz) :
-//                         components == 2 ? length(x.hi.xy) : x.hi.x;
-//    half high_precision = sqrt(dot(x.hi, x.hi) + dot(x.lo, x.lo));
-//    return mix(low_precision, high_precision, edge);
-
-    return sqrt(dot(x.hi, x.hi) + dot(x.lo.xy, x.lo.xy));
+half length(_half8 x) {
+    return sqrt(dot(x.hi, x.hi) + dot(x.lo, x.lo));
 }
 
 kernel void collectPatches(texture2d<half> inputImage         [[texture(0)]],
@@ -768,8 +761,7 @@ kernel void blockMatchingDenoiseImage(texture2d<half> inputImage                
                                       constant float3& thresholdMultipliers          [[buffer(5)]],
                                       constant float& chromaBoost                    [[buffer(6)]],
                                       constant float& gradientBoost                  [[buffer(7)]],
-                                      constant float& gradientThreshold              [[buffer(8)]],
-                                      texture2d<half, access::write> denoisedImage   [[texture(9)]],
+                                      texture2d<half, access::write> denoisedImage   [[texture(8)]],
                                       uint2 index                                    [[thread_position_in_grid]]) {
     const int2 imageCoordinates = (int2) index;
 
@@ -782,7 +774,7 @@ kernel void blockMatchingDenoiseImage(texture2d<half> inputImage                
     float distance_from_center = length(float2(imageCoordinates) - imageCenter) / length(imageCenter);
 
     /* FIXME: lensShadingCorrection is a parameter */
-    half3 sigma = half3(sqrt(var_a + var_b * clamp(0.0, 1.0, 0.9 * (inputYCC.x - 0.1)) *
+    half3 sigma = half3(sqrt(var_a + var_b * inputYCC.x *
                              lensShading(/*lensShadingCorrection=*/ 1.6, distance_from_center)));
     half3 diffMultiplier = 1 / (half3(thresholdMultipliers) * sigma);
 
@@ -802,7 +794,7 @@ kernel void blockMatchingDenoiseImage(texture2d<half> inputImage                
             half3 inputSampleYCC = read_imageh(inputImage, imageCoordinates + int2(x, y)).xyz;
             _half8 samplePCA = _half8(read_imageui(pcaImage, imageCoordinates + int2(x, y)));
 
-            half pcaDiff = length(samplePCA - inputPCA, edge, gradientThreshold);
+            half pcaDiff = length(samplePCA - inputPCA);
 
             half2 inputChromaDiff = (inputSampleYCC.yz - inputYCC.yz) * diffMultiplier.yz;
 
@@ -973,6 +965,34 @@ half4 despeckle_3x3x4(texture2d<half> inputImage, float4 rawVariance, int2 image
     return clamp(sample, minVal, maxVal);
 }
 
+half4 despeckle_3x3x4_strong(texture2d<half> inputImage, float4 rawVariance, int2 imageCoordinates) {
+    half4 sample = 0, firstMax = 0, secondMax = 0, thirdMax = 0;
+    half4 firstMin = (half) HALF_MAX, secondMin = (half) HALF_MAX, thirdMin = (half) HALF_MAX;
+
+    for (int x = -1; x <= 1; x++) {
+        for (int y = -1; y <= 1; y++) {
+            half4 v = read_imageh(inputImage, imageCoordinates + (int2){x, y});
+
+            thirdMax = select(max(v, thirdMax), secondMax, v >= secondMax);
+            secondMax = select(max(v, secondMax), firstMax, v >= firstMax);
+            firstMax = max(v, firstMax);
+
+            thirdMin = select(min(v, thirdMin), secondMin, v <= secondMin);
+            secondMin = select(min(v, secondMin), firstMin, v <= firstMin);
+            firstMin = min(v, firstMin);
+
+            if (x == 0 && y == 0) {
+                sample = v;
+            }
+        }
+    }
+
+    half4 sigma = sqrt(half4(rawVariance) * sample);
+    half4 minVal = mix(thirdMin, firstMin, smoothstep(2 * sigma, 8 * sigma, secondMin - firstMin));
+    half4 maxVal = mix(thirdMax, firstMax, smoothstep(sigma, 4 * sigma, firstMax - secondMax));
+    return clamp(sample, minVal, maxVal);
+}
+
 kernel void despeckleRawRGBAImage(texture2d<half> inputImage                    [[texture(0)]],
                                   constant float4& rawVariance                  [[buffer(1)]],
                                   texture2d<half, access::write> denoisedImage  [[texture(2)]],
@@ -982,6 +1002,73 @@ kernel void despeckleRawRGBAImage(texture2d<half> inputImage                    
     half4 despeckledPixel = despeckle_3x3x4(inputImage, rawVariance, imageCoordinates);
 
     write_imageh(denoisedImage, imageCoordinates, despeckledPixel);
+}
+
+float4 readRAWQuad(texture2d<float> rawImage,
+                   int2 imageCoordinates,
+                   constant const int2 *offsets) {
+    const int2 r = offsets[raw_red];
+    const int2 g = offsets[raw_green];
+    const int2 b = offsets[raw_blue];
+    const int2 g2 = offsets[raw_green2];
+
+    float red    = read_imagef(rawImage, imageCoordinates + r).x;
+    float green  = read_imagef(rawImage, imageCoordinates + g).x;
+    float blue   = read_imagef(rawImage, imageCoordinates + b).x;
+    float green2 = read_imagef(rawImage, imageCoordinates + g2).x;
+
+    return float4(red, green, blue, green2);
+}
+
+kernel void basicRawNoiseStatistics(texture2d<float> rawImage                   [[texture(0)]],
+                                    constant int& bayerPattern                  [[buffer(1)]],
+                                    texture2d<float, access::write> meanImage   [[texture(2)]],
+                                    texture2d<float, access::write> varImage    [[texture(3)]],
+                                    uint2 index                                 [[thread_position_in_grid]]) {
+    const int2 imageCoordinates = (int2) index;
+
+    constant const int2* offsets = bayerOffsets[bayerPattern];
+
+    int radius = 8;
+    int count = (2 * radius + 1) * (2 * radius + 1);
+
+    float4 sum = 0;
+    float4 sumSq = 0;
+    for (int y = -radius; y <= radius; y++) {
+        for (int x = -radius; x <= radius; x++) {
+            float4 inputSample = readRAWQuad(rawImage, 2 * imageCoordinates + int2(x, y), offsets);
+            sum += inputSample;
+            sumSq += inputSample * inputSample;
+        }
+    }
+    float4 mean = sum / count;
+    float4 var = (sumSq - (sum * sum) / count) / count;
+
+    write_imagef(meanImage, imageCoordinates, mean);
+    write_imagef(varImage, imageCoordinates, var);
+}
+
+kernel void basicNoiseStatistics(texture2d<float> inputImage                        [[texture(0)]],
+                                 texture2d<float, access::write> statisticsImage    [[texture(1)]],
+                                 uint2 index                                        [[thread_position_in_grid]]) {
+    const int2 imageCoordinates = (int2) index;
+
+    int radius = 2;
+    int count = (2 * radius + 1) * (2 * radius + 1);
+
+    float3 sum = 0;
+    float3 sumSq = 0;
+    for (int y = -radius; y <= radius; y++) {
+        for (int x = -radius; x <= radius; x++) {
+            float3 inputSample = read_imagef(inputImage, imageCoordinates + int2(x, y)).xyz;
+            sum += inputSample;
+            sumSq += inputSample * inputSample;
+        }
+    }
+    float3 mean = sum / count;
+    float3 var = (sumSq - (sum * sum) / count) / count;
+
+    write_imagef(statisticsImage, imageCoordinates, float4(mean.x, var));
 }
 
 /// ---- Median Filter 3x3 ----

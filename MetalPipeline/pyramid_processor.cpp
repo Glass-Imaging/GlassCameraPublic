@@ -30,7 +30,8 @@ PyramidProcessor<levels>::PyramidProcessor(MetalContext* context, int _width, in
     _blockMatchingDenoiseImage(context),
     _subtractNoiseImage(context),
     _resampleImage(context, "downsampleImageXYZ"),
-    _resampleGradientImage(context, "downsampleImageXY")
+    _resampleGradientImage(context, "downsampleImageXY"),
+    _basicNoiseStatistics(context)
 {
     auto mtlDevice = context->device();
     for (int i = 0, scale = 2; i < levels - 1; i++, scale *= 2) {
@@ -108,10 +109,10 @@ typename PyramidProcessor<levels>::imageType* PyramidProcessor<levels>::denoise(
             _resampleGradientImage(context, *currentGradientLayer, gradientPyramid[i].get());
         }
 
-//        if (calibrateFromImage) {
-//            (*nlfParameters)[i] =
-//                MeasureYCbCrNLF(context, *currentLayer, *currentGradientLayer, exposure_multiplier);
-//        }
+        if (calibrateFromImage) {
+            (*nlfParameters)[i] =
+                MeasureYCbCrNLF(context, *currentLayer, denoisedImagePyramid[i].get(), exposure_multiplier);
+        }
 
         thresholdMultipliers[i] = nflMultiplier((*denoiseParameters)[i]);
     }
@@ -158,7 +159,7 @@ typename PyramidProcessor<levels>::imageType* PyramidProcessor<levels>::denoise(
             _blockMatchingDenoiseImage(context, *layerImage, *gradientInput, *pcaImagePyramid[i],
                                        (*nlfParameters)[i].first, (*nlfParameters)[i].second, thresholdMultipliers[i],
                                        (*denoiseParameters)[i].chromaBoost, (*denoiseParameters)[i].gradientBoost,
-                                       (*denoiseParameters)[i].gradientThreshold, denoisedImagePyramid[i].get());
+                                       denoisedImagePyramid[i].get());
 
 //            context->waitForCompletion();
 //            savePatchMap(*(denoisedImagePyramid[i]));
@@ -172,6 +173,138 @@ typename PyramidProcessor<levels>::imageType* PyramidProcessor<levels>::denoise(
     }
 
     return denoisedImagePyramid[0].get();
+}
+
+template <size_t levels>
+YCbCrNLF PyramidProcessor<levels>::MeasureYCbCrNLF(MetalContext* context,
+                                                   const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
+                                                   gls::mtl_image_2d<gls::rgba_pixel_float> *noiseStats,
+                                                   float exposure_multiplier) {
+    assert(inputImage.size() == noiseStats->size());
+
+    _basicNoiseStatistics(context, inputImage, noiseStats);
+    context->waitForCompletion();
+
+    // applyKernel(glsContext, "noiseStatistics_old", inputImage, &noiseStats);
+    const auto noiseStatsCpu = noiseStats->mapImage();
+
+    using double3 = gls::DVector<3>;
+
+    // Only consider pixels with variance lower than the expected noise value
+    double3 varianceMax = 0.001;
+
+    // Limit to pixels the more linear intensity zone of the sensor
+    const double maxValue = 0.5;
+    const double minValue = 0.001;
+
+    // Collect pixel statistics
+    double s_x = 0;
+    double s_xx = 0;
+    double3 s_y = 0;
+    double3 s_xy = 0;
+
+    double N = 0;
+    noiseStatsCpu->apply([&](const gls::rgba_pixel_float& ns, int x, int y) {
+        double m = ns[0];
+        double3 v = {ns[1], ns[2], ns[3]};
+
+        bool validStats = !(std::isnan(m) || any(isnan(v)));
+
+        if (validStats && m >= minValue && m <= maxValue && all(v <= varianceMax)) {
+            s_x += m;
+            s_y += v;
+            s_xx += m * m;
+            s_xy += m * v;
+            N++;
+        }
+    });
+
+    // Linear regression on pixel statistics to extract a linear noise model: nlf = A + B * Y
+    auto nlfB = max((N * s_xy - s_x * s_y) / (N * s_xx - s_x * s_x), 1e-8);
+    auto nlfA = max((s_y - nlfB * s_x) / N, 1e-8);
+
+    // Estimate regression mean square error
+    double3 err2 = 0;
+    noiseStatsCpu->apply([&](const gls::rgba_pixel_float& ns, int x, int y) {
+        double m = ns[0];
+        double3 v = {ns[1], ns[2], ns[3]};
+
+        bool validStats = !(std::isnan(m) || any(isnan(v)));
+
+        if (validStats && m >= minValue && m <= maxValue && all(v <= varianceMax)) {
+            auto nlfP = nlfA + nlfB * m;
+            auto diff = nlfP - v;
+            err2 += diff * diff;
+        }
+    });
+    err2 /= N;
+
+    std::cout << "1) Pyramid NLF A: " << std::setprecision(4) << std::scientific << nlfA << ", B: " << nlfB << ", MSE: " << sqrt(err2)
+              << " on " << N << "(" << std::setprecision(1) << std::fixed << 100 * N / (inputImage.width * inputImage.height)
+              << "%) pixels of " << inputImage.width << " x " << inputImage.height << std::endl;
+
+    // Update the maximum variance with the model
+    varianceMax = nlfB;
+
+    // Redo the statistics collection limiting the sample to pixels that fit well the linear model
+    s_x = 0;
+    s_xx = 0;
+    s_y = 0;
+    s_xy = 0;
+    N = 0;
+    double3 newErr2 = 0;
+    int discarded = 0;
+    noiseStatsCpu->apply([&](const gls::rgba_pixel_float& ns, int x, int y) {
+        double m = ns[0];
+        double3 v = {ns[1], ns[2], ns[3]};
+
+        bool validStats = !(std::isnan(m) || any(isnan(v)));
+
+        if (validStats && m >= minValue && m <= maxValue && all(v <= varianceMax)) {
+            auto nlfP = nlfA + nlfB * m;
+            auto diff = abs(nlfP - v);
+            auto diffSquare = diff * diff;
+
+            if (all(diffSquare <= err2)) {
+                s_x += m;
+                s_y += v;
+                s_xx += m * m;
+                s_xy += m * v;
+                N++;
+                newErr2 += diffSquare;
+            } else {
+                discarded++;
+            }
+        }
+    });
+    newErr2 /= N;
+
+    if (all(newErr2 <= err2) && N / (inputImage.width * inputImage.height) > 0.01) {
+        // Estimate the new regression parameters
+        nlfB = max((N * s_xy - s_x * s_y) / (N * s_xx - s_x * s_x), 1e-8);
+        nlfA = max((s_y - nlfB * s_x) / N, 1e-8);
+
+        std::cout << "2) Pyramid NLF A: " << std::setprecision(4) << std::scientific << nlfA << ", B: " << nlfB
+                  << ", MSE: " << sqrt(newErr2) << " on " << std::setprecision(1) << std::fixed
+                  << 100 * N / (inputImage.width * inputImage.height) << "% pixels" << std::endl;
+    } else {
+        std::cout << "*** WARNING *** Pyramid NLF second iteration is worse: MSE: " << sqrt(newErr2) << " on "
+                  << std::setprecision(1) << std::fixed << 100 * N / (inputImage.width * inputImage.height)
+                  << "% pixels" << std::endl;
+    }
+
+    // assert(all(newErr2 < err2));
+
+    // noiseStats->unmapImage(noiseStatsCpu);
+
+    double varianceExposureAdjustment = exposure_multiplier * exposure_multiplier;
+
+    nlfA *= varianceExposureAdjustment;
+    nlfB *= varianceExposureAdjustment;
+
+    return std::pair(nlfA,  // A values
+                     nlfB   // B values
+    );
 }
 
 template struct PyramidProcessor<5>;

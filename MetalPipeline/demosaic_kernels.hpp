@@ -325,7 +325,6 @@ struct blockMatchingDenoiseImageKernel {
            simd::float3,   // thresholdMultipliers
            float,          // chromaBoost
            float,          // gradientBoost
-           float,          // gradientThreshold
            MTL::Texture*   // outputImage
     > kernel;
 
@@ -335,14 +334,14 @@ struct blockMatchingDenoiseImageKernel {
                      const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& gradientImage,
                      const gls::mtl_image_2d<gls::pixel<uint32_t, 4>>& patchImage, const gls::Vector<3>& var_a,
                      const gls::Vector<3>& var_b, const gls::Vector<3> thresholdMultipliers, float chromaBoost,
-                     float gradientBoost, float gradientThreshold, gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage) {
+                     float gradientBoost, gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage) {
 
         kernel(context, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
                inputImage.texture(), gradientImage.texture(), patchImage.texture(),
                simd::float3 { var_a[0], var_a[1], var_a[2] },
                simd::float3 { var_b[0], var_b[1], var_b[2] },
                simd::float3 { thresholdMultipliers[0], thresholdMultipliers[1], thresholdMultipliers[2] },
-               chromaBoost, gradientBoost, gradientThreshold, outputImage->texture());
+               chromaBoost, gradientBoost, outputImage->texture());
     }
 };
 
@@ -407,9 +406,23 @@ struct subtractNoiseImageKernel {
 
 };
 
+struct basicNoiseStatisticsKernel {
+    Kernel<MTL::Texture*,   // inputImage
+           MTL::Texture*    // statisticsImage
+    > kernel;
+
+    basicNoiseStatisticsKernel(MetalContext* context) : kernel(context, "basicNoiseStatistics") { }
+
+    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
+                     gls::mtl_image_2d<gls::rgba_pixel_float>* statisticsImage) {
+        kernel(context, /*gridSize=*/ MTL::Size(statisticsImage->width, statisticsImage->height, 1),
+               inputImage.texture(), statisticsImage->texture());
+    }
+};
+
 struct resampleImageKernel {
-    Kernel<MTL::Texture*,  // inputImage
-           MTL::Texture*
+    Kernel<MTL::Texture*,   // inputImage
+           MTL::Texture*    // outputImage
     > kernel;
 
     resampleImageKernel(MetalContext* context, const std::string& kernelName) : kernel(context, kernelName) { }

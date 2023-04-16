@@ -50,8 +50,10 @@ void RawConverter::allocateHighNoiseTextures(const gls::size& imageSize) {
     }
 }
 
-gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::denoise(MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
-                                                                DemosaicParameters* demosaicParameters, bool calibrateFromImage) {
+gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::denoise(MetalContext* context,
+                                                                const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
+                                                                DemosaicParameters* demosaicParameters,
+                                                                bool calibrateFromImage) {
     NoiseModel<5>* noiseModel = &demosaicParameters->noiseModel;
 
     // Luma and Chroma Despeckling
@@ -62,7 +64,8 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::denoise(MetalContext* co
 
     gls::mtl_image_2d<gls::rgba_pixel_float>* denoisedImage = _pyramidProcessor->denoise(context, &(demosaicParameters->denoiseParameters),
                                                                                          *_linearRGBImageB, *_rawGradientImage,
-                                                                                         &(noiseModel->pyramidNlf), demosaicParameters->exposure_multiplier,
+                                                                                         &noiseModel->pyramidNlf,
+                                                                                         demosaicParameters->exposure_multiplier,
                                                                                          calibrateFromImage);
 
     // Use a lower level of the pyramid to compute the histogram
