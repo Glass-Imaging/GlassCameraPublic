@@ -189,13 +189,13 @@ public class CameraService: NSObject, Identifiable {
         do {
             var defaultVideoDevice: AVCaptureDevice?
 
-            if let backCameraDevice = AVCaptureDevice.default(.builtInTelephotoCamera/*.builtInWideAngleCamera*/, for: .video, position: .back) {
-                // If a rear dual camera is not available, default to the rear wide angle camera.
-                defaultVideoDevice = backCameraDevice
-            } else if let frontCameraDevice = AVCaptureDevice.default(.builtInTelephotoCamera/*.builtInWideAngleCamera*/, for: .video, position: .front) {
+            if let frontCameraDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .front) {
                 // If the rear wide angle camera isn't available, default to the front wide angle camera.
                 defaultVideoDevice = frontCameraDevice
-            }
+            } else if let backCameraDevice = AVCaptureDevice.default(.builtInTelephotoCamera/*.builtInWideAngleCamera*/, for: .video, position: .back) {
+                // If a rear dual camera is not available, default to the rear wide angle camera.
+                defaultVideoDevice = backCameraDevice
+          }
 
             guard let videoDevice = defaultVideoDevice else {
                 print("Default video device is unavailable.")
@@ -291,7 +291,7 @@ public class CameraService: NSObject, Identifiable {
             switch currentPosition {
             case .unspecified, .front:
                 preferredPosition = .back
-                preferredDeviceType = .builtInTelephotoCamera //.builtInWideAngleCamera
+                preferredDeviceType = .builtInWideAngleCamera
 
             case .back:
                 preferredPosition = .front

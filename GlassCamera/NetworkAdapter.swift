@@ -60,7 +60,8 @@ extension CMTime {
 class NetworkAdapter {
     let cameraService: CameraService
     private var isPollingServer: Bool = true
-    private let serverURL = URL(string: "http://192.168.50.101/network_camera/")
+    private let serverURL = URL(string: "http://192.168.1.2/network_camera/")
+    // private let serverURL = URL(string: "http://192.168.50.101/network_camera/")
     private let POLLING_INTERVAL = 0.25 //seconds
     private var uploader: AVCapturePhotoCaptureDelegate?
     
@@ -160,7 +161,7 @@ class NetworkAdapter {
         }
     }
     
-    private func noRequests(data: String, cb: (Encodable) -> Void) { print("No Pending Commands") }
+    private func noRequests(data: String, cb: (Encodable) -> Void) { /*print("No Pending Commands")*/ }
     private func noFunctionFound(data: String, cb: (Encodable) -> Void) { cb("ERROR: NO FUNCTION FOUND MATCHING FUNCTION_NAME") }
     private func notImplemented(data: String, cb: (Encodable) -> Void) { cb("ERROR: FUNCTION NOT IMPLEMENTED") }
 
