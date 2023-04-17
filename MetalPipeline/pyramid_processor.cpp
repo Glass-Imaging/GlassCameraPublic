@@ -110,6 +110,7 @@ typename PyramidProcessor<levels>::imageType* PyramidProcessor<levels>::denoise(
         }
 
         if (calibrateFromImage) {
+            // Use the denoisedImagePyramid to collect the noise statistics
             (*nlfParameters)[i] =
                 MeasureYCbCrNLF(context, *currentLayer, denoisedImagePyramid[i].get(), exposure_multiplier);
         }
@@ -123,19 +124,12 @@ typename PyramidProcessor<levels>::imageType* PyramidProcessor<levels>::denoise(
         const auto gradientInput = i > 0 ? gradientPyramid[i - 1].get() : &gradientImage;
 
         if (i < levels - 1) {
-            // Subtract the previous layer's noise from the current one
-            // LOG_INFO(TAG) << "Reassembling layer " << i + 1 << " with sharpening: " <<
-            // (*denoiseParameters)[i].sharpening << std::endl;
-
             const auto np = YCbCrNLF{(*nlfParameters)[i].first * thresholdMultipliers[i],
                                      (*nlfParameters)[i].second * thresholdMultipliers[i]};
             _subtractNoiseImage(context, *denoiseInput, *(imagePyramid[i]), *(denoisedImagePyramid[i + 1]),
                                 *gradientInput, lumaDenoiseWeight[i], (*denoiseParameters)[i].sharpening,
                                 {np.first[0], np.second[0]}, subtractedImagePyramid[i].get());
         }
-
-        // LOG_INFO(TAG) << "Denoising image level " << i << " with multipliers " << thresholdMultipliers[i] <<
-        // std::endl;
 
         const auto layerImage = i < levels - 1 ? subtractedImagePyramid[i].get() : denoiseInput;
 
@@ -239,10 +233,6 @@ YCbCrNLF PyramidProcessor<levels>::MeasureYCbCrNLF(MetalContext* context,
     });
     err2 /= N;
 
-    std::cout << "1) Pyramid NLF A: " << std::setprecision(4) << std::scientific << nlfA << ", B: " << nlfB << ", MSE: " << sqrt(err2)
-              << " on " << N << "(" << std::setprecision(1) << std::fixed << 100 * N / (inputImage.width * inputImage.height)
-              << "%) pixels of " << inputImage.width << " x " << inputImage.height << std::endl;
-
     // Update the maximum variance with the model
     varianceMax = nlfB;
 
@@ -284,10 +274,14 @@ YCbCrNLF PyramidProcessor<levels>::MeasureYCbCrNLF(MetalContext* context,
         nlfB = max((N * s_xy - s_x * s_y) / (N * s_xx - s_x * s_x), 1e-8);
         nlfA = max((s_y - nlfB * s_x) / N, 1e-8);
 
-        std::cout << "2) Pyramid NLF A: " << std::setprecision(4) << std::scientific << nlfA << ", B: " << nlfB
+        std::cout << "Pyramid NLF A: " << std::setprecision(4) << std::scientific << nlfA << ", B: " << nlfB
                   << ", MSE: " << sqrt(newErr2) << " on " << std::setprecision(1) << std::fixed
                   << 100 * N / (inputImage.width * inputImage.height) << "% pixels" << std::endl;
     } else {
+        std::cout << "Pyramid NLF A: " << std::setprecision(4) << std::scientific << nlfA << ", B: " << nlfB << ", MSE: " << sqrt(err2)
+                  << " on " << N << "(" << std::setprecision(1) << std::fixed << 100 * N / (inputImage.width * inputImage.height)
+                  << "%) pixels of " << inputImage.width << " x " << inputImage.height << std::endl;
+
         std::cout << "*** WARNING *** Pyramid NLF second iteration is worse: MSE: " << sqrt(newErr2) << " on "
                   << std::setprecision(1) << std::fixed << 100 * N / (inputImage.width * inputImage.height)
                   << "% pixels" << std::endl;

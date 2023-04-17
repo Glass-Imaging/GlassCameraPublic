@@ -77,6 +77,7 @@ class LocalToneMapping {
 };
 
 class RawConverter {
+    const bool _calibrateFromImage;
     MetalContext _mtlContext;
     gls::size _rawImageSize;
 
@@ -88,6 +89,9 @@ class RawConverter {
     gls::mtl_image_2d<gls::rgba_pixel_float>::unique_ptr _linearRGBImageA;
     gls::mtl_image_2d<gls::rgba_pixel_float>::unique_ptr _linearRGBImageB;
     gls::mtl_image_2d<gls::luma_pixel_float>::unique_ptr _ltmMaskImage;
+
+    gls::mtl_image_2d<gls::rgba_pixel_float>::unique_ptr _meanImage;
+    gls::mtl_image_2d<gls::rgba_pixel_float>::unique_ptr _varImage;
 
     // RawConverter HighNoise textures
     gls::mtl_image_2d<gls::rgba_pixel_float>::unique_ptr _rgbaRawImage;
@@ -117,6 +121,7 @@ class RawConverter {
     despeckleImageKernel _despeckleImage;
     histogramImageKernel _histogramImage;
     histogramStatisticsKernel _histogramStatistics;
+    basicRawNoiseStatisticsKernel _rawNoiseStatistics;
 
 public:
     struct histogram_data {
@@ -128,7 +133,8 @@ public:
         float highlights;
     };
 
-    RawConverter(NS::SharedPtr<MTL::Device> mtlDevice, const std::vector<uint8_t>* icc_profile_data = nullptr) :
+    RawConverter(NS::SharedPtr<MTL::Device> mtlDevice, const std::vector<uint8_t>* icc_profile_data = nullptr, bool calibrateFromImage = false) :
+        _calibrateFromImage(calibrateFromImage),
         _mtlContext(mtlDevice),
         _rawImageSize(gls::size {0, 0}),
         _scaleRawData(&_mtlContext),
@@ -143,7 +149,8 @@ public:
         _convertTosRGB(&_mtlContext),
         _despeckleImage(&_mtlContext),
         _histogramImage(&_mtlContext),
-        _histogramStatistics(&_mtlContext)
+        _histogramStatistics(&_mtlContext),
+        _rawNoiseStatistics(&_mtlContext)
     {
         _localToneMapping = std::make_unique<LocalToneMapping>(&_mtlContext);
 
@@ -181,11 +188,11 @@ public:
 
     void allocateHighNoiseTextures(const gls::size& imageSize);
 
-    gls::mtl_image_2d<gls::rgba_pixel_float>* denoise(MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
-                                                      DemosaicParameters* demosaicParameters, bool calibrateFromImage);
+    gls::mtl_image_2d<gls::rgba_pixel_float>* denoise(const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage, DemosaicParameters* demosaicParameters);
 
-    gls::mtl_image_2d<gls::rgba_pixel_float>* demosaic(const gls::image<gls::luma_pixel_16>& rawImage,
-                                                       DemosaicParameters* demosaicParameters);
+    gls::mtl_image_2d<gls::rgba_pixel_float>* demosaic(const gls::image<gls::luma_pixel_16>& rawImage, DemosaicParameters* demosaicParameters);
+
+    RawNLF MeasureRawNLF(float exposure_multiplier, BayerPattern bayerPattern);
 };
 
 #endif /* raw_converter_hpp */

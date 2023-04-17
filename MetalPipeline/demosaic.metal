@@ -1029,7 +1029,7 @@ kernel void basicRawNoiseStatistics(texture2d<float> rawImage                   
 
     constant const int2* offsets = bayerOffsets[bayerPattern];
 
-    int radius = 8;
+    int radius = 4;
     int count = (2 * radius + 1) * (2 * radius + 1);
 
     float4 sum = 0;

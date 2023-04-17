@@ -61,22 +61,28 @@ struct CalibrationEntry {
     bool rotated;
 };
 
+template <size_t levels>
+void dumpNoiseModel(int iso, const NoiseModel<levels>& noiseModel) {
+    std::cout << std::scientific << std::setprecision(3) << std::endl;
+    std::cout << "\t// ISO " << iso << std::endl;
+    std::cout << "\t{" << std::endl;
+    std::cout << "\t\t{{" << noiseModel.rawNlf.first << "}, {" << noiseModel.rawNlf.second << "}},"
+              << std::endl;
+    std::cout << "\t\t{{" << std::endl;
+    for (int j = 0; j < noiseModel.pyramidNlf.size(); j++) {
+        std::cout << "\t\t\t{{" << noiseModel.pyramidNlf[j].first << "}, {" << noiseModel.pyramidNlf[j].second
+                  << "}}," << std::endl;
+    }
+    std::cout << "\t\t}}" << std::endl;
+    std::cout << "\t}," << std::endl;
+}
+
 template <size_t levels, size_t N>
 void dumpNoiseModel(const std::array<CalibrationEntry, N>& calibration_files,
                     const std::array<NoiseModel<levels>, N>& noiseModel) {
     std::cout << "{{" << std::scientific << std::setprecision(3) << std::endl;
     for (int i = 0; i < calibration_files.size(); i++) {
-        std::cout << "\t// ISO " << calibration_files[i].iso << std::endl;
-        std::cout << "\t{" << std::endl;
-        std::cout << "\t\t{{" << noiseModel[i].rawNlf.first << "}, {" << noiseModel[i].rawNlf.second << "}},"
-                  << std::endl;
-        std::cout << "\t\t{{" << std::endl;
-        for (int j = 0; j < noiseModel[i].pyramidNlf.size(); j++) {
-            std::cout << "\t\t\t{{" << noiseModel[i].pyramidNlf[j].first << "}, {" << noiseModel[i].pyramidNlf[j].second
-                      << "}}," << std::endl;
-        }
-        std::cout << "\t\t}}" << std::endl;
-        std::cout << "\t}," << std::endl;
+        dumpNoiseModel(calibration_files[i].iso, noiseModel[i]);
     }
     std::cout << "}};" << std::endl;
 }
@@ -104,6 +110,7 @@ typedef struct DemosaicParameters {
     std::array<DenoiseParameters, 5> denoiseParameters;
     // In the [0..1] range, used to scale various denoising coefficients
     float noiseLevel;
+    int iso;
 
     // Camera Color Space to RGB Parameters
     RGBConversionParameters rgbConversionParameters;

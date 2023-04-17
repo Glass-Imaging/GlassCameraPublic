@@ -420,6 +420,24 @@ struct basicNoiseStatisticsKernel {
     }
 };
 
+struct basicRawNoiseStatisticsKernel {
+    Kernel<MTL::Texture*,   // rawImage
+           int,             // bayerPattern
+           MTL::Texture*,   // meanImage
+           MTL::Texture*    // varImage
+    > kernel;
+
+    basicRawNoiseStatisticsKernel(MetalContext* context) : kernel(context, "basicRawNoiseStatistics") { }
+
+    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::luma_pixel_float>& rawImage,
+                     int bayerPattern,
+                     gls::mtl_image_2d<gls::rgba_pixel_float>* meanImage,
+                     gls::mtl_image_2d<gls::rgba_pixel_float>* varImage) {
+        kernel(context, /*gridSize=*/ MTL::Size(meanImage->width, meanImage->height, 1),
+               rawImage.texture(), bayerPattern, meanImage->texture(), varImage->texture());
+    }
+};
+
 struct resampleImageKernel {
     Kernel<MTL::Texture*,   // inputImage
            MTL::Texture*    // outputImage
