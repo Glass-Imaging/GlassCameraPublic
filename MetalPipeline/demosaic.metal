@@ -121,7 +121,7 @@ half2 sobel(texture2d<half> inputImage, int x, int y) {
     half2 value = 0;
     for (int j = -1; j <= 1; j++) {
         for (int i = -1; i <= 1; i++) {
-            half sample = read_imageh(inputImage, (int2) { x + i, y + j }).x;
+            half sample = read_imageh(inputImage, int2(x + i, y + j)).x;
             value += sobelKernel2D[j+1][i+1] * sample;
         }
     }
@@ -135,7 +135,7 @@ kernel void rawImageSobel(texture2d<half> inputImage                    [[textur
     const int2 imageCoordinates = (int2) index;
     half2 gradient = sobel(inputImage, imageCoordinates.x, imageCoordinates.y);
 
-    write_imageh(gradientImage, imageCoordinates, (half4) { gradient.x, gradient.y, abs(gradient.x), abs(gradient.y) });
+    write_imageh(gradientImage, imageCoordinates, half4(gradient, abs(gradient)));
 }
 
 float4 sampledConvolution(texture2d<float> inputImage,
@@ -143,14 +143,13 @@ float4 sampledConvolution(texture2d<float> inputImage,
                           int samples, constant float *weights) {
     const float2 inputPos = (float2(imageCoordinates)) * inputNorm;
 
-    constexpr sampler linear_sampler(min_filter::linear,
-                                     mag_filter::linear,
-                                     mip_filter::linear);
+    constexpr sampler linear_sampler(filter::linear);
+
     float4 sum = 0;
     float norm = 0;
     for (int i = 0; i < samples; i++) {
         float w = weights[3 * i];
-        float2 off = { weights[3 * i + 1], weights[3 * i + 2] };
+        float2 off = float2(weights[3 * i + 1], weights[3 * i + 2]);
         sum += w * read_imagef(inputImage, linear_sampler, inputPos + (off + 0.5) * inputNorm);
         norm += w;
     }
@@ -183,7 +182,7 @@ kernel void sampledConvolutionSobel(texture2d<float> rawImage                   
 
 constant const float kHighNoiseVariance = 1e-3;
 
-#define RAW(i, j) read_imagef(rawImage, imageCoordinates + (int2) {i, j}).x
+#define RAW(i, j) read_imagef(rawImage, imageCoordinates + int2(i, j)).x
 
 kernel void interpolateGreen(texture2d<float> rawImage                  [[texture(0)]],
                              texture2d<float> gradientImage             [[texture(1)]],
@@ -287,7 +286,7 @@ kernel void interpolateGreen(texture2d<float> rawImage                  [[textur
     Green locations are interpolated next as they use the data from the previous step
 */
 
-#define GREEN(i, j) read_imagef(greenImage, imageCoordinates + (int2){i, j}).x
+#define GREEN(i, j) read_imagef(greenImage, imageCoordinates + int2(i, j)).x
 
 // Interpolate the other color at Red and Blue RAW locations
 
@@ -382,7 +381,7 @@ kernel void interpolateRedBlue(texture2d<float> rawImage                [[textur
 }
 #undef GREEN
 
-#define RGB(i, j) read_imagef(rgbImageIn, imageCoordinates + (int2){i, j}).xyz
+#define RGB(i, j) read_imagef(rgbImageIn, imageCoordinates + int2(i, j)).xyz
 
 // Interpolate Red and Blue colors at Green RAW locations
 
@@ -767,8 +766,8 @@ kernel void blockMatchingDenoiseImage(texture2d<half> inputImage                
 
     const half3 inputYCC = read_imageh(inputImage, imageCoordinates).xyz;
     const _half8 inputPCA = _half8(read_imageui(pcaImage, imageCoordinates));
-    const _half8 leftPCA = _half8(read_imageui(pcaImage, imageCoordinates - int2(1, 0)));
-    const _half8 topPCA = _half8(read_imageui(pcaImage, imageCoordinates - int2(0, 1)));
+//    const _half8 leftPCA = _half8(read_imageui(pcaImage, imageCoordinates - int2(1, 0)));
+//    const _half8 topPCA = _half8(read_imageui(pcaImage, imageCoordinates - int2(0, 1)));
 
     float2 imageCenter = float2(get_image_dim(inputImage) / 2);
     float distance_from_center = length(float2(imageCoordinates) - imageCenter) / length(imageCenter);
@@ -778,8 +777,8 @@ kernel void blockMatchingDenoiseImage(texture2d<half> inputImage                
                              lensShading(/*lensShadingCorrection=*/ 1.6, distance_from_center)));
     half3 diffMultiplier = 1 / (half3(thresholdMultipliers) * sigma);
 
-    // half2 gradient = read_imageh(gradientImage, imageCoordinates).xy;
-    half2 gradient = half2(inputPCA.hi.x - topPCA.hi.x, inputPCA.hi.x - leftPCA.hi.x);
+    half2 gradient = read_imageh(gradientImage, imageCoordinates).xy;
+    // half2 gradient = half2(inputPCA.hi.x - topPCA.hi.x, inputPCA.hi.x - leftPCA.hi.x);
     // half angle = atan2(gradient.y, gradient.x);
     half magnitude = length(gradient);
     half edge = smoothstep(2, 8, magnitude / sigma.x);
@@ -827,9 +826,7 @@ kernel void downsampleImageXYZ(texture2d<float> inputImage                  [[te
     const float2 input_norm = 1.0 / float2(get_image_dim(outputImage));
     const float2 input_pos = (float2(output_pos) + 0.5) * input_norm;
 
-    constexpr sampler linear_sampler(min_filter::linear,
-                                     mag_filter::linear,
-                                     mip_filter::linear);
+    constexpr sampler linear_sampler(filter::linear);
 
     // Sub-Pixel Sampling Location
     const float2 s = 0.5 * input_norm;
@@ -847,9 +844,7 @@ kernel void downsampleImageXY(texture2d<float> inputImage                    [[t
     const float2 input_norm = 1.0 / float2(get_image_dim(outputImage));
     const float2 input_pos = (float2(output_pos) + 0.5) * input_norm;
 
-    constexpr sampler linear_sampler(min_filter::linear,
-                                     mag_filter::linear,
-                                     mip_filter::linear);
+    constexpr sampler linear_sampler(filter::linear);
 
     // Sub-Pixel Sampling Location
     const float2 s = 0.5 * input_norm;
@@ -873,9 +868,7 @@ kernel void subtractNoiseImage(texture2d<float> inputImage                      
     const float2 inputNorm = 1.0 / float2(get_image_dim(outputImage));
     const float2 input_pos = (float2(output_pos) + 0.5) * inputNorm;
 
-    constexpr sampler linear_sampler(min_filter::linear,
-                                     mag_filter::linear,
-                                     mip_filter::linear);
+    constexpr sampler linear_sampler(filter::linear);
 
     float4 inputPixel = read_imagef(inputImage, output_pos);
 
@@ -1213,9 +1206,7 @@ kernel void GuidedFilterABImage(texture2d<float> guideImage                 [[te
     const float2 inputNorm = 1.0 / float2(get_image_dim(guideImage));
     const float2 pos = float2(imageCoordinates) * inputNorm;
 
-    constexpr sampler linear_sampler(min_filter::linear,
-                                     mag_filter::linear,
-                                     mip_filter::linear);
+    constexpr sampler linear_sampler(filter::linear);
 
     float sum = 0;
     float sumSq = 0;
@@ -1260,9 +1251,7 @@ kernel void BoxFilterGFImage(texture2d<float> inputImage                    [[te
     const float2 inputNorm = 1.0 / float2(get_image_dim(inputImage));
     const float2 pos = float2(imageCoordinates) * inputNorm;
 
-    constexpr sampler linear_sampler(min_filter::linear,
-                                     mag_filter::linear,
-                                     mip_filter::linear);
+    constexpr sampler linear_sampler(filter::linear);
     float2 meanAB = 0;
     for (int i = 0; i < 9; i++) {
         constant ConvolutionParameters* cp = &boxFilter5x5[i];
@@ -1318,9 +1307,7 @@ kernel void localToneMappingMaskImage(texture2d<float> inputImage               
     const float2 inputNorm = 1.0 / float2(get_image_dim(ltmMaskImage));
     const float2 pos = float2(imageCoordinates) * inputNorm;
 
-    constexpr sampler linear_sampler(min_filter::linear,
-                                     mag_filter::linear,
-                                     mip_filter::linear);
+    constexpr sampler linear_sampler(filter::linear);
 
     float3 input = read_imagef(inputImage, imageCoordinates).xyz;
     float2 lfAbSample = read_imagef(lfAbImage, linear_sampler, pos + 0.5f * inputNorm).xy;

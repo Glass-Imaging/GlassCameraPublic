@@ -115,7 +115,7 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
         _localToneMapping->allocateTextures(&_mtlContext, rawImage.width, rawImage.height);
     }
 
-    bool high_noise_image = true;
+    bool high_noise_image = demosaicParameters->iso >= 800;
     if (high_noise_image) {
         allocateHighNoiseTextures(rawImage.size());
     }

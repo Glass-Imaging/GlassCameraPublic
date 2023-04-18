@@ -88,7 +88,7 @@ struct gaussianBlurSobelImageKernel {
         kernel(context, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
                rawImage.texture(), sobelImage.texture(),
                (int) weightsBuffer1.size(), weightsBuffer1.buffer(),
-               (int) weightsBuffer1.size(), weightsBuffer2.buffer(),
+               (int) weightsBuffer2.size(), weightsBuffer2.buffer(),
                simd::float2 { rawNoiseModel[0], rawNoiseModel[1] },
                outputImage->texture());
     }

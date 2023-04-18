@@ -123,7 +123,7 @@ void demosaicFile(RawConverter* rawConverter, std::filesystem::path input_path) 
     std::cout << "Metal Pipeline Execution Time: " << (int)elapsed_time_ms
     << "ms for image of size: " << rawImage->width << " x " << rawImage->height << std::endl;
 
-    const auto output_path = input_path.replace_extension("_q.png");
+    const auto output_path = input_path.replace_extension("_r.png");
 
     const auto srgbImageCpu = srgbImage->mapImage();
     saveImage<gls::rgb_pixel_16>(*srgbImageCpu, output_path.string(), rawConverter->icc_profile_data());
@@ -180,9 +180,9 @@ int main(int argc, const char * argv[]) {
     if (argc > 1) {
         auto input_path = std::filesystem::path(argv[1]);
 
-        // demosaicFile(&rawConverter, input_path);
+        demosaicFile(&rawConverter, input_path);
 
-        demosaicDirectory(&rawConverter, input_path);
+        // demosaicDirectory(&rawConverter, input_path);
 
         return 0;
     } else {
