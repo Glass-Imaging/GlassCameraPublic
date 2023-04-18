@@ -123,23 +123,23 @@ void demosaicFile(RawConverter* rawConverter, std::filesystem::path input_path) 
     std::cout << "Metal Pipeline Execution Time: " << (int)elapsed_time_ms
     << "ms for image of size: " << rawImage->width << " x " << rawImage->height << std::endl;
 
-    const auto output_path = input_path.replace_extension("_c.png");
+    const auto output_path = input_path.replace_extension("_r.png");
 
     const auto srgbImageCpu = srgbImage->mapImage();
     saveImage<gls::rgb_pixel_16>(*srgbImageCpu, output_path.string(), rawConverter->icc_profile_data());
 
-    auto histogramData = rawConverter->histogramData();
+//    auto histogramData = rawConverter->histogramData();
     // plotHistogram(histogramData->histogram, input_path.filename().string());
 
-    int imageSize = rawImage->width * rawImage->height;
-    std::cout << "bands: ";
-    for (int i = 0; i < 8; i++) {
-        std::cout << histogramData->bands[i] / (float) imageSize << ", ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "black_level: " << histogramData->black_level << ", white_level: " << histogramData->white_level << std::endl;
-    std::cout << "shadows: " << histogramData->shadows << ", highlights: " << histogramData->highlights << std::endl;
+//    int imageSize = rawImage->width * rawImage->height;
+//    std::cout << "bands: ";
+//    for (int i = 0; i < 8; i++) {
+//        std::cout << histogramData->bands[i] / (float) imageSize << ", ";
+//    }
+//    std::cout << std::endl;
+//
+//    std::cout << "black_level: " << histogramData->black_level << ", white_level: " << histogramData->white_level << std::endl;
+//    std::cout << "shadows: " << histogramData->shadows << ", highlights: " << histogramData->highlights << std::endl;
 }
 
 void demosaicDirectory(RawConverter* rawConverter, std::filesystem::path input_path) {
@@ -175,14 +175,14 @@ int main(int argc, const char * argv[]) {
     auto allMetalDevices = NS::TransferPtr(MTL::CopyAllDevices());
     auto metalDevice = NS::RetainPtr(allMetalDevices->object<MTL::Device>(0));
 
-    RawConverter rawConverter(metalDevice, &icc_profile_data);
+    RawConverter rawConverter(metalDevice, &icc_profile_data, /*calibrateFromImage=*/ false);
 
     if (argc > 1) {
         auto input_path = std::filesystem::path(argv[1]);
 
-        // demosaicFile(&rawConverter, input_path);
+        demosaicFile(&rawConverter, input_path);
 
-        demosaicDirectory(&rawConverter, input_path);
+        // demosaicDirectory(&rawConverter, input_path);
 
         return 0;
     } else {

@@ -31,6 +31,11 @@ void RawConverter::allocateTextures(const gls::size& imageSize) {
         _linearRGBImageA = std::make_unique<gls::mtl_image_2d<gls::rgba_pixel_float>>(mtlDevice, imageSize);
         _linearRGBImageB = std::make_unique<gls::mtl_image_2d<gls::rgba_pixel_float>>(mtlDevice, imageSize);
 
+        if (_calibrateFromImage) {
+            _meanImage = std::make_unique<gls::mtl_image_2d<gls::rgba_pixel_float>>(mtlDevice, imageSize.width / 2, imageSize.height / 2);
+            _varImage = std::make_unique<gls::mtl_image_2d<gls::rgba_pixel_float>>(mtlDevice, imageSize.width / 2, imageSize.height / 2);
+        }
+
         _rawImageSize = imageSize;
 
         _pyramidProcessor = std::make_unique<PyramidProcessor<5>>(&_mtlContext, _rawImageSize.width, _rawImageSize.height);
@@ -50,25 +55,26 @@ void RawConverter::allocateHighNoiseTextures(const gls::size& imageSize) {
     }
 }
 
-gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::denoise(MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
-                                                                DemosaicParameters* demosaicParameters, bool calibrateFromImage) {
+gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::denoise(const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
+                                                                DemosaicParameters* demosaicParameters) {
     NoiseModel<5>* noiseModel = &demosaicParameters->noiseModel;
 
     // Luma and Chroma Despeckling
     const auto& np = noiseModel->pyramidNlf[0];
-    _despeckleImage(context, inputImage,
+    _despeckleImage(&_mtlContext, inputImage,
                     /*var_a=*/np.first,
                     /*var_b=*/np.second, _linearRGBImageB.get());
 
-    gls::mtl_image_2d<gls::rgba_pixel_float>* denoisedImage = _pyramidProcessor->denoise(context, &(demosaicParameters->denoiseParameters),
+    gls::mtl_image_2d<gls::rgba_pixel_float>* denoisedImage = _pyramidProcessor->denoise(&_mtlContext, &(demosaicParameters->denoiseParameters),
                                                                                          *_linearRGBImageB, *_rawGradientImage,
-                                                                                         &(noiseModel->pyramidNlf), demosaicParameters->exposure_multiplier,
-                                                                                         calibrateFromImage);
+                                                                                         &noiseModel->pyramidNlf,
+                                                                                         demosaicParameters->exposure_multiplier,
+                                                                                         _calibrateFromImage);
 
     // Use a lower level of the pyramid to compute the histogram
     const auto histogramImage = _pyramidProcessor->denoisedImagePyramid[3].get();
-    _histogramImage(context, *histogramImage, _histogramBuffer.get());
-    _histogramStatistics(context, _histogramBuffer.get(), histogramImage->size());
+    _histogramImage(&_mtlContext, *histogramImage, _histogramBuffer.get());
+    _histogramStatistics(&_mtlContext, _histogramBuffer.get(), histogramImage->size());
 
     if (demosaicParameters->rgbConversionParameters.localToneMapping) {
         const std::array<const gls::mtl_image_2d<gls::rgba_pixel_float>*, 3>& guideImage = {
@@ -76,7 +82,7 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::denoise(MetalContext* co
             _pyramidProcessor->denoisedImagePyramid[2].get(),
             _pyramidProcessor->denoisedImagePyramid[0].get()
         };
-        _localToneMapping->createMask(context, *denoisedImage, guideImage, *noiseModel,
+        _localToneMapping->createMask(&_mtlContext, *denoisedImage, guideImage, *noiseModel,
                                       demosaicParameters->ltmParameters, _histogramBuffer.get());
     }
 
@@ -88,7 +94,7 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::denoise(MetalContext* co
 //
 //            const auto grainAmount = 1 + 3 * smoothstep(4e-4, 6e-4, lumaVariance[1]);
 //
-//            blueNoiseImage(context, *clDenoisedImage, *clBlueNoise, 2 * grainAmount * lumaVariance,
+//            blueNoiseImage(&_mtlContext, *clDenoisedImage, *clBlueNoise, 2 * grainAmount * lumaVariance,
 //                           clLinearRGBImageB.get());
 //            clDenoisedImage = clLinearRGBImageB.get();
 //        }
@@ -100,9 +106,6 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::denoise(MetalContext* co
 
 gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::image<gls::luma_pixel_16>& rawImage,
                                                                  DemosaicParameters* demosaicParameters) {
-    const NoiseModel<5>* noiseModel = &demosaicParameters->noiseModel;
-    const auto rawVariance = getRawVariance(noiseModel->rawNlf);
-
     allocateTextures(rawImage.size());
 
     // Zero histogram data
@@ -112,7 +115,7 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
         _localToneMapping->allocateTextures(&_mtlContext, rawImage.width, rawImage.height);
     }
 
-    bool high_noise_image = true;
+    bool high_noise_image = demosaicParameters->iso >= 800;
     if (high_noise_image) {
         allocateHighNoiseTextures(rawImage.size());
     }
@@ -121,7 +124,7 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
     const auto cam_to_ycbcr = cam_ycbcr(demosaicParameters->rgb_cam, xyz_rgb());
 
     // Convert result back to camera RGB
-    const auto normalized_ycbcr_to_cam = inverse(cam_to_ycbcr) * demosaicParameters->exposure_multiplier;
+    const auto ycbcr_to_cam = inverse(cam_to_ycbcr);
 
     _rawImage->copyPixelsFrom(rawImage);
 
@@ -138,6 +141,13 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
                   demosaicParameters->lensShadingCorrection);
 
     _rawImageSobel(context, *_scaledRawImage, _rawSobelImage.get());
+
+    NoiseModel<5>* noiseModel = &demosaicParameters->noiseModel;
+    if (_calibrateFromImage) {
+        noiseModel->rawNlf = MeasureRawNLF(demosaicParameters->exposure_multiplier, demosaicParameters->bayerPattern);
+    }
+    const auto rawVariance = getRawVariance(noiseModel->rawNlf);
+
     _gaussianBlurSobelImage(context, *_scaledRawImage, *_rawSobelImage, rawVariance[1], _rawGradientImage.get());
 
     if (high_noise_image) {
@@ -157,12 +167,19 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
     // Convert to YCbCr
     _transformImage(context, *_linearRGBImageA, _linearRGBImageA.get(), cam_to_ycbcr);
 
-    denoisedImage = denoise(context, *_linearRGBImageA, demosaicParameters, /*calibrateFromImage=*/ false);
+    denoisedImage = denoise(*_linearRGBImageA, demosaicParameters);
 
     // Convert to RGB
-    _transformImage(context, *denoisedImage, _linearRGBImageA.get(), normalized_ycbcr_to_cam);
+    _transformImage(context, *denoisedImage, _linearRGBImageA.get(), ycbcr_to_cam);
+
+    if (_calibrateFromImage) {
+        dumpNoiseModel<5>(demosaicParameters->iso, *noiseModel);
+    }
 
     // --- Image Post Processing ---
+
+    // FIXME: This is horrible!
+    demosaicParameters->rgbConversionParameters.exposureBias += log2(demosaicParameters->exposure_multiplier);
 
     _convertTosRGB(context, *_linearRGBImageA, _localToneMapping->getMask(), *demosaicParameters,
                    _histogramBuffer.get(), _linearRGBImageA.get());
@@ -170,4 +187,140 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
     _mtlContext.waitForCompletion();
 
     return _linearRGBImageA.get();
+}
+
+void dumpNoiseImage(const gls::image<gls::rgba_pixel_float>& image, float a, float b, const std::string& name) {
+    gls::image<gls::luma_pixel_16> luma(image.size());
+
+    luma.apply([&image, a, b](gls::luma_pixel_16* p, int x, int y) {
+        *p = std::clamp((int)(0xffff * a * (image[y][x].green + b)), 0, 0xffff);
+    });
+    luma.write_png_file("/Users/fabio/Statistics/" + name + ".png");
+}
+
+RawNLF RawConverter::MeasureRawNLF(float exposure_multiplier, BayerPattern bayerPattern) {
+    _rawNoiseStatistics(&_mtlContext, *_scaledRawImage, bayerPattern, _meanImage.get(), _varImage.get());
+    _mtlContext.waitForCompletion();
+
+    const auto meanImageCpu = _meanImage->mapImage();
+    const auto varImageCpu = _varImage->mapImage();
+
+    static int count = 0;
+    dumpNoiseImage(*meanImageCpu, 1, 0, "mean9x9-" + std::to_string(count));
+    dumpNoiseImage(*varImageCpu, 1, 0, "variance9x9-" + std::to_string(count));
+    count++;
+
+    using double4 = gls::DVector<4>;
+
+    // Only consider pixels with variance lower than the expected noise value
+    double4 varianceMax = 0.01;
+
+    // Limit to pixels the more linear intensity zone of the sensor
+    const double maxValue = 0.5;
+    const double minValue = 0.001;
+
+    // Collect pixel statistics
+    double4 s_x = 0;
+    double4 s_y = 0;
+    double4 s_xx = 0;
+    double4 s_xy = 0;
+
+    double N = 0;
+    meanImageCpu->apply([&](const gls::rgba_pixel_float& mm, int x, int y) {
+        double4 m = mm.v;
+        double4 v = (*varImageCpu)[y][x].v;
+
+        bool validStats = !(any(isnan(m)) || any(isnan(v)));
+
+        if (validStats && all(m >= double4(minValue)) && all(m <= double4(maxValue)) && all(v <= varianceMax)) {
+            s_x += m;
+            s_y += v;
+            s_xx += m * m;
+            s_xy += m * v;
+            N++;
+        }
+    });
+
+    // Linear regression on pixel statistics to extract a linear noise model: nlf = A + B * Y
+    auto nlfB = max((N * s_xy - s_x * s_y) / (N * s_xx - s_x * s_x), 1e-8);
+    auto nlfA = max((s_y - nlfB * s_x) / N, 1e-8);
+
+//    std::cout << "RAW NLF A: " << std::setprecision(4) << std::scientific << nlfA << ", B: " << nlfB
+//                  << " on " << std::setprecision(1) << std::fixed
+//                  << 100 * N / (_rawImage->width * _rawImage->height) << "% pixels" << std::endl;
+
+    // Estimate regression mean square error
+    double4 err2 = 0;
+    meanImageCpu->apply([&](const gls::rgba_pixel_float& mm, int x, int y) {
+        double4 m = mm.v;
+        double4 v = (*varImageCpu)[y][x].v;
+
+        bool validStats = !(any(isnan(m)) || any(isnan(v)));
+
+        if (validStats && all(m >= double4(minValue)) && all(m <= double4(maxValue)) && all(v <= varianceMax)) {
+            auto nlfP = nlfA + nlfB * m;
+            auto diff = nlfP - v;
+            err2 += diff * diff;
+        }
+    });
+    err2 /= N;
+
+//    std::cout << "RAW NLF A: " << std::setprecision(4) << std::scientific << nlfA << ", B: " << nlfB
+//                  << ", MSE: " << sqrt(err2) << " on " << std::setprecision(1) << std::fixed
+//                  << 100 * N / (_rawImage->width * _rawImage->height) << "% pixels" << std::endl;
+
+    // Update the maximum variance with the model
+    varianceMax = nlfB;
+
+    // Redo the statistics collection limiting the sample to pixels that fit well the linear model
+    s_x = 0;
+    s_y = 0;
+    s_xx = 0;
+    s_xy = 0;
+    N = 0;
+    double4 newErr2 = 0;
+    meanImageCpu->apply([&](const gls::rgba_pixel_float& mm, int x, int y) {
+        double4 m = mm.v;
+        double4 v = (*varImageCpu)[y][x].v;
+
+        bool validStats = !(any(isnan(m)) || any(isnan(v)));
+
+        if (validStats && all(m >= double4(minValue)) && all(m <= double4(maxValue)) && all(v <= varianceMax)) {
+            const auto nlfP = nlfA + nlfB * m;
+            const auto diff = abs(nlfP - v);
+            const auto diffSquare = diff * diff;
+
+            if (all(diffSquare <= 0.5 * err2)) {
+                s_x += m;
+                s_y += v;
+                s_xx += m * m;
+                s_xy += m * v;
+                N++;
+                newErr2 += diffSquare;
+            }
+        }
+    });
+    newErr2 /= N;
+
+    // Estimate the new regression parameters
+    nlfB = max((N * s_xy - s_x * s_y) / (N * s_xx - s_x * s_x), 1e-8);
+    nlfA = max((s_y - nlfB * s_x) / N, 1e-8);
+
+    assert(all(newErr2 < err2));
+
+    std::cout << "RAW NLF A: " << std::setprecision(4) << std::scientific << nlfA << ", B: " << nlfB
+                  << ", MSE: " << sqrt(newErr2) << " on " << std::setprecision(1) << std::fixed
+                  << 100 * N / (_rawImage->width * _rawImage->height) << "% pixels" << std::endl;
+
+//    meanImage.unmapImage(meanImageCpu);
+//    varImage.unmapImage(varImageCpu);
+
+    double varianceExposureAdjustment = exposure_multiplier * exposure_multiplier;
+
+    nlfA *= varianceExposureAdjustment;
+    nlfB *= varianceExposureAdjustment;
+
+    return std::pair(nlfA,  // A values
+                     nlfB   // B values
+    );
 }
