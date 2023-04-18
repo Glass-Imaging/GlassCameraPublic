@@ -19,6 +19,10 @@ import AVFoundation
 
 final class CameraModel: ObservableObject {
     private let service = CameraService()
+    let photoCollection = PhotoCollection(smartAlbum: .smartAlbumUserLibrary)
+    var isPhotosLoaded = false
+    
+    @Published var thumbnailImage: Image?
 
     @Published var photo: UIImage!
 
@@ -87,6 +91,39 @@ final class CameraModel: ObservableObject {
     func switchFlash() {
         service.flashMode = service.flashMode == .on ? .off : .on
     }
+    
+    func loadPhotos() async {
+        guard !isPhotosLoaded else { return }
+        
+        let authorized = await PhotoLibrary.checkAuthorization()
+        guard authorized else {
+            // logger.error("Photo library access was not authorized.")
+            print("Photo library access was not authorized.")
+            return
+        }
+        
+        Task {
+            do {
+                try await self.photoCollection.load()
+                await self.loadThumbnail()
+            } catch let error {
+                //logger.error("Failed to load photo collection: \(error.localizedDescription)")
+                print("Failed to load photo collection: \(error.localizedDescription)")
+            }
+            self.isPhotosLoaded = true
+        }
+    }
+    
+    func loadThumbnail() async {
+        guard let asset = photoCollection.photoAssets.first  else { return }
+        await photoCollection.cache.requestImage(for: asset, targetSize: CGSize(width: 256, height: 256))  { result in
+            if let result = result {
+                Task { @MainActor in
+                    self.thumbnailImage = result.image
+                }
+            }
+        }
+    }
 }
 
 struct CameraView: View {
@@ -109,6 +146,7 @@ struct CameraView: View {
         })
     }
 
+    /*
     var capturedPhotoThumbnail: some View {
         Group {
             if let thumbnail = model.photo {
@@ -127,6 +165,7 @@ struct CameraView: View {
             UIApplication.shared.open(URL(string:"photos-redirect://")!)
         }
     }
+     */
 
     var flipCameraButton: some View {
         Button(action: {
@@ -142,82 +181,105 @@ struct CameraView: View {
     }
 
     var body: some View {
-        GeometryReader { reader in
-            ZStack {
-                Color.black.edgesIgnoringSafeArea(.all)
-
-                VStack {
-                    Button(action: {
-                        model.switchFlash()
-                    }, label: {
-                        Image(systemName: model.isFlashOn ? "bolt.fill" : "bolt.slash.fill")
-                            .font(.system(size: 20, weight: .medium, design: .default))
-                    })
-                    .accentColor(model.isFlashOn ? .yellow : .white)
-
-                    CameraPreview(session: model.session)
-                        .gesture(
-                            DragGesture().onChanged({ (val) in
-                                withAnimation {
-                                    //  Only accept vertical drag
-                                    if abs(val.translation.height) > abs(val.translation.width) {
-                                        //  Get the percentage of vertical screen space covered by drag
-                                        let percentage: CGFloat = -(val.translation.height / reader.size.height)
-                                        //  Calculate new zoom factor
-                                        let calc = currentZoomFactor + percentage
-                                        //  Limit zoom factor to a maximum of 5x and a minimum of 1x
-                                        let zoomFactor: CGFloat = min(max(calc, 1), 5)
-                                        //  Store the newly calculated zoom factor
-                                        currentZoomFactor = zoomFactor
-                                        //  Sets the zoom factor to the capture device session
-                                        model.zoom(with: zoomFactor)
+        NavigationStack {
+            GeometryReader { reader in
+                ZStack {
+                    Color.black.edgesIgnoringSafeArea(.all)
+                    
+                    VStack {
+                        Button(action: {
+                            model.switchFlash()
+                        }, label: {
+                            Image(systemName: model.isFlashOn ? "bolt.fill" : "bolt.slash.fill")
+                                .font(.system(size: 20, weight: .medium, design: .default))
+                        })
+                        .accentColor(model.isFlashOn ? .yellow : .white)
+                        
+                        CameraPreview(session: model.session)
+                            .gesture(
+                                DragGesture().onChanged({ (val) in
+                                    withAnimation {
+                                        //  Only accept vertical drag
+                                        if abs(val.translation.height) > abs(val.translation.width) {
+                                            //  Get the percentage of vertical screen space covered by drag
+                                            let percentage: CGFloat = -(val.translation.height / reader.size.height)
+                                            //  Calculate new zoom factor
+                                            let calc = currentZoomFactor + percentage
+                                            //  Limit zoom factor to a maximum of 5x and a minimum of 1x
+                                            let zoomFactor: CGFloat = min(max(calc, 1), 5)
+                                            //  Store the newly calculated zoom factor
+                                            currentZoomFactor = zoomFactor
+                                            //  Sets the zoom factor to the capture device session
+                                            model.zoom(with: zoomFactor)
+                                        }
+                                    }
+                                })
+                            )
+                            .onAppear {
+                                model.configure()
+                            }
+                            .alert(isPresented: $model.showAlertError, content: {
+                                Alert(title: Text(model.alertError.title), message: Text(model.alertError.message), dismissButton: .default(Text(model.alertError.primaryButtonTitle), action: {
+                                    model.alertError.primaryAction?()
+                                }))
+                            })
+                            .overlay(Group {
+                                if model.showSpinner {
+                                    Color.black.opacity(0.2)
+                                    
+                                    ProgressView()
+                                        .scaleEffect(2, anchor: .center)
+                                        .progressViewStyle(CircularProgressViewStyle(tint: Color.white))
+                                }
+                                
+                                if model.willCapturePhoto {
+                                    Group {
+                                        Color.black
+                                    }.onAppear {
+                                        withAnimation {
+                                            model.willCapturePhoto = false
+                                        }
                                     }
                                 }
                             })
-                        )
-                        .onAppear {
-                            model.configure()
-                        }
-                        .alert(isPresented: $model.showAlertError, content: {
-                            Alert(title: Text(model.alertError.title), message: Text(model.alertError.message), dismissButton: .default(Text(model.alertError.primaryButtonTitle), action: {
-                                model.alertError.primaryAction?()
-                            }))
-                        })
-                        .overlay(Group {
-                            if model.showSpinner {
-                                Color.black.opacity(0.2)
-
-                                ProgressView()
-                                    .scaleEffect(2, anchor: .center)
-                                    .progressViewStyle(CircularProgressViewStyle(tint: Color.white))
-                            }
-
-                            if model.willCapturePhoto {
-                                Group {
-                                    Color.black
-                                }.onAppear {
-                                    withAnimation {
-                                        model.willCapturePhoto = false
+                        
+                        HStack {
+                            // capturedPhotoThumbnail
+                            NavigationLink {
+                                PhotoCollectionView(photoCollection: model.photoCollection)
+                                    .onAppear {
+                                        // model.camera.isPreviewPaused = true
+                                        print("PhotoCollectionAppeared!")
                                     }
+                                    .onDisappear {
+                                        //model.camera.isPreviewPaused = false
+                                        print("PhotoCollectionDisappeared!")
+                                    }
+                            } label: {
+                                Label {
+                                    // Text("Gallery")
+                                } icon: {
+                                    ThumbnailView(image: model.thumbnailImage)
                                 }
                             }
-                        })
-
-                    HStack {
-                        capturedPhotoThumbnail
-
-                        Spacer()
-
-                        captureButton
-
-                        Spacer()
-
-                        flipCameraButton
-
+                            
+                            Spacer()
+                            
+                            captureButton
+                            
+                            Spacer()
+                            
+                            flipCameraButton
+                            
+                        }
+                        .padding(.horizontal, 20)
                     }
-                    .padding(.horizontal, 20)
                 }
             }
+        }
+        .task {
+            await model.loadPhotos()
+            await model.loadThumbnail()
         }
     }
 }

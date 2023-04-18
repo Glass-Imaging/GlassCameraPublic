@@ -7,6 +7,16 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		86276B2529EF4D9700EFF0C3 /* CachedImageManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86276B2429EF4D9700EFF0C3 /* CachedImageManager.swift */; };
+		86276B2F29EF4DA900EFF0C3 /* ThumbnailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86276B2629EF4DA900EFF0C3 /* ThumbnailView.swift */; };
+		86276B3029EF4DA900EFF0C3 /* PhotoItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86276B2729EF4DA900EFF0C3 /* PhotoItemView.swift */; };
+		86276B3129EF4DA900EFF0C3 /* ZoomableScrollView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86276B2829EF4DA900EFF0C3 /* ZoomableScrollView.swift */; };
+		86276B3229EF4DA900EFF0C3 /* PhotoCollectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86276B2929EF4DA900EFF0C3 /* PhotoCollectionView.swift */; };
+		86276B3329EF4DA900EFF0C3 /* PhotoAsset.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86276B2A29EF4DA900EFF0C3 /* PhotoAsset.swift */; };
+		86276B3429EF4DA900EFF0C3 /* PhotoCollection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86276B2B29EF4DA900EFF0C3 /* PhotoCollection.swift */; };
+		86276B3529EF4DA900EFF0C3 /* PhotoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86276B2C29EF4DA900EFF0C3 /* PhotoView.swift */; };
+		86276B3629EF4DA900EFF0C3 /* PhotoAssetCollection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86276B2D29EF4DA900EFF0C3 /* PhotoAssetCollection.swift */; };
+		86276B3729EF4DA900EFF0C3 /* PhotoLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86276B2E29EF4DA900EFF0C3 /* PhotoLibrary.swift */; };
 		E522296829CD646600D13A4F /* pyramid_processor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E522296629CD646600D13A4F /* pyramid_processor.cpp */; };
 		E522296929CD646600D13A4F /* pyramid_processor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E522296629CD646600D13A4F /* pyramid_processor.cpp */; };
 		E522296D29D026DA00D13A4F /* iPhoneCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E522296C29D026DA00D13A4F /* iPhoneCalibration.cpp */; };
@@ -84,6 +94,16 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		86276B2429EF4D9700EFF0C3 /* CachedImageManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CachedImageManager.swift; sourceTree = "<group>"; };
+		86276B2629EF4DA900EFF0C3 /* ThumbnailView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ThumbnailView.swift; sourceTree = "<group>"; };
+		86276B2729EF4DA900EFF0C3 /* PhotoItemView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PhotoItemView.swift; sourceTree = "<group>"; };
+		86276B2829EF4DA900EFF0C3 /* ZoomableScrollView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ZoomableScrollView.swift; sourceTree = "<group>"; };
+		86276B2929EF4DA900EFF0C3 /* PhotoCollectionView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PhotoCollectionView.swift; sourceTree = "<group>"; };
+		86276B2A29EF4DA900EFF0C3 /* PhotoAsset.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PhotoAsset.swift; sourceTree = "<group>"; };
+		86276B2B29EF4DA900EFF0C3 /* PhotoCollection.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PhotoCollection.swift; sourceTree = "<group>"; };
+		86276B2C29EF4DA900EFF0C3 /* PhotoView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PhotoView.swift; sourceTree = "<group>"; };
+		86276B2D29EF4DA900EFF0C3 /* PhotoAssetCollection.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PhotoAssetCollection.swift; sourceTree = "<group>"; };
+		86276B2E29EF4DA900EFF0C3 /* PhotoLibrary.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PhotoLibrary.swift; sourceTree = "<group>"; };
 		E522296629CD646600D13A4F /* pyramid_processor.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = pyramid_processor.cpp; sourceTree = "<group>"; };
 		E522296729CD646600D13A4F /* pyramid_processor.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = pyramid_processor.hpp; sourceTree = "<group>"; };
 		E522296B29CE421000D13A4F /* tinyicc.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = tinyicc.hpp; sourceTree = "<group>"; };
@@ -313,6 +333,16 @@
 		E5D4D88B27D1798D00F1D944 /* GlassCamera */ = {
 			isa = PBXGroup;
 			children = (
+				86276B2A29EF4DA900EFF0C3 /* PhotoAsset.swift */,
+				86276B2D29EF4DA900EFF0C3 /* PhotoAssetCollection.swift */,
+				86276B2B29EF4DA900EFF0C3 /* PhotoCollection.swift */,
+				86276B2929EF4DA900EFF0C3 /* PhotoCollectionView.swift */,
+				86276B2729EF4DA900EFF0C3 /* PhotoItemView.swift */,
+				86276B2E29EF4DA900EFF0C3 /* PhotoLibrary.swift */,
+				86276B2C29EF4DA900EFF0C3 /* PhotoView.swift */,
+				86276B2629EF4DA900EFF0C3 /* ThumbnailView.swift */,
+				86276B2829EF4DA900EFF0C3 /* ZoomableScrollView.swift */,
+				86276B2429EF4D9700EFF0C3 /* CachedImageManager.swift */,
 				E5C5BF4229BA833F00AAB593 /* Info.plist */,
 				E5D4D89A27D17A5C00F1D944 /* GlassCamera.entitlements */,
 				E5D4D88C27D1798D00F1D944 /* GlassCameraApp.swift */,
@@ -442,24 +472,34 @@
 				E5C6986A29C926CD00F7062C /* ThreadPool.cpp in Sources */,
 				E5C6986329C925A600F7062C /* CameraCalibration.cpp in Sources */,
 				E522296829CD646600D13A4F /* pyramid_processor.cpp in Sources */,
+				86276B3629EF4DA900EFF0C3 /* PhotoAssetCollection.swift in Sources */,
 				E5D4D8A027D183D800F1D944 /* CameraPreview.swift in Sources */,
+				86276B3429EF4DA900EFF0C3 /* PhotoCollection.swift in Sources */,
 				E5D4D8A327D183D900F1D944 /* CameraService.swift in Sources */,
 				E5C5BFFF29BD36B600AAB593 /* gls_dng_lossless_jpeg.cpp in Sources */,
 				E5C5BFF929BD36B600AAB593 /* gls_color_science.cpp in Sources */,
 				E5D4D88F27D1798D00F1D944 /* CameraView.swift in Sources */,
+				86276B3029EF4DA900EFF0C3 /* PhotoItemView.swift in Sources */,
+				86276B3229EF4DA900EFF0C3 /* PhotoCollectionView.swift in Sources */,
 				E5C5BFFA29BD36B600AAB593 /* gls_image_png.cpp in Sources */,
 				E5E7CBA929DF593200067C0B /* PCA.cpp in Sources */,
+				86276B2F29EF4DA900EFF0C3 /* ThumbnailView.swift in Sources */,
 				E5C6984629C805B500F7062C /* demosaic.metal in Sources */,
+				86276B3329EF4DA900EFF0C3 /* PhotoAsset.swift in Sources */,
+				86276B2529EF4D9700EFF0C3 /* CachedImageManager.swift in Sources */,
 				E5D4D8A627D183F700F1D944 /* PhotoCaptureProcessor.swift in Sources */,
 				E5C6986D29C926F100F7062C /* Sonya6400Calibration.cpp in Sources */,
 				E5C6984D29C906FC00F7062C /* raw_converter.cpp in Sources */,
+				86276B3129EF4DA900EFF0C3 /* ZoomableScrollView.swift in Sources */,
 				E5D4D8A127D183D800F1D944 /* CameraService+Extensions.swift in Sources */,
 				E5D4D8A427D183D900F1D944 /* CameraService+Enums.swift in Sources */,
 				E5D4D88D27D1798D00F1D944 /* GlassCameraApp.swift in Sources */,
 				E5C5BFFD29BD36B600AAB593 /* gls_logging.cpp in Sources */,
+				86276B3529EF4DA900EFF0C3 /* PhotoView.swift in Sources */,
 				E5FAE7AD29C50D2C00213AE6 /* gls_mtl.cpp in Sources */,
 				E5C6986629C9269400F7062C /* demosaic_utils.cpp in Sources */,
 				E5C5BFFB29BD36B600AAB593 /* gls_image_tiff.cpp in Sources */,
+				86276B3729EF4DA900EFF0C3 /* PhotoLibrary.swift in Sources */,
 				E5C5BFFE29BD36B600AAB593 /* gls_tiff_metadata.cpp in Sources */,
 				E5C6987F29CBAD8300F7062C /* RawProcessor.mm in Sources */,
 			);
@@ -624,7 +664,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"GlassCamera/Preview Content\"";
-				DEVELOPMENT_TEAM = 4A4DGXV9V7;
+				DEVELOPMENT_TEAM = WM2UUQMK8D;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = NO;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -682,7 +722,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"GlassCamera/Preview Content\"";
-				DEVELOPMENT_TEAM = 4A4DGXV9V7;
+				DEVELOPMENT_TEAM = WM2UUQMK8D;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = NO;
 				ENABLE_TESTABILITY = YES;
