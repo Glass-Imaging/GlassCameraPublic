@@ -51,6 +51,7 @@ std::unique_ptr<DemosaicParameters>
     const auto denoiseParameters = getDenoiseParameters(iso);
     demosaicParameters->noiseModel = nlfParams;
     demosaicParameters->noiseLevel = denoiseParameters.first;
+    demosaicParameters->iso = iso;
     demosaicParameters->denoiseParameters = denoiseParameters.second;
 
     return demosaicParameters;

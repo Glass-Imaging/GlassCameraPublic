@@ -182,6 +182,9 @@ class Buffer {
     const NS::SharedPtr<MTL::Buffer> _buffer;
 
 public:
+    Buffer(MTL::Device* device, size_t lenght) :
+    _buffer(NS::TransferPtr(device->newBuffer(sizeof(T) * lenght, MTL::ResourceStorageModeShared))) { }
+
     Buffer(MTL::Device* device, const std::vector<T> vec) :
     _buffer(NS::TransferPtr(device->newBuffer(sizeof(T) * vec.size(), MTL::ResourceStorageModeShared)))
     {

@@ -88,7 +88,7 @@ struct gaussianBlurSobelImageKernel {
         kernel(context, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
                rawImage.texture(), sobelImage.texture(),
                (int) weightsBuffer1.size(), weightsBuffer1.buffer(),
-               (int) weightsBuffer1.size(), weightsBuffer2.buffer(),
+               (int) weightsBuffer2.size(), weightsBuffer2.buffer(),
                simd::float2 { rawNoiseModel[0], rawNoiseModel[1] },
                outputImage->texture());
     }
@@ -316,7 +316,7 @@ struct denoiseImageKernel {
     }
 };
 
-struct denoiseImagePatchKernel {
+struct blockMatchingDenoiseImageKernel {
     Kernel<MTL::Texture*,  // inputImage
            MTL::Texture*,  // gradientImage
            MTL::Texture*,  // pcaImage
@@ -325,24 +325,56 @@ struct denoiseImagePatchKernel {
            simd::float3,   // thresholdMultipliers
            float,          // chromaBoost
            float,          // gradientBoost
-           float,          // gradientThreshold
            MTL::Texture*   // outputImage
     > kernel;
 
-    denoiseImagePatchKernel(MetalContext* context) : kernel(context, "denoiseImagePatch") { }
+    blockMatchingDenoiseImageKernel(MetalContext* context) : kernel(context, "blockMatchingDenoiseImage") { }
 
     void operator() (MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
                      const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& gradientImage,
                      const gls::mtl_image_2d<gls::pixel<uint32_t, 4>>& patchImage, const gls::Vector<3>& var_a,
                      const gls::Vector<3>& var_b, const gls::Vector<3> thresholdMultipliers, float chromaBoost,
-                     float gradientBoost, float gradientThreshold, gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage) {
+                     float gradientBoost, gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage) {
 
         kernel(context, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
                inputImage.texture(), gradientImage.texture(), patchImage.texture(),
                simd::float3 { var_a[0], var_a[1], var_a[2] },
                simd::float3 { var_b[0], var_b[1], var_b[2] },
                simd::float3 { thresholdMultipliers[0], thresholdMultipliers[1], thresholdMultipliers[2] },
-               chromaBoost, gradientBoost, gradientThreshold, outputImage->texture());
+               chromaBoost, gradientBoost, outputImage->texture());
+    }
+};
+
+struct collectPatchesKernel {
+    Kernel<MTL::Texture*, // inputImage
+           MTL::Buffer*   // patches
+    > kernel;
+
+    collectPatchesKernel(MetalContext* context) : kernel(context, "collectPatches") { }
+
+    void operator() (MetalContext* context,
+                     const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
+                     MTL::Buffer* patches) {
+
+        kernel(context, /*gridSize=*/ MTL::Size(inputImage.width / 8, inputImage.height / 8, 1),
+               inputImage.texture(), patches);
+    }
+};
+
+struct pcaProjectionKernel {
+    Kernel<MTL::Texture*,                         // inputImage
+           std::array<std::array<half, 8>, 25>,   // pcaSpace
+           MTL::Texture*                          // projectedImage
+    > kernel;
+
+    pcaProjectionKernel(MetalContext* context) : kernel(context, "pcaProjection") { }
+
+    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
+                     const std::array<std::array<half, 8>, 25>& pcaSpace,
+                     gls::mtl_image_2d<gls::pixel<uint32_t, 4>>* projectedImage) {
+
+        kernel(context, /*gridSize=*/ MTL::Size(inputImage.width, inputImage.height, 1),
+               inputImage.texture(), pcaSpace, projectedImage->texture());
     }
 };
 
@@ -374,9 +406,41 @@ struct subtractNoiseImageKernel {
 
 };
 
+struct basicNoiseStatisticsKernel {
+    Kernel<MTL::Texture*,   // inputImage
+           MTL::Texture*    // statisticsImage
+    > kernel;
+
+    basicNoiseStatisticsKernel(MetalContext* context) : kernel(context, "basicNoiseStatistics") { }
+
+    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
+                     gls::mtl_image_2d<gls::rgba_pixel_float>* statisticsImage) {
+        kernel(context, /*gridSize=*/ MTL::Size(statisticsImage->width, statisticsImage->height, 1),
+               inputImage.texture(), statisticsImage->texture());
+    }
+};
+
+struct basicRawNoiseStatisticsKernel {
+    Kernel<MTL::Texture*,   // rawImage
+           int,             // bayerPattern
+           MTL::Texture*,   // meanImage
+           MTL::Texture*    // varImage
+    > kernel;
+
+    basicRawNoiseStatisticsKernel(MetalContext* context) : kernel(context, "basicRawNoiseStatistics") { }
+
+    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::luma_pixel_float>& rawImage,
+                     int bayerPattern,
+                     gls::mtl_image_2d<gls::rgba_pixel_float>* meanImage,
+                     gls::mtl_image_2d<gls::rgba_pixel_float>* varImage) {
+        kernel(context, /*gridSize=*/ MTL::Size(meanImage->width, meanImage->height, 1),
+               rawImage.texture(), bayerPattern, meanImage->texture(), varImage->texture());
+    }
+};
+
 struct resampleImageKernel {
-    Kernel<MTL::Texture*,  // inputImage
-           MTL::Texture*
+    Kernel<MTL::Texture*,   // inputImage
+           MTL::Texture*    // outputImage
     > kernel;
 
     resampleImageKernel(MetalContext* context, const std::string& kernelName) : kernel(context, kernelName) { }

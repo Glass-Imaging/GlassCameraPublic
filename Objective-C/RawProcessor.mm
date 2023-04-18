@@ -149,6 +149,27 @@ CVPixelBufferRef buildCVPixelBuffer(const gls::image<gls::rgba_pixel_float>& rgb
     size_t stride = (int) bytesPerRow / sizeof(gls::luma_pixel_16);
     gls::luma_pixel_16* data = (gls::luma_pixel_16*) CVPixelBufferGetBaseAddress(rawPixelBuffer);
 
+    auto pixelFormatType = CVPixelBufferGetPixelFormatType(rawPixelBuffer);
+    std::vector<uint8_t> cfaPattern = { 0, 1, 1, 2 };
+    switch (pixelFormatType) {
+        case kCVPixelFormatType_14Bayer_GRBG:
+            cfaPattern = { 1, 0, 2, 1 };
+            break;
+        case kCVPixelFormatType_14Bayer_RGGB:
+            cfaPattern = { 0, 1, 1, 2 };
+            break;
+        case kCVPixelFormatType_14Bayer_BGGR:
+            cfaPattern = { 2, 1, 1, 0 };
+            break;
+        case kCVPixelFormatType_14Bayer_GBRG:
+            cfaPattern = { 1, 2, 0, 1 };
+            break;
+        default:
+            std::cerr << "Unrecognized Pixel Format Type: " << pixelFormatType << ", defaulting to RGGB." << std::endl;
+            cfaPattern = { 0, 1, 1, 2 };
+            break;
+    }
+
     auto rawImage = gls::image<gls::luma_pixel_16>((int) width, (int) height, (int) stride, std::span(data, stride * height));
 
     gls::tiff_metadata dng_metadata, exif_metadata;
@@ -182,7 +203,7 @@ CVPixelBufferRef buildCVPixelBuffer(const gls::image<gls::rgba_pixel_float>& rgb
 
     dng_metadata.insert({ TIFFTAG_BASELINEEXPOSURE, baselineExposure });
     dng_metadata.insert({ TIFFTAG_CFAREPEATPATTERNDIM, std::vector<uint16_t>{ 2, 2 } });
-    dng_metadata.insert({ TIFFTAG_CFAPATTERN, std::vector<uint8_t>{ 0, 1, 1, 2 } });
+    dng_metadata.insert({ TIFFTAG_CFAPATTERN, cfaPattern });
     dng_metadata.insert({ TIFFTAG_BLACKLEVEL, std::vector<float>{ (float) blackLevel } });
     dng_metadata.insert({ TIFFTAG_WHITELEVEL, std::vector<uint32_t>{ (uint32_t) whiteLevel } });
 
