@@ -99,14 +99,18 @@ class PhotoCaptureProcessor: NSObject {
 
     private let rawProcessor = RawProcessor()
     private let rawProcessingQueue = OperationQueue()
+    
+    private let photoCollection: PhotoCollection
 
     // Save the location of captured photos
     var location: CLLocation?
 
-    init(with requestedPhotoSettings: AVCapturePhotoSettings,
+    init(photoCollection: PhotoCollection,
+         with requestedPhotoSettings: AVCapturePhotoSettings,
          willCapturePhotoAnimation: @escaping () -> Void,
          completionHandler: @escaping (PhotoCaptureProcessor) -> Void,
          photoProcessingHandler: @escaping (Bool) -> Void) {
+        self.photoCollection = photoCollection
         self.requestedPhotoSettings = requestedPhotoSettings
         self.willCapturePhotoAnimation = willCapturePhotoAnimation
         self.completionHandler = completionHandler
@@ -315,36 +319,10 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
         }
 
         if let capturedImage = self.capturedImage {
-            let finalize = {
+            Task {
+                try! await photoCollection.addImage(capturedImage, alternateResource: self.dngFile, location: self.location)
                 completeTransaction()
                 self.dngFile = nil
-            }
-
-            PHPhotoLibrary.requestAuthorization { status in
-                if status == .authorized {
-                    PHPhotoLibrary.shared().performChanges({
-                        // Add the compressed (HEIF) data as the main resource for the Photos asset.
-                        let creationRequest = PHAssetCreationRequest.forAsset()
-                        creationRequest.addResource(with: .photo, data: capturedImage, options: nil)
-
-                        // Specify the location the photo was taken
-                        creationRequest.location = self.location
-
-                        // Add the RAW (DNG) file as an altenate resource.
-                        if let rawImage = self.dngFile {
-                            let options = PHAssetResourceCreationOptions()
-                            options.shouldMoveFile = true
-                            creationRequest.addResource(with: .alternatePhoto, fileURL: rawImage, options: options)
-                        }
-                    }, completionHandler: { _, error in
-                        if let error = error {
-                            print("Error occurred while saving photo to photo library: \(error)")
-                        }
-                        finalize()
-                    })
-                } else {
-                    finalize()
-                }
             }
         }
 
@@ -353,32 +331,15 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
 
         // Save the processed RAW image as a separate file
         if let procesedImage = self.procesedImage {
-            let finalize = {
-                completeTransaction()
-                self.procesedImage = nil
-                self.imageMetadata = nil
-            }
-
             if let cgImageSource = CGImageSourceCreateWithData(procesedImage as CFData, nil),
                let cgImage = CGImageSourceCreateImageAtIndex(cgImageSource, 0, nil),
                let heicData = cgImage.heic(withMetadata: self.imageMetadata) {
-                PHPhotoLibrary.requestAuthorization { status in
-                    if status == .authorized {
-                        PHPhotoLibrary.shared().performChanges({
-                            let creationRequest = PHAssetCreationRequest.forAsset()
-                            creationRequest.addResource(with: .photo, data: heicData, options: nil)
-
-                            // Specify the location the photo was taken
-                            creationRequest.location = self.location
-                        }, completionHandler: { _, error in
-                            if let error = error {
-                                print("Error occurred while saving photo to photo library: \(error)")
-                            }
-                            finalize()
-                        })
-                    } else {
-                        finalize()
-                    }
+                
+                Task {
+                    try! await photoCollection.addImage(heicData, alternateResource: nil, location: self.location)
+                    completeTransaction()
+                    self.procesedImage = nil
+                    self.imageMetadata = nil
                 }
             }
         }

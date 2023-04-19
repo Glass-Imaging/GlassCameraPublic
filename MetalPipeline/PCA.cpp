@@ -5,7 +5,6 @@
 //  Created by Fabio Riccardi on 3/1/23.
 //
 
-/*
 #include <algorithm>
 
 #define EIGEN_NO_DEBUG 1
@@ -319,4 +318,3 @@ void pca4c(const gls::image<gls::rgba_pixel_float>& input, int patch_size, gls::
         }
     });
 }
-*/

@@ -18,8 +18,7 @@ import Combine
 import AVFoundation
 
 final class CameraModel: ObservableObject {
-    private let service = CameraService()
-    let photoCollection = PhotoCollection(smartAlbum: .smartAlbumUserLibrary)
+    let service = CameraService()
     var isPhotosLoaded = false
     
     @Published var thumbnailImage: Image?
@@ -104,7 +103,7 @@ final class CameraModel: ObservableObject {
         
         Task {
             do {
-                try await self.photoCollection.load()
+                try await self.service.photoCollection.load()
                 await self.loadThumbnail()
             } catch let error {
                 //logger.error("Failed to load photo collection: \(error.localizedDescription)")
@@ -115,11 +114,12 @@ final class CameraModel: ObservableObject {
     }
     
     func loadThumbnail() async {
-        guard let asset = photoCollection.photoAssets.first  else { return }
-        await photoCollection.cache.requestImage(for: asset, targetSize: CGSize(width: 256, height: 256))  { result in
+        guard let asset = service.photoCollection.photoAssets.first  else { return }
+        await service.photoCollection.cache.requestImage(for: asset, targetSize: CGSize(width: 256, height: 256))  { result in
             if let result = result {
                 Task { @MainActor in
-                    self.thumbnailImage = result.image
+                    print("Setting Thumbnail Image!")
+                    // self.service.thumbnail = result.image
                 }
             }
         }
@@ -246,7 +246,7 @@ struct CameraView: View {
                         HStack {
                             // capturedPhotoThumbnail
                             NavigationLink {
-                                PhotoCollectionView(photoCollection: model.photoCollection)
+                                PhotoCollectionView(photoCollection: model.service.photoCollection)
                                     .onAppear {
                                         // model.camera.isPreviewPaused = true
                                         print("PhotoCollectionAppeared!")

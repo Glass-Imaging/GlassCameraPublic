@@ -86,6 +86,9 @@ public class CameraService: NSObject, Identifiable {
     var keyValueObservations = [NSKeyValueObservation]()
 
     let locationManager = CLLocationManager()
+    
+    // Handles all interaction with the photos library
+    let photoCollection = PhotoCollection(albumNamed: "Glass Photos", createIfNotFound: true)
 
     override public init() {
         super.init()
@@ -548,7 +551,7 @@ public class CameraService: NSObject, Identifiable {
                     photoSettings.photoQualityPrioritization = .quality
                 }
 
-                let photoCaptureProcessor = PhotoCaptureProcessor(with: photoSettings, willCapturePhotoAnimation: {
+                let photoCaptureProcessor = PhotoCaptureProcessor(photoCollection: self.photoCollection, with: photoSettings, willCapturePhotoAnimation: {
                     // Flash the screen to signal that AVCam took a photo.
                     self.willCapturePhoto = true
                 }, completionHandler: { (photoCaptureProcessor) in

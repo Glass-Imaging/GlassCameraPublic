@@ -72,6 +72,7 @@ class PhotoCollection: NSObject, ObservableObject {
                 logger.log("Loaded smart album of type: \(smartAlbumType.rawValue)")
                 self.assetCollection = assetCollection
                 await refreshPhotoAssets()
+                // refreshPhotoAssets()
                 return
             } else {
                 logger.error("Unable to load smart album of type: : \(smartAlbumType.rawValue)")
@@ -88,6 +89,7 @@ class PhotoCollection: NSObject, ObservableObject {
             logger.log("Loaded photo album named: \(name)")
             self.assetCollection = assetCollection
             await refreshPhotoAssets()
+            // refreshPhotoAssets()
             return
         }
         
@@ -99,22 +101,35 @@ class PhotoCollection: NSObject, ObservableObject {
         logger.log("Creating photo album named: \(name)")
         
         if let assetCollection = try? await PhotoCollection.createAlbum(named: name) {
+        // if let assetCollection = try? PhotoCollection.createAlbum(named: name) {
             self.assetCollection = assetCollection
             await refreshPhotoAssets()
+            // refreshPhotoAssets()
         }
     }
     
-    func addImage(_ imageData: Data) async throws {
+    func addImage(_ imageData: Data, alternateResource: URL?, location: CLLocation?) async throws {
         guard let assetCollection = self.assetCollection else {
             throw PhotoCollectionError.missingAssetCollection
         }
         
         do {
             try await PHPhotoLibrary.shared().performChanges {
+            // PHPhotoLibrary.shared().performChanges({
                 
                 let creationRequest = PHAssetCreationRequest.forAsset()
+                if let location = location {
+                    creationRequest.location = location
+                }
+                
                 if let assetPlaceholder = creationRequest.placeholderForCreatedAsset {
                     creationRequest.addResource(with: .photo, data: imageData, options: nil)
+                    
+                    if let alternateResource = alternateResource {
+                        let options = PHAssetResourceCreationOptions()
+                        options.shouldMoveFile = true
+                        creationRequest.addResource(with: .alternatePhoto, fileURL: alternateResource, options: options)
+                    }
                     
                     if let albumChangeRequest = PHAssetCollectionChangeRequest(for: assetCollection), assetCollection.canPerform(.addContent) {
                         let fastEnumeration = NSArray(array: [assetPlaceholder])
@@ -122,8 +137,10 @@ class PhotoCollection: NSObject, ObservableObject {
                     }
                 }
             }
+            //}
             
             await refreshPhotoAssets()
+            // refreshPhotoAssets()
             
         } catch let error {
             logger.error("Error adding image to photo library: \(error.localizedDescription)")
@@ -131,6 +148,7 @@ class PhotoCollection: NSObject, ObservableObject {
         }
     }
     
+    /*
     func removeAsset(_ asset: PhotoAsset) async throws {
         guard let assetCollection = self.assetCollection else {
             throw PhotoCollectionError.missingAssetCollection
@@ -171,6 +189,7 @@ class PhotoCollection: NSObject, ObservableObject {
             throw PhotoCollectionError.removeAllError(error)
         }
     }
+     */
     
     private func refreshPhotoAssets(_ fetchResult: PHFetchResult<PHAsset>? = nil) async {
 
@@ -187,6 +206,10 @@ class PhotoCollection: NSObject, ObservableObject {
         }
         
         if let newFetchResult = newFetchResult {
+            /*
+            photoAssets = PhotoAssetCollection(newFetchResult)
+            logger.debug("PhotoCollection photoAssets refreshed: \(self.photoAssets.count)")
+             */
             await MainActor.run {
                 photoAssets = PhotoAssetCollection(newFetchResult)
                 logger.debug("PhotoCollection photoAssets refreshed: \(self.photoAssets.count)")
@@ -217,6 +240,7 @@ class PhotoCollection: NSObject, ObservableObject {
         var collectionPlaceholder: PHObjectPlaceholder?
         do {
             try await PHPhotoLibrary.shared().performChanges {
+            // PHPhotoLibrary.shared().performChanges {
                 let createAlbumRequest = PHAssetCollectionChangeRequest.creationRequestForAssetCollection(withTitle: name)
                 collectionPlaceholder = createAlbumRequest.placeholderForCreatedAssetCollection
             }
@@ -239,6 +263,7 @@ extension PhotoCollection: PHPhotoLibraryChangeObserver {
         Task { @MainActor in
             guard let changes = changeInstance.changeDetails(for: self.photoAssets.fetchResult) else { return }
             await self.refreshPhotoAssets(changes.fetchResultAfterChanges)
+            // self.refreshPhotoAssets(changes.fetchResultAfterChanges)
         }
     }
 }
