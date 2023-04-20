@@ -1,9 +1,4 @@
-/*
-See the License.txt file for this sample’s licensing information.
-*/
-
 import Photos
-import os.log
 
 struct PhotoAsset: Identifiable {
     var id: String { identifier }
@@ -12,20 +7,16 @@ struct PhotoAsset: Identifiable {
     var index: Int?
     var phAsset: PHAsset?
     
-    private let glassSuffix = "_GLS"
+    var accessibilityLabel: String = "Photo"
     
     typealias MediaType = PHAssetMediaType
     
-    var isFavorite: Bool {
-        phAsset?.isFavorite ?? false
-    }
-    
-    var isGlassRender: Bool {
-        return name.hasSuffix(glassSuffix)
+    var photoCategory: PhotoCategory {
+        return PhotoCategories.getPhotoCategory(photoName: name)
     }
     
     var rootFileName: Substring {
-        let end = name.index(name.endIndex, offsetBy: -1 * glassSuffix.count)
+        let end = name.index(name.endIndex, offsetBy: -1 * self.photoCategory.suffix.count)
         return name[name.startIndex..<end]
     }
     
@@ -33,9 +24,6 @@ struct PhotoAsset: Identifiable {
         phAsset?.mediaType ?? .unknown
     }
     
-    var accessibilityLabel: String {
-        "Photo\(isFavorite ? ", Favorite" : "")"
-    }
 
     init(phAsset: PHAsset, index: Int?) {
         self.phAsset = phAsset
@@ -62,37 +50,11 @@ struct PhotoAsset: Identifiable {
             self.name = self.identifier
         }
     }
-    
-    func setIsFavorite(_ isFavorite: Bool) async {
-        guard let phAsset = phAsset else { return }
-        Task {
-            do {
-                try await PHPhotoLibrary.shared().performChanges {
-                    let request = PHAssetChangeRequest(for: phAsset)
-                    request.isFavorite = isFavorite
-                }
-            } catch (let error) {
-                logger.error("Failed to change isFavorite: \(error.localizedDescription)")
-            }
-        }
-    }
-    
-    func delete() async {
-        guard let phAsset = phAsset else { return }
-        do {
-            try await PHPhotoLibrary.shared().performChanges {
-                PHAssetChangeRequest.deleteAssets([phAsset] as NSArray)
-            }
-            logger.debug("PhotoAsset asset deleted: \(index ?? -1)")
-        } catch (let error) {
-            logger.error("Failed to delete photo: \(error.localizedDescription)")
-        }
-    }
 }
 
 extension PhotoAsset: Equatable {
     static func ==(lhs: PhotoAsset, rhs: PhotoAsset) -> Bool {
-        (lhs.identifier == rhs.identifier) && (lhs.isFavorite == rhs.isFavorite)
+        (lhs.identifier == rhs.identifier) && (lhs.name == rhs.name)
     }
 }
 
@@ -105,6 +67,3 @@ extension PhotoAsset: Hashable {
 extension PHObject: Identifiable {
     public var id: String { localIdentifier }
 }
-
-fileprivate let logger = Logger(subsystem: "com.apple.swiftplaygroundscontent.capturingphotos", category: "PhotoAsset")
-

@@ -1,20 +1,12 @@
-//
-//  ZoomableScrollView.swift
-//  Capturing Photos
-//
-//  Created by Doug MacEwen on 4/17/23.
-//
-
 import Foundation
 import SwiftUI
 import Combine
 
 struct ZoomState {
-    var syncedImageCount = 0
+    var syncedImageCount = 0 // This might not be needed anymore
     var zoomScale = CGFloat(1.0)
     var contentOffset = CGPoint(x: 0.0, y: 0.0)
 }
-
 
 struct ZoomableScrollView<Content: View>: UIViewRepresentable {
     let MAX_ZOOM_SCALE: CGFloat = 100
@@ -26,26 +18,24 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
     let name: String
     @Binding var zoomState: ZoomState
     
-    init(name: String, imageLocation: Binding<ZoomState>,/*zoomScale: Binding<CGFloat>, contentOffset: Binding<CGPoint>,*/ @ViewBuilder content: () -> Content) {
+    init(name: String, imageLocation: Binding<ZoomState>, @ViewBuilder content: () -> Content) {
         self.content = content()
         self.name = name
         self._zoomState = imageLocation
     }
     
     func makeUIView(context: Context) -> UIScrollView {
-        // set up the UIScrollView
         let scrollView = UIScrollView()
-        scrollView.delegate = context.coordinator  // for viewForZooming(in:)
+        scrollView.delegate = context.coordinator
         scrollView.maximumZoomScale = MAX_ZOOM_SCALE
         scrollView.minimumZoomScale = MIN_ZOOM_SCALE
         scrollView.showsVerticalScrollIndicator = false
         scrollView.showsHorizontalScrollIndicator = false
         scrollView.isUserInteractionEnabled = true
-        scrollView.bouncesZoom = false //true
+        scrollView.bouncesZoom = false
         scrollView.bounces = false
+        scrollView.decelerationRate = UIScrollView.DecelerationRate.fast
         
-        
-        // create a UIHostingController to hold our SwiftUI content
         let hostedView = context.coordinator.hostingController.view!
         hostedView.translatesAutoresizingMaskIntoConstraints = true
         hostedView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -65,10 +55,7 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
             
             let x = max(zoomState.contentOffset.x * scrollView.contentSize.width, 0)
             let y = max(zoomState.contentOffset.y * scrollView.contentSize.height, 0)
-            scrollView.setContentOffset(CGPoint(x: x, y: y), animated: false/* && !newView*/)
-        }
-        
-        DispatchQueue.main.async {
+            scrollView.setContentOffset(CGPoint(x: x, y: y), animated: false)
         }
         
         return scrollView
@@ -81,13 +68,15 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
         }
     }
     
-    
     func makeCoordinator() -> Coordinator {
         return Coordinator(name: name, imageLocation: _zoomState, hostingController: UIHostingController(rootView: self.content))
     }
     
     func updateUIView(_ uiView: UIScrollView, context: Context) {
         DispatchQueue.main.async { [zoomState] in
+            // Preserve scroll momentum
+            if uiView.isDecelerating { return }
+            
             var isBigStep = (max(uiView.zoomScale, zoomState.zoomScale) /  min(uiView.zoomScale, zoomState.zoomScale)) > 2
             if zoomState.zoomScale == 1.0 { isBigStep = true }
             
@@ -110,7 +99,7 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
             
             newView = false
         }
-         
+        
         // update the hosting controller's SwiftUI content
         context.coordinator.hostingController.rootView = self.content
         assert(context.coordinator.hostingController.view.superview == uiView)
@@ -138,7 +127,6 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
         func scrollViewDidZoom(_ scrollView: UIScrollView) {
             DispatchQueue.main.async {
                 if(scrollView.contentSize.width == 0 || scrollView.contentSize.height == 0) { return }
-                // NSLog("\(self.name) zoomChanged \(scrollView.zoomScale)")
                 let x = scrollView.contentOffset.x / scrollView.contentSize.width
                 let y = scrollView.contentOffset.y / scrollView.contentSize.height
                 self.zoomState?.wrappedValue = ZoomState(zoomScale: scrollView.zoomScale, contentOffset: CGPoint(x: x, y: y))
@@ -148,7 +136,6 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
         func scrollViewDidScroll(_ scrollView: UIScrollView) {
             DispatchQueue.main.async {
                 if(scrollView.contentSize.width == 0 || scrollView.contentSize.height == 0) { return }
-                // NSLog("\(self.name) coordChanged \(scrollView.contentOffset)")
                 let x = scrollView.contentOffset.x / scrollView.contentSize.width
                 let y = scrollView.contentOffset.y / scrollView.contentSize.height
                 self.zoomState?.wrappedValue = ZoomState(zoomScale: scrollView.zoomScale, contentOffset: CGPoint(x: x, y: y))

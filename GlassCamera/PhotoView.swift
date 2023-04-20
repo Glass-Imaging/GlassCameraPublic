@@ -1,7 +1,3 @@
-/*
-See the License.txt file for this sample’s licensing information.
-*/
-
 import SwiftUI
 import Photos
 import Combine
@@ -13,34 +9,32 @@ struct PhotoView: View {
     var assetB: PhotoAsset
     
     var cache: CachedImageManager?
+    @Environment(\.dismiss) var dismiss
+    
     @State private var imageA: Image?
     @State private var imageB: Image?
     
     @State private var imageARequestID: PHImageRequestID?
     @State private var imageBRequestID: PHImageRequestID?
     
-    @Environment(\.dismiss) var dismiss
+    @State private var showImageA = true
+    @State private var showImageB = true
     
-    @State var zoomState = ZoomState() //RENAME TO zoomState?
+    @State var zoomState = ZoomState()
     
     private let imageSize = CGSize(width: 4032, height: 4032)
     private let doubleTapZoomScale = CGFloat(10)
     
-    @State private var showImageA = true
-    @State private var showImageB = true
-    
     var body: some View {
         Group {
-            let assetAName = assetA.isGlassRender ? "GlassNN" : "ISP"
-            let assetBName = assetB.isGlassRender ? "GlassNN" : "ISP"
             if showImageA && !showImageB {
-                getZoomableView(name: assetAName, image: imageA, imageLocation: $zoomState)
+                getZoomableView(name: assetA.photoCategory.name, image: imageA, imageLocation: $zoomState)
             } else if showImageB && !showImageA {
-                getZoomableView(name: assetBName, image: imageB, imageLocation: $zoomState)
+                getZoomableView(name: assetB.photoCategory.name, image: imageB, imageLocation: $zoomState)
             } else {
                 VStack {
-                    getZoomableView(name: assetAName, image: imageA, imageLocation: $zoomState)
-                    getZoomableView(name: assetBName, image: imageB, imageLocation: $zoomState)
+                    getZoomableView(name: assetA.photoCategory.name, image: imageA, imageLocation: $zoomState)
+                    getZoomableView(name: assetB.photoCategory.name, image: imageB, imageLocation: $zoomState)
                 }
             }
         }

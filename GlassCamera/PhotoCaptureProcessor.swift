@@ -321,13 +321,13 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
         let dateFMT = DateFormatter()
         dateFMT.locale = Locale(identifier: "en_US_POSIX")
         dateFMT.dateFormat = "yyyy-MM-dd-HH-mm-ss-SSSS"
+
         let now = Date()
         let timestamp = String(format: "%@", dateFMT.string(from: now))
-        print("Saving for timestamp :: \(timestamp)")
 
         if let capturedImage = self.capturedImage {
             Task {
-                try! await photoCollection.addImage(capturedImage, timestamp: timestamp, isGlassRender: false, alternateResource: self.dngFile, location: self.location)
+                try! await photoCollection.addImage(capturedImage, timestamp: timestamp, photoCategory: PhotoCategories.ISP, alternateResource: self.dngFile, location: self.location)
                 completeTransaction()
                 self.dngFile = nil
             }
@@ -343,7 +343,7 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
                let heicData = cgImage.heic(withMetadata: self.imageMetadata) {
                 
                 Task {
-                    try! await photoCollection.addImage(heicData, timestamp: timestamp, isGlassRender: true, alternateResource: nil, location: self.location)
+                    try! await photoCollection.addImage(heicData, timestamp: timestamp, photoCategory: PhotoCategories.GlassTraditional, alternateResource: nil, location: self.location)
                     completeTransaction()
                     self.procesedImage = nil
                     self.imageMetadata = nil

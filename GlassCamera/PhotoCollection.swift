@@ -1,7 +1,3 @@
-/*
-See the License.txt file for this sample’s licensing information.
-*/
-
 import Photos
 import os.log
 
@@ -99,14 +95,12 @@ class PhotoCollection: NSObject, ObservableObject {
         logger.log("Creating photo album named: \(name)")
         
         if let assetCollection = try? await PhotoCollection.createAlbum(named: name) {
-        // if let assetCollection = try? PhotoCollection.createAlbum(named: name) {
             self.assetCollection = assetCollection
             await refreshPhotoAssets()
-            // refreshPhotoAssets()
         }
     }
     
-    func addImage(_ imageData: Data, timestamp: String, isGlassRender: Bool, alternateResource: URL?, location: CLLocation?) async throws {
+    func addImage(_ imageData: Data, timestamp: String, photoCategory: PhotoCategory, alternateResource: URL?, location: CLLocation?) async throws {
         guard let assetCollection = self.assetCollection else {
             throw PhotoCollectionError.missingAssetCollection
         }
@@ -120,11 +114,7 @@ class PhotoCollection: NSObject, ObservableObject {
                 
                 if let assetPlaceholder = creationRequest.placeholderForCreatedAsset {
                     let options = PHAssetResourceCreationOptions()
-                    if isGlassRender {
-                        options.originalFilename = "\(timestamp)_GLS"
-                    } else {
-                        options.originalFilename = "\(timestamp)_ISP"
-                    }
+                    options.originalFilename = "\(timestamp)\(photoCategory.suffix)"
                         
                     creationRequest.addResource(with: .photo, data: imageData, options: options)
                     
@@ -148,49 +138,6 @@ class PhotoCollection: NSObject, ObservableObject {
             throw PhotoCollectionError.addImageError(error)
         }
     }
-    
-    /*
-    func removeAsset(_ asset: PhotoAsset) async throws {
-        guard let assetCollection = self.assetCollection else {
-            throw PhotoCollectionError.missingAssetCollection
-        }
-        
-        do {
-            try await PHPhotoLibrary.shared().performChanges {
-                if let albumChangeRequest = PHAssetCollectionChangeRequest(for: assetCollection) {
-                    albumChangeRequest.removeAssets([asset as Any] as NSArray)
-                }
-            }
-            
-            await refreshPhotoAssets()
-            
-        } catch let error {
-            logger.error("Error removing all photos from the album: \(error.localizedDescription)")
-            throw PhotoCollectionError.removeAllError(error)
-        }
-    }
-    
-    func removeAll() async throws {
-        guard let assetCollection = self.assetCollection else {
-            throw PhotoCollectionError.missingAssetCollection
-        }
-        
-        do {
-            try await PHPhotoLibrary.shared().performChanges {
-                if let albumChangeRequest = PHAssetCollectionChangeRequest(for: assetCollection),
-                    let assets = (PHAsset.fetchAssets(in: assetCollection, options: nil) as AnyObject?) as! PHFetchResult<AnyObject>? {
-                    albumChangeRequest.removeAssets(assets)
-                }
-            }
-            
-            await refreshPhotoAssets()
-            
-        } catch let error {
-            logger.error("Error removing all photos from the album: \(error.localizedDescription)")
-            throw PhotoCollectionError.removeAllError(error)
-        }
-    }
-     */
     
     private func refreshPhotoAssets(_ fetchResult: PHFetchResult<PHAsset>? = nil) async {
 

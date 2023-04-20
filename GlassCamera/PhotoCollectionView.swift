@@ -1,7 +1,3 @@
-/*
-See the License.txt file for this sample’s licensing information.
-*/
-
 import SwiftUI
 import os.log
 
@@ -12,7 +8,12 @@ struct PhotoCollectionView: View {
         
     private static let itemSpacing = 4.0
     private static let itemCornerRadius = 0.0
-    private static let itemSize = CGSize(width: 200, height: 200)
+    
+    private static var itemSize: CGSize {
+        // We want 2 items per row on the phone, make each item slightly smaller than half screen width
+        let sideLength = 0.49 * UIScreen.main.bounds.width
+        return CGSize(width: sideLength, height: sideLength)
+    }
     
     private var imageSize: CGSize {
         return CGSize(width: Self.itemSize.width * min(displayScale, 2), height: Self.itemSize.height * min(displayScale, 2))
@@ -28,8 +29,7 @@ struct PhotoCollectionView: View {
                 ForEach(photoCollection.photoAssets) { asset in
                     NavigationLink {
                         let siblingAsset = photoCollection.photoAssets.getNeighborWithMatchingRootFileName(position: asset.index ?? 0) ?? asset
-                        
-                        if asset.isGlassRender {
+                        if (asset.photoCategory.company == PhotoCategories.GlassNN.company) {
                             PhotoView(assetA: asset, assetB: siblingAsset, cache: photoCollection.cache)
                         } else {
                             PhotoView(assetA: siblingAsset, assetB: asset, cache: photoCollection.cache)
@@ -56,8 +56,7 @@ struct PhotoCollectionView: View {
             .clipped()
             .cornerRadius(Self.itemCornerRadius)
             .overlay(alignment: .bottomLeading) {
-                let name = asset.isGlassRender ? "GlassNN" : "ISP"
-                Text(verbatim: name)
+                Text(verbatim: asset.photoCategory.name)
                         .foregroundColor(.white)
                         .shadow(color: .black.opacity(0.3), radius: 5, x: 0, y: 1)
                         .font(.callout)

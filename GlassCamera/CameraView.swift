@@ -249,6 +249,7 @@ struct CameraView: View {
                                     
                                     zoomLevelPicker
                                         .padding(.all, 20)
+                                        // .preferredColorScheme(.dark)
                                 }
                             }
                         }
@@ -257,18 +258,12 @@ struct CameraView: View {
                             // capturedPhotoThumbnail
                             NavigationLink {
                                 PhotoCollectionView(photoCollection: model.service.photoCollection)
-                                    .onAppear {
-                                        // model.camera.isPreviewPaused = true
-                                        print("PhotoCollectionAppeared!")
-                                    }
-                                    .onDisappear {
-                                        //model.camera.isPreviewPaused = false
-                                        print("PhotoCollectionDisappeared!")
-                                    }
+                                /*
+                                    .onAppear { model.camera.isPreviewPaused = true }
+                                    .onDisappear { model.camera.isPreviewPaused = false }
+                                 */
                             } label: {
-                                Label {
-                                    // Text("Gallery")
-                                } icon: {
+                                Label {} icon: {
                                     ThumbnailView(image: model.thumbnailImage)
                                 }
                             }
@@ -291,6 +286,7 @@ struct CameraView: View {
                     }
                 }
             }
+            .preferredColorScheme(.dark)
             .task {
                 await model.loadPhotos()
                 await model.loadThumbnail()
