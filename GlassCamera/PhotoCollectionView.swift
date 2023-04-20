@@ -27,7 +27,7 @@ struct PhotoCollectionView: View {
             LazyVGrid(columns: columns, spacing: Self.itemSpacing) {
                 ForEach(photoCollection.photoAssets) { asset in
                     NavigationLink {
-                        let siblingAsset = photoCollection.photoAssets.getNeighborWithMatchingRootFileName(position: asset.index!)!
+                        let siblingAsset = photoCollection.photoAssets.getNeighborWithMatchingRootFileName(position: asset.index ?? 0) ?? asset
                         
                         if asset.isGlassRender {
                             PhotoView(assetA: asset, assetB: siblingAsset, cache: photoCollection.cache)

@@ -9,6 +9,7 @@ import Combine
 
 struct PhotoView: View {
     var assetA: PhotoAsset
+    
     var assetB: PhotoAsset
     
     var cache: CachedImageManager?
@@ -30,14 +31,16 @@ struct PhotoView: View {
     
     var body: some View {
         Group {
+            let assetAName = assetA.isGlassRender ? "GlassNN" : "ISP"
+            let assetBName = assetB.isGlassRender ? "GlassNN" : "ISP"
             if showImageA && !showImageB {
-                getZoomableView(name: "GlassNN", image: imageA, imageLocation: $zoomState)
+                getZoomableView(name: assetAName, image: imageA, imageLocation: $zoomState)
             } else if showImageB && !showImageA {
-                getZoomableView(name: "ISP", image: imageB, imageLocation: $zoomState)
+                getZoomableView(name: assetBName, image: imageB, imageLocation: $zoomState)
             } else {
                 VStack {
-                    getZoomableView(name: "GlassNN", image: imageA, imageLocation: $zoomState)
-                    getZoomableView(name: "ISP", image: imageB, imageLocation: $zoomState)
+                    getZoomableView(name: assetAName, image: imageA, imageLocation: $zoomState)
+                    getZoomableView(name: assetBName, image: imageB, imageLocation: $zoomState)
                 }
             }
         }
@@ -102,6 +105,7 @@ struct PhotoView: View {
             return ZoomableScrollView(name: name, imageLocation: $zoomState) {
                 image?
                     .resizable()
+                    .interpolation(.none)
                     .scaledToFit()
             }
             .overlay(alignment: .topLeading) {
