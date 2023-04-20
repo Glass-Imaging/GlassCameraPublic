@@ -39,6 +39,19 @@ public struct AlertError {
     }
 }
 
+public enum BackCameraConfiguration: String, CaseIterable, Identifiable {
+    case UltraWide
+    case Wide
+    case Tele
+
+    public var id: Self { self }
+}
+
+public struct DeviceConfiguration : Equatable {
+    let position: AVCaptureDevice.Position;
+    let deviceType: AVCaptureDevice.DeviceType;
+}
+
 public class CameraService: NSObject, Identifiable {
     typealias PhotoCaptureSessionID = String
 
@@ -52,6 +65,16 @@ public class CameraService: NSObject, Identifiable {
     @Published public var isCameraButtonDisabled = false
     @Published public var isCameraUnavailable = false
     @Published public var thumbnail: UIImage?
+
+    @Published public var availableBackDevices: [BackCameraConfiguration] = []
+
+    @Published public var currentDevice: DeviceConfiguration? = nil
+
+    public let backDeviceConfigurations: [BackCameraConfiguration : DeviceConfiguration] = [
+        .UltraWide : DeviceConfiguration(position: .back,  deviceType: .builtInUltraWideCamera),
+        .Wide      : DeviceConfiguration(position: .back,  deviceType: .builtInWideAngleCamera),
+        .Tele      : DeviceConfiguration(position: .back,  deviceType: .builtInTelephotoCamera)
+    ]
 
     // MARK: Alert properties
 
@@ -72,7 +95,7 @@ public class CameraService: NSObject, Identifiable {
 
     // MARK: Device Configuration Properties
 
-    static let videoDevices:[AVCaptureDevice.DeviceType] = [.builtInWideAngleCamera, .builtInDualCamera, .builtInTrueDepthCamera]
+    static let videoDevices:[AVCaptureDevice.DeviceType] = [.builtInWideAngleCamera, .builtInTelephotoCamera, .builtInUltraWideCamera]
     let videoDeviceDiscoverySession = AVCaptureDevice.DiscoverySession(deviceTypes: videoDevices, mediaType: .video, position: .unspecified)
 
     // MARK: Capturing Photos
@@ -96,13 +119,22 @@ public class CameraService: NSObject, Identifiable {
             self.isCameraUnavailable = true
         }
 
+        // Register the list of available devices
+        let devices = self.videoDeviceDiscoverySession.devices
+        for configuration in backDeviceConfigurations {
+            if let _ = devices.first(where: { $0.position == configuration.value.position &&
+                                              $0.deviceType == configuration.value.deviceType }) {
+                availableBackDevices.append(configuration.key)
+            }
+        }
+
         // Request location authorization so photos and videos can be tagged with their location.
         if locationManager.authorizationStatus == .notDetermined {
             locationManager.requestWhenInUseAuthorization()
         }
     }
 
-    public func configure() {
+    public func configure(_ configuration: DeviceConfiguration) {
         /*
          Setup the capture session.
          In general, it's not safe to mutate an AVCaptureSession or any of its
@@ -115,7 +147,7 @@ public class CameraService: NSObject, Identifiable {
          */
         if !self.isSessionRunning && !self.isConfigured {
             sessionQueue.async {
-                self.configureSession()
+                self.configureSession(configuration)
             }
         }
     }
@@ -171,7 +203,7 @@ public class CameraService: NSObject, Identifiable {
     //  MARK: Session Managment
 
     // Call this on the session queue.
-    private func configureSession() {
+    private func configureSession(_ configuration: DeviceConfiguration) {
         if setupResult != .success {
             return
         }
@@ -186,17 +218,17 @@ public class CameraService: NSObject, Identifiable {
 
         // Add video input.
         do {
-            var defaultVideoDevice: AVCaptureDevice?
+            var videoDevice: AVCaptureDevice?
 
-            if let backCameraDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) {
+            if let desiredDevice = AVCaptureDevice.default(configuration.deviceType, for: .video, position: configuration.position) {
                 // If a rear dual camera is not available, default to the rear wide angle camera.
-                defaultVideoDevice = backCameraDevice
-            } else if let frontCameraDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .front) {
+                videoDevice = desiredDevice
+            } else if let backupDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .unspecified) {
                 // If the rear wide angle camera isn't available, default to the front wide angle camera.
-                defaultVideoDevice = frontCameraDevice
+                videoDevice = backupDevice
             }
 
-            guard let videoDevice = defaultVideoDevice else {
+            guard let videoDevice = videoDevice else {
                 print("Default video device is unavailable.")
                 setupResult = .configurationFailed
                 session.commitConfiguration()
@@ -209,6 +241,10 @@ public class CameraService: NSObject, Identifiable {
                 session.addInput(videoDeviceInput)
                 self.videoDeviceInput = videoDeviceInput
 
+                DispatchQueue.main.async {
+                    self.currentDevice = DeviceConfiguration(position: videoDeviceInput.device.position,
+                                                             deviceType: videoDeviceInput.device.deviceType)
+                }
             } else {
                 print("Couldn't add video device input to the session.")
                 setupResult = .configurationFailed
@@ -273,7 +309,7 @@ public class CameraService: NSObject, Identifiable {
 
     //  MARK: Device Configuration
 
-    public func changeCamera() {
+    public func changeCamera(_ configuration: DeviceConfiguration) {
         // MARK: Here disable all camera operation related buttons due to configuration is due upon and must not be interrupted
 
         DispatchQueue.main.async {
@@ -282,32 +318,13 @@ public class CameraService: NSObject, Identifiable {
 
         sessionQueue.async {
             let currentVideoDevice = self.videoDeviceInput.device
-            let currentPosition = currentVideoDevice.position
-
-            let preferredPosition: AVCaptureDevice.Position
-            let preferredDeviceType: AVCaptureDevice.DeviceType
-
-            switch currentPosition {
-            case .unspecified, .front:
-                preferredPosition = .back
-                preferredDeviceType = .builtInWideAngleCamera
-
-            case .back:
-                preferredPosition = .front
-                preferredDeviceType = .builtInWideAngleCamera
-
-            @unknown default:
-                print("Unknown capture position. Defaulting to back, dual-camera.")
-                preferredPosition = .back
-                preferredDeviceType = .builtInWideAngleCamera
-            }
             let devices = self.videoDeviceDiscoverySession.devices
             var newVideoDevice: AVCaptureDevice? = nil
 
             // First, seek a device with both the preferred position and device type. Otherwise, seek a device with only the preferred position.
-            if let device = devices.first(where: { $0.position == preferredPosition && $0.deviceType == preferredDeviceType }) {
+            if let device = devices.first(where: { $0.position == configuration.position && $0.deviceType == configuration.deviceType }) {
                 newVideoDevice = device
-            } else if let device = devices.first(where: { $0.position == preferredPosition }) {
+            } else if let device = devices.first(where: { $0.position == configuration.position }) {
                 newVideoDevice = device
             }
 
@@ -322,8 +339,13 @@ public class CameraService: NSObject, Identifiable {
                     self.session.removeInput(self.videoDeviceInput)
 
                     if self.session.canAddInput(videoDeviceInput) {
-                        NotificationCenter.default.removeObserver(self, name: .AVCaptureDeviceSubjectAreaDidChange, object: currentVideoDevice)
-                        NotificationCenter.default.addObserver(self, selector: #selector(self.subjectAreaDidChange), name: .AVCaptureDeviceSubjectAreaDidChange, object: videoDeviceInput.device)
+                        NotificationCenter.default.removeObserver(self,
+                                                                  name: .AVCaptureDeviceSubjectAreaDidChange,
+                                                                  object: currentVideoDevice)
+                        NotificationCenter.default.addObserver(self,
+                                                               selector: #selector(self.subjectAreaDidChange),
+                                                               name: .AVCaptureDeviceSubjectAreaDidChange,
+                                                               object: videoDeviceInput.device)
 
                         self.session.addInput(videoDeviceInput)
                         self.videoDeviceInput = videoDeviceInput
@@ -342,6 +364,11 @@ public class CameraService: NSObject, Identifiable {
                     self.session.commitConfiguration()
                 } catch {
                     print("Error occurred while creating video device input: \(error)")
+                }
+
+                DispatchQueue.main.async {
+                    self.currentDevice = DeviceConfiguration(position: videoDevice.position,
+                                                             deviceType: videoDevice.deviceType)
                 }
             }
 
@@ -453,20 +480,6 @@ public class CameraService: NSObject, Identifiable {
                     }
                 }
             }
-        }
-    }
-
-    public func set(zoom: CGFloat){
-        let factor = zoom < 1 ? 1 : zoom
-        let device = self.videoDeviceInput.device
-
-        do {
-            try device.lockForConfiguration()
-            device.videoZoomFactor = factor
-            device.unlockForConfiguration()
-        }
-        catch {
-            print(error.localizedDescription)
         }
     }
 
