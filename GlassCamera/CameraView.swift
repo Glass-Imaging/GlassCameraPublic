@@ -23,8 +23,6 @@ final class CameraModel: ObservableObject {
     
     @Published var thumbnailImage: Image?
 
-    @Published var photo: UIImage!
-
     @Published var showAlertError = false
 
     @Published var isFlashOn = false
@@ -44,7 +42,7 @@ final class CameraModel: ObservableObject {
 
         service.$thumbnail.sink { [weak self] (photo) in
             guard let pic = photo else { return }
-            self?.photo = pic
+            self?.thumbnailImage = Image(uiImage: pic)
         }
         .store(in: &self.subscriptions)
 
@@ -118,8 +116,7 @@ final class CameraModel: ObservableObject {
         await service.photoCollection.cache.requestImage(for: asset, targetSize: CGSize(width: 256, height: 256))  { result in
             if let result = result {
                 Task { @MainActor in
-                    print("Setting Thumbnail Image!")
-                    // self.service.thumbnail = result.image
+                    self.thumbnailImage = result.image
                 }
             }
         }
@@ -145,27 +142,6 @@ struct CameraView: View {
                 )
         })
     }
-
-    /*
-    var capturedPhotoThumbnail: some View {
-        Group {
-            if let thumbnail = model.photo {
-                Image(uiImage: thumbnail)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: 60, height: 60)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    .animation(.spring(), value: model.willCapturePhoto)
-            } else {
-                RoundedRectangle(cornerRadius: 10)
-                    .frame(width: 60, height: 60, alignment: .center)
-                    .foregroundColor(.black)
-            }
-        }.onTapGesture {
-            UIApplication.shared.open(URL(string:"photos-redirect://")!)
-        }
-    }
-     */
 
     var flipCameraButton: some View {
         Button(action: {
