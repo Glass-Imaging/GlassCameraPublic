@@ -9,7 +9,7 @@ import Foundation
 import SwiftUI
 import Combine
 
-struct ImageLocation {
+struct ZoomState {
     var syncedImageCount = 0
     var zoomScale = CGFloat(1.0)
     var contentOffset = CGPoint(x: 0.0, y: 0.0)
@@ -24,12 +24,12 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
     @State private var newView: Bool = false
     
     let name: String
-    @Binding var imageLocation: ImageLocation
+    @Binding var zoomState: ZoomState
     
-    init(name: String, imageLocation: Binding<ImageLocation>,/*zoomScale: Binding<CGFloat>, contentOffset: Binding<CGPoint>,*/ @ViewBuilder content: () -> Content) {
+    init(name: String, imageLocation: Binding<ZoomState>,/*zoomScale: Binding<CGFloat>, contentOffset: Binding<CGPoint>,*/ @ViewBuilder content: () -> Content) {
         self.content = content()
         self.name = name
-        self._imageLocation = imageLocation
+        self._zoomState = imageLocation
     }
     
     func makeUIView(context: Context) -> UIScrollView {
@@ -59,12 +59,12 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
             newView = true
             
             hostedView.isHidden = false
-            imageLocation.syncedImageCount += 1
+            zoomState.syncedImageCount += 1
             
-            scrollView.zoomScale = imageLocation.zoomScale
+            scrollView.zoomScale = zoomState.zoomScale
             
-            let x = max(imageLocation.contentOffset.x * scrollView.contentSize.width, 0)
-            let y = max(imageLocation.contentOffset.y * scrollView.contentSize.height, 0)
+            let x = max(zoomState.contentOffset.x * scrollView.contentSize.width, 0)
+            let y = max(zoomState.contentOffset.y * scrollView.contentSize.height, 0)
             scrollView.setContentOffset(CGPoint(x: x, y: y), animated: false/* && !newView*/)
         }
         
@@ -76,37 +76,34 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
     
     static func dismantleUIView(_ uiView: UIScrollView, coordinator: Coordinator) {
         DispatchQueue.main.async {
-            NSLog("\(coordinator.name) : Dismanteling")
-            coordinator.imageLocation?.syncedImageCount.wrappedValue -= 1
-            coordinator.imageLocation = nil
+            coordinator.zoomState?.syncedImageCount.wrappedValue -= 1
+            coordinator.zoomState = nil
         }
     }
     
     
     func makeCoordinator() -> Coordinator {
-        return Coordinator(name: name, imageLocation: _imageLocation, hostingController: UIHostingController(rootView: self.content))
+        return Coordinator(name: name, imageLocation: _zoomState, hostingController: UIHostingController(rootView: self.content))
     }
     
     func updateUIView(_ uiView: UIScrollView, context: Context) {
-        NSLog("\(name) Update UI View \(imageLocation)")
-        
-        DispatchQueue.main.async {
-            var isBigStep = (max(uiView.zoomScale, imageLocation.zoomScale) /  min(uiView.zoomScale, imageLocation.zoomScale)) > 2
-            if imageLocation.zoomScale == 1.0 { isBigStep = true }
+        DispatchQueue.main.async { [zoomState] in
+            var isBigStep = (max(uiView.zoomScale, zoomState.zoomScale) /  min(uiView.zoomScale, zoomState.zoomScale)) > 2
+            if zoomState.zoomScale == 1.0 { isBigStep = true }
             
-            uiView.setZoomScale(imageLocation.zoomScale, animated: isBigStep && !newView)
+            uiView.setZoomScale(zoomState.zoomScale, animated: isBigStep && !newView)
             
-            if (uiView.contentOffset != imageLocation.contentOffset)
-                && !(imageLocation.zoomScale > MAX_ZOOM_SCALE)
-                && !(imageLocation.zoomScale < MIN_ZOOM_SCALE) {
+            if (uiView.contentOffset != zoomState.contentOffset)
+                && !(zoomState.zoomScale > MAX_ZOOM_SCALE)
+                && !(zoomState.zoomScale < MIN_ZOOM_SCALE) {
                 
                 if isBigStep {
                     let x = (uiView.contentSize.width / 2) - (uiView.bounds.size.width / 2)
                     let y = (uiView.contentSize.height / 2) - (uiView.bounds.size.height / 2)
                     uiView.setContentOffset(CGPoint(x: x, y: y), animated: true && !newView)
                 } else {
-                    let x = max(imageLocation.contentOffset.x  * uiView.contentSize.width, 0)
-                    let y = max(imageLocation.contentOffset.y  * uiView.contentSize.height, 0)
+                    let x = max(zoomState.contentOffset.x  * uiView.contentSize.width, 0)
+                    let y = max(zoomState.contentOffset.y  * uiView.contentSize.height, 0)
                     uiView.setContentOffset(CGPoint(x: x, y: y), animated: false && !newView)
                 }
             }
@@ -124,12 +121,12 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
     
     class Coordinator: NSObject, UIScrollViewDelegate {
         var name: String
-        var imageLocation: Binding<ImageLocation>?
+        var zoomState: Binding<ZoomState>?
         var hostingController: UIHostingController<Content>
         
-        init(name: String, imageLocation: Binding<ImageLocation>,/*zoomScale: Binding<CGFloat>, contentOffset: Binding<CGPoint>,*/ hostingController: UIHostingController<Content>) {
+        init(name: String, imageLocation: Binding<ZoomState>,/*zoomScale: Binding<CGFloat>, contentOffset: Binding<CGPoint>,*/ hostingController: UIHostingController<Content>) {
             self.name = name
-            self.imageLocation = imageLocation
+            self.zoomState = imageLocation
             self.hostingController = hostingController
         }
         
@@ -144,7 +141,7 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
                 // NSLog("\(self.name) zoomChanged \(scrollView.zoomScale)")
                 let x = scrollView.contentOffset.x / scrollView.contentSize.width
                 let y = scrollView.contentOffset.y / scrollView.contentSize.height
-                self.imageLocation?.wrappedValue = ImageLocation(zoomScale: scrollView.zoomScale, contentOffset: CGPoint(x: x, y: y))
+                self.zoomState?.wrappedValue = ZoomState(zoomScale: scrollView.zoomScale, contentOffset: CGPoint(x: x, y: y))
             }
         }
         
@@ -154,7 +151,7 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
                 // NSLog("\(self.name) coordChanged \(scrollView.contentOffset)")
                 let x = scrollView.contentOffset.x / scrollView.contentSize.width
                 let y = scrollView.contentOffset.y / scrollView.contentSize.height
-                self.imageLocation?.wrappedValue = ImageLocation(zoomScale: scrollView.zoomScale, contentOffset: CGPoint(x: x, y: y))
+                self.zoomState?.wrappedValue = ZoomState(zoomScale: scrollView.zoomScale, contentOffset: CGPoint(x: x, y: y))
             }
         }
     }

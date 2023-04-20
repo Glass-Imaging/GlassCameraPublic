@@ -8,13 +8,19 @@ import Combine
 
 
 struct PhotoView: View {
-    var asset: PhotoAsset
+    var assetA: PhotoAsset
+    var assetB: PhotoAsset
+    
     var cache: CachedImageManager?
-    @State private var image: Image?
-    @State private var imageRequestID: PHImageRequestID?
+    @State private var imageA: Image?
+    @State private var imageB: Image?
+    
+    @State private var imageARequestID: PHImageRequestID?
+    @State private var imageBRequestID: PHImageRequestID?
+    
     @Environment(\.dismiss) var dismiss
     
-    @State var imageLocation = ImageLocation()
+    @State var zoomState = ZoomState() //RENAME TO zoomState?
     
     private let imageSize = CGSize(width: 4032, height: 4032)
     private let doubleTapZoomScale = CGFloat(10)
@@ -25,21 +31,21 @@ struct PhotoView: View {
     var body: some View {
         Group {
             if showImageA && !showImageB {
-                getZoomableView(name: "GlassNN", imageLocation: $imageLocation)
+                getZoomableView(name: "GlassNN", image: imageA, imageLocation: $zoomState)
             } else if showImageB && !showImageA {
-                getZoomableView(name: "ISP", imageLocation: $imageLocation)
+                getZoomableView(name: "ISP", image: imageB, imageLocation: $zoomState)
             } else {
                 VStack {
-                    getZoomableView(name: "GlassNN", imageLocation: $imageLocation)
-                    getZoomableView(name: "ISP", imageLocation: $imageLocation)
+                    getZoomableView(name: "GlassNN", image: imageA, imageLocation: $zoomState)
+                    getZoomableView(name: "ISP", image: imageB, imageLocation: $zoomState)
                 }
             }
         }
         .onTapGesture(count: 2) {
-            if imageLocation.zoomScale == 1 {
-                imageLocation.zoomScale = doubleTapZoomScale
+            if zoomState.zoomScale == 1 {
+                zoomState.zoomScale = doubleTapZoomScale
             } else {
-                imageLocation.zoomScale = 1
+                zoomState.zoomScale = 1
             }
         }
         .overlay(alignment: .bottomTrailing) {
@@ -74,23 +80,29 @@ struct PhotoView: View {
         }))
         .navigationBarTitleDisplayMode(.inline)
         .task {
-            guard image == nil, let cache = cache else { return }
-            imageRequestID = await cache.requestImage(for: asset, targetSize: imageSize) { result in
+            guard imageA == nil, imageB == nil, let cache = cache else { return }
+            imageARequestID = await cache.requestImage(for: assetA, targetSize: imageSize) { result in
                 Task {
                     if let result = result {
-                        self.image = result.image
+                        self.imageA = result.image
+                    }
+                }
+            }
+            imageBRequestID = await cache.requestImage(for: assetB, targetSize: imageSize) { result in
+                Task {
+                    if let result = result {
+                        self.imageB = result.image
                     }
                 }
             }
         }
     }
     
-    func getZoomableView(name: String, imageLocation: Binding<ImageLocation>) -> some View {
-            return ZoomableScrollView(name: name, imageLocation: $imageLocation) {
+    func getZoomableView(name: String, image: Image?, imageLocation: Binding<ZoomState>) -> some View {
+            return ZoomableScrollView(name: name, imageLocation: $zoomState) {
                 image?
                     .resizable()
                     .scaledToFit()
-                    .accessibilityLabel(asset.accessibilityLabel)
             }
             .overlay(alignment: .topLeading) {
                 Text(verbatim: name)

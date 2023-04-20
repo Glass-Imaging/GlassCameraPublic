@@ -72,7 +72,6 @@ class PhotoCollection: NSObject, ObservableObject {
                 logger.log("Loaded smart album of type: \(smartAlbumType.rawValue)")
                 self.assetCollection = assetCollection
                 await refreshPhotoAssets()
-                // refreshPhotoAssets()
                 return
             } else {
                 logger.error("Unable to load smart album of type: : \(smartAlbumType.rawValue)")
@@ -89,7 +88,6 @@ class PhotoCollection: NSObject, ObservableObject {
             logger.log("Loaded photo album named: \(name)")
             self.assetCollection = assetCollection
             await refreshPhotoAssets()
-            // refreshPhotoAssets()
             return
         }
         
@@ -108,27 +106,32 @@ class PhotoCollection: NSObject, ObservableObject {
         }
     }
     
-    func addImage(_ imageData: Data, alternateResource: URL?, location: CLLocation?) async throws {
+    func addImage(_ imageData: Data, timestamp: String, isGlassRender: Bool, alternateResource: URL?, location: CLLocation?) async throws {
         guard let assetCollection = self.assetCollection else {
             throw PhotoCollectionError.missingAssetCollection
         }
         
         do {
             try await PHPhotoLibrary.shared().performChanges {
-            // PHPhotoLibrary.shared().performChanges({
-                
                 let creationRequest = PHAssetCreationRequest.forAsset()
                 if let location = location {
                     creationRequest.location = location
                 }
                 
                 if let assetPlaceholder = creationRequest.placeholderForCreatedAsset {
-                    creationRequest.addResource(with: .photo, data: imageData, options: nil)
+                    let options = PHAssetResourceCreationOptions()
+                    if isGlassRender {
+                        options.originalFilename = "\(timestamp)_GLS"
+                    } else {
+                        options.originalFilename = "\(timestamp)_ISP"
+                    }
+                        
+                    creationRequest.addResource(with: .photo, data: imageData, options: options)
                     
                     if let alternateResource = alternateResource {
-                        let options = PHAssetResourceCreationOptions()
+                        let altOptions = PHAssetResourceCreationOptions()
                         options.shouldMoveFile = true
-                        creationRequest.addResource(with: .alternatePhoto, fileURL: alternateResource, options: options)
+                        creationRequest.addResource(with: .alternatePhoto, fileURL: alternateResource, options: altOptions)
                     }
                     
                     if let albumChangeRequest = PHAssetCollectionChangeRequest(for: assetCollection), assetCollection.canPerform(.addContent) {
@@ -137,10 +140,8 @@ class PhotoCollection: NSObject, ObservableObject {
                     }
                 }
             }
-            //}
             
             await refreshPhotoAssets()
-            // refreshPhotoAssets()
             
         } catch let error {
             logger.error("Error adding image to photo library: \(error.localizedDescription)")
@@ -206,10 +207,6 @@ class PhotoCollection: NSObject, ObservableObject {
         }
         
         if let newFetchResult = newFetchResult {
-            /*
-            photoAssets = PhotoAssetCollection(newFetchResult)
-            logger.debug("PhotoCollection photoAssets refreshed: \(self.photoAssets.count)")
-             */
             await MainActor.run {
                 photoAssets = PhotoAssetCollection(newFetchResult)
                 logger.debug("PhotoCollection photoAssets refreshed: \(self.photoAssets.count)")
@@ -263,7 +260,6 @@ extension PhotoCollection: PHPhotoLibraryChangeObserver {
         Task { @MainActor in
             guard let changes = changeInstance.changeDetails(for: self.photoAssets.fetchResult) else { return }
             await self.refreshPhotoAssets(changes.fetchResultAfterChanges)
-            // self.refreshPhotoAssets(changes.fetchResultAfterChanges)
         }
     }
 }

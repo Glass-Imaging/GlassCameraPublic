@@ -27,7 +27,13 @@ struct PhotoCollectionView: View {
             LazyVGrid(columns: columns, spacing: Self.itemSpacing) {
                 ForEach(photoCollection.photoAssets) { asset in
                     NavigationLink {
-                        PhotoView(asset: asset, cache: photoCollection.cache)
+                        let siblingAsset = photoCollection.photoAssets.getNeighborWithMatchingRootFileName(position: asset.index!)!
+                        
+                        if asset.isGlassRender {
+                            PhotoView(assetA: asset, assetB: siblingAsset, cache: photoCollection.cache)
+                        } else {
+                            PhotoView(assetA: siblingAsset, assetB: asset, cache: photoCollection.cache)
+                        }
                     } label: {
                         photoItemView(asset: asset)
                     }
@@ -50,20 +56,12 @@ struct PhotoCollectionView: View {
             .clipped()
             .cornerRadius(Self.itemCornerRadius)
             .overlay(alignment: .bottomLeading) {
-                Text(verbatim: "GlassNN")
+                let name = asset.isGlassRender ? "GlassNN" : "ISP"
+                Text(verbatim: name)
                         .foregroundColor(.white)
                         .shadow(color: .black.opacity(0.3), radius: 5, x: 0, y: 1)
                         .font(.callout)
                         .offset(x: 4, y: -4)
-                /*
-                if asset.isFavorite {
-                    Image(systemName: "heart.fill")
-                        .foregroundColor(.white)
-                        .shadow(color: .black.opacity(0.3), radius: 5, x: 0, y: 1)
-                        .font(.callout)
-                        .offset(x: 4, y: -4)
-                }
-                 */
             }
             .onAppear {
                 Task {

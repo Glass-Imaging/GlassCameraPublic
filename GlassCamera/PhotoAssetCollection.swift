@@ -16,7 +16,7 @@ class PhotoAssetCollection: RandomAccessCollection {
     init(_ fetchResult: PHFetchResult<PHAsset>) {
         self.fetchResult = fetchResult
     }
-
+    
     subscript(position: Int) -> PhotoAsset {
         if let asset = cache[position] {
             return asset
@@ -24,6 +24,26 @@ class PhotoAssetCollection: RandomAccessCollection {
         let asset = PhotoAsset(phAsset: fetchResult.object(at: position), index: position)
         cache[position] = asset
         return asset
+    }
+    
+    func getNeighborWithMatchingRootFileName(position: Int) -> PhotoAsset? {
+        let targetRootFileName = self[position].rootFileName
+        
+        let lowerNeighborPosition = position - 1
+        if (lowerNeighborPosition >= startIndex)  {
+            if self[lowerNeighborPosition].rootFileName == targetRootFileName {
+                return self[lowerNeighborPosition]
+            }
+        }
+        
+        let upperNeighborPosition = position + 1
+        if (upperNeighborPosition < endIndex)  {
+            if self[upperNeighborPosition].rootFileName == targetRootFileName {
+                return self[upperNeighborPosition]
+            }
+        }
+        
+        return nil
     }
     
     var phAssets: [PHAsset] {

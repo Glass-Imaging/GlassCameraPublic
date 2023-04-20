@@ -8,13 +8,25 @@ import os.log
 struct PhotoAsset: Identifiable {
     var id: String { identifier }
     var identifier: String = UUID().uuidString
+    var name: String
     var index: Int?
     var phAsset: PHAsset?
+    
+    private let glassSuffix = "_GLS"
     
     typealias MediaType = PHAssetMediaType
     
     var isFavorite: Bool {
         phAsset?.isFavorite ?? false
+    }
+    
+    var isGlassRender: Bool {
+        return name.hasSuffix(glassSuffix)
+    }
+    
+    var rootFileName: Substring {
+        let end = name.index(name.endIndex, offsetBy: -1 * glassSuffix.count)
+        return name[name.startIndex..<end]
     }
     
     var mediaType: MediaType {
@@ -29,12 +41,26 @@ struct PhotoAsset: Identifiable {
         self.phAsset = phAsset
         self.index = index
         self.identifier = phAsset.localIdentifier
+        let resources = PHAssetResource.assetResources(for: self.phAsset!)
+        if let name = resources.first?.originalFilename {
+            self.name = name
+            NSLog("Loading :: \(self.name)")
+        } else {
+            self.name = self.identifier
+        }
     }
     
     init(identifier: String) {
         self.identifier = identifier
         let fetchedAssets = PHAsset.fetchAssets(withLocalIdentifiers: [identifier], options: nil)
         self.phAsset = fetchedAssets.firstObject
+        let resources = PHAssetResource.assetResources(for: self.phAsset!)
+        if let name = resources.first?.originalFilename {
+            self.name = name
+            NSLog("Loading :: \(self.name)")
+        } else {
+            self.name = self.identifier
+        }
     }
     
     func setIsFavorite(_ isFavorite: Bool) async {
