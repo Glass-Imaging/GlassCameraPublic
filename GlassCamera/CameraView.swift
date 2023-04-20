@@ -31,6 +31,10 @@ final class CameraModel: ObservableObject {
 
     @Published var showSpinner = false
 
+    @Published var currentDevice: DeviceConfiguration? = nil
+
+    @Published var availableBackDevices: [BackCameraConfiguration] = []
+
     var alertError: AlertError!
 
     var session: AVCaptureSession
@@ -66,11 +70,26 @@ final class CameraModel: ObservableObject {
             self?.showSpinner = val
         }
         .store(in: &self.subscriptions)
+
+        service.$currentDevice.sink { [weak self] (val) in
+            self?.currentDevice = val
+        }
+        .store(in: &self.subscriptions)
+
+        service.$availableBackDevices.sink { [weak self] (val) in
+            self?.availableBackDevices = val
+        }
+        .store(in: &self.subscriptions)
     }
 
-    func configure() {
+    func deviceConfiguration(_ configuration : BackCameraConfiguration) -> DeviceConfiguration {
+        return service.backDeviceConfigurations[configuration] ??
+                DeviceConfiguration(position: .back, deviceType: .builtInWideAngleCamera)
+    }
+
+    func configure(_ configuration: DeviceConfiguration) {
         service.checkForPermissions()
-        service.configure()
+        service.configure(configuration)
     }
 
     func capturePhoto() {
@@ -78,11 +97,14 @@ final class CameraModel: ObservableObject {
     }
 
     func flipCamera() {
-        service.changeCamera()
+        let configuration = service.currentDevice?.position == .back ?
+                DeviceConfiguration(position: .front, deviceType: .builtInWideAngleCamera) :
+                DeviceConfiguration(position: .back,  deviceType: .builtInWideAngleCamera)
+        service.changeCamera(configuration)
     }
 
-    func zoom(with factor: CGFloat) {
-        service.set(zoom: factor)
+    func switchCamera(_ configuration: DeviceConfiguration) {
+        service.changeCamera(configuration)
     }
 
     func switchFlash() {
@@ -126,7 +148,7 @@ final class CameraModel: ObservableObject {
 struct CameraView: View {
     @StateObject var model = CameraModel()
 
-    @State var currentZoomFactor: CGFloat = 1.0
+    @State private var zoomLevel:BackCameraConfiguration = .Wide
 
     var captureButton: some View {
         Button(action: {
@@ -156,8 +178,25 @@ struct CameraView: View {
         })
     }
 
+    var zoomLevelPicker: some View {
+        VStack {
+            Picker("Camera Configuration", selection: $zoomLevel) {
+                // Preserve the order in the BackCameraConfiguration definition
+                ForEach(BackCameraConfiguration.allCases) { configuration in
+                    if model.availableBackDevices.contains(configuration) {
+                        Text(configuration.rawValue.capitalized)
+                    }
+                }
+            }
+            .pickerStyle(.segmented)
+        }.onChange(of: zoomLevel) { newValue in
+            model.switchCamera(model.deviceConfiguration(newValue))
+        }
+    }
+
     var body: some View {
         NavigationStack {
+            
             GeometryReader { reader in
                 ZStack {
                     Color.black.edgesIgnoringSafeArea(.all)
@@ -171,53 +210,48 @@ struct CameraView: View {
                         })
                         .accentColor(model.isFlashOn ? .yellow : .white)
                         
-                        CameraPreview(session: model.session)
-                            .gesture(
-                                DragGesture().onChanged({ (val) in
-                                    withAnimation {
-                                        //  Only accept vertical drag
-                                        if abs(val.translation.height) > abs(val.translation.width) {
-                                            //  Get the percentage of vertical screen space covered by drag
-                                            let percentage: CGFloat = -(val.translation.height / reader.size.height)
-                                            //  Calculate new zoom factor
-                                            let calc = currentZoomFactor + percentage
-                                            //  Limit zoom factor to a maximum of 5x and a minimum of 1x
-                                            let zoomFactor: CGFloat = min(max(calc, 1), 5)
-                                            //  Store the newly calculated zoom factor
-                                            currentZoomFactor = zoomFactor
-                                            //  Sets the zoom factor to the capture device session
-                                            model.zoom(with: zoomFactor)
+                        ZStack {
+                            CameraPreview(session: model.session)
+                                .onAppear {
+                                    // TODO: Fetch this from stored preferences
+                                    model.configure(DeviceConfiguration(position: .back, deviceType: .builtInWideAngleCamera))
+                                }
+                                .alert(isPresented: $model.showAlertError, content: {
+                                    Alert(title: Text(model.alertError.title),
+                                          message: Text(model.alertError.message),
+                                          dismissButton: .default(Text(model.alertError.primaryButtonTitle), action: {
+                                        model.alertError.primaryAction?()
+                                    }))
+                                })
+                                .overlay(Group {
+                                    if model.showSpinner {
+                                        Color.black.opacity(0.2)
+                                        
+                                        ProgressView()
+                                            .scaleEffect(2, anchor: .center)
+                                            .progressViewStyle(CircularProgressViewStyle(tint: Color.white))
+                                    }
+                                    
+                                    if model.willCapturePhoto {
+                                        Group {
+                                            Color.black
+                                        }.onAppear {
+                                            withAnimation {
+                                                model.willCapturePhoto = false
+                                            }
                                         }
                                     }
                                 })
-                            )
-                            .onAppear {
-                                model.configure()
-                            }
-                            .alert(isPresented: $model.showAlertError, content: {
-                                Alert(title: Text(model.alertError.title), message: Text(model.alertError.message), dismissButton: .default(Text(model.alertError.primaryButtonTitle), action: {
-                                    model.alertError.primaryAction?()
-                                }))
-                            })
-                            .overlay(Group {
-                                if model.showSpinner {
-                                    Color.black.opacity(0.2)
+                            
+                            if (model.currentDevice?.position == .back) {
+                                VStack {
+                                    Spacer()
                                     
-                                    ProgressView()
-                                        .scaleEffect(2, anchor: .center)
-                                        .progressViewStyle(CircularProgressViewStyle(tint: Color.white))
+                                    zoomLevelPicker
+                                        .padding(.all, 20)
                                 }
-                                
-                                if model.willCapturePhoto {
-                                    Group {
-                                        Color.black
-                                    }.onAppear {
-                                        withAnimation {
-                                            model.willCapturePhoto = false
-                                        }
-                                    }
-                                }
-                            })
+                            }
+                        }
                         
                         HStack {
                             // capturedPhotoThumbnail
@@ -238,6 +272,9 @@ struct CameraView: View {
                                     ThumbnailView(image: model.thumbnailImage)
                                 }
                             }
+                            .onTapGesture {
+                                print("Tapping Nav View")
+                            }
                             
                             Spacer()
                             
@@ -249,13 +286,15 @@ struct CameraView: View {
                             
                         }
                         .padding(.horizontal, 20)
+                        
+                        
                     }
                 }
             }
-        }
-        .task {
-            await model.loadPhotos()
-            await model.loadThumbnail()
+            .task {
+                await model.loadPhotos()
+                await model.loadThumbnail()
+            }
         }
     }
 }
