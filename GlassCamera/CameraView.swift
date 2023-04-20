@@ -18,6 +18,7 @@ import Combine
 import AVFoundation
 
 final class CameraModel: ObservableObject {
+    let photoCollection = PhotoCollection(albumNamed: "Glass Photos", createIfNotFound: true)
     let service = CameraService()
     var isPhotosLoaded = false
     
@@ -45,8 +46,9 @@ final class CameraModel: ObservableObject {
         self.session = service.session
 
         service.$thumbnail.sink { [weak self] (photo) in
-            guard let pic = photo else { return }
-            self?.thumbnailImage = Image(uiImage: pic)
+            if let photo = photo {
+                self?.thumbnailImage = Image(uiImage: photo)
+            }
         }
         .store(in: &self.subscriptions)
 
@@ -93,7 +95,7 @@ final class CameraModel: ObservableObject {
     }
 
     func capturePhoto() {
-        service.capturePhoto()
+        service.capturePhoto(saveCollection: self.photoCollection)
     }
 
     func flipCamera() {
@@ -123,7 +125,7 @@ final class CameraModel: ObservableObject {
         
         Task {
             do {
-                try await self.service.photoCollection.load()
+                try await self.photoCollection.load()
                 await self.loadThumbnail()
             } catch let error {
                 //logger.error("Failed to load photo collection: \(error.localizedDescription)")
@@ -134,8 +136,8 @@ final class CameraModel: ObservableObject {
     }
     
     func loadThumbnail() async {
-        guard let asset = service.photoCollection.photoAssets.first  else { return }
-        await service.photoCollection.cache.requestImage(for: asset, targetSize: CGSize(width: 256, height: 256))  { result in
+        guard let asset = photoCollection.photoAssets.first  else { return }
+        await photoCollection.cache.requestImage(for: asset, targetSize: CGSize(width: 256, height: 256))  { result in
             if let result = result {
                 Task { @MainActor in
                     self.thumbnailImage = result.image
@@ -249,26 +251,17 @@ struct CameraView: View {
                                     
                                     zoomLevelPicker
                                         .padding(.all, 20)
-                                        // .preferredColorScheme(.dark)
                                 }
                             }
                         }
                         
                         HStack {
-                            // capturedPhotoThumbnail
                             NavigationLink {
-                                PhotoCollectionView(photoCollection: model.service.photoCollection)
-                                /*
-                                    .onAppear { model.camera.isPreviewPaused = true }
-                                    .onDisappear { model.camera.isPreviewPaused = false }
-                                 */
+                                PhotoCollectionView(photoCollection: model.photoCollection)
                             } label: {
                                 Label {} icon: {
                                     ThumbnailView(image: model.thumbnailImage)
                                 }
-                            }
-                            .onTapGesture {
-                                print("Tapping Nav View")
                             }
                             
                             Spacer()

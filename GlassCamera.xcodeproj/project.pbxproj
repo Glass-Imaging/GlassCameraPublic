@@ -219,6 +219,24 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		86276B3A29F1ECB500EFF0C3 /* ImageGalleryViewer */ = {
+			isa = PBXGroup;
+			children = (
+				86276B3829F1CD6700EFF0C3 /* PhotoCategories.swift */,
+				86276B2A29EF4DA900EFF0C3 /* PhotoAsset.swift */,
+				86276B2D29EF4DA900EFF0C3 /* PhotoAssetCollection.swift */,
+				86276B2B29EF4DA900EFF0C3 /* PhotoCollection.swift */,
+				86276B2929EF4DA900EFF0C3 /* PhotoCollectionView.swift */,
+				86276B2729EF4DA900EFF0C3 /* PhotoItemView.swift */,
+				86276B2E29EF4DA900EFF0C3 /* PhotoLibrary.swift */,
+				86276B2C29EF4DA900EFF0C3 /* PhotoView.swift */,
+				86276B2629EF4DA900EFF0C3 /* ThumbnailView.swift */,
+				86276B2829EF4DA900EFF0C3 /* ZoomableScrollView.swift */,
+				86276B2429EF4D9700EFF0C3 /* CachedImageManager.swift */,
+			);
+			path = ImageGalleryViewer;
+			sourceTree = "<group>";
+		};
 		E5C5BFA529BC5DF900AAB593 /* Objective-C */ = {
 			isa = PBXGroup;
 			children = (
@@ -335,16 +353,7 @@
 		E5D4D88B27D1798D00F1D944 /* GlassCamera */ = {
 			isa = PBXGroup;
 			children = (
-				86276B2A29EF4DA900EFF0C3 /* PhotoAsset.swift */,
-				86276B2D29EF4DA900EFF0C3 /* PhotoAssetCollection.swift */,
-				86276B2B29EF4DA900EFF0C3 /* PhotoCollection.swift */,
-				86276B2929EF4DA900EFF0C3 /* PhotoCollectionView.swift */,
-				86276B2729EF4DA900EFF0C3 /* PhotoItemView.swift */,
-				86276B2E29EF4DA900EFF0C3 /* PhotoLibrary.swift */,
-				86276B2C29EF4DA900EFF0C3 /* PhotoView.swift */,
-				86276B2629EF4DA900EFF0C3 /* ThumbnailView.swift */,
-				86276B2829EF4DA900EFF0C3 /* ZoomableScrollView.swift */,
-				86276B2429EF4D9700EFF0C3 /* CachedImageManager.swift */,
+				86276B3A29F1ECB500EFF0C3 /* ImageGalleryViewer */,
 				E5C5BF4229BA833F00AAB593 /* Info.plist */,
 				E5D4D89A27D17A5C00F1D944 /* GlassCamera.entitlements */,
 				E5D4D88C27D1798D00F1D944 /* GlassCameraApp.swift */,
@@ -356,7 +365,6 @@
 				E5D4D8A527D183F700F1D944 /* PhotoCaptureProcessor.swift */,
 				E5D4D89027D1798E00F1D944 /* Assets.xcassets */,
 				E5D4D89227D1798E00F1D944 /* Preview Content */,
-				86276B3829F1CD6700EFF0C3 /* PhotoCategories.swift */,
 			);
 			path = GlassCamera;
 			sourceTree = "<group>";

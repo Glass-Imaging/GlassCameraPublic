@@ -110,9 +110,6 @@ public class CameraService: NSObject, Identifiable {
 
     let locationManager = CLLocationManager()
     
-    // Handles all interaction with the photos library
-    let photoCollection = PhotoCollection(albumNamed: "Glass Photos", createIfNotFound: true)
-
     override public init() {
         super.init()
 
@@ -488,7 +485,7 @@ public class CameraService: NSObject, Identifiable {
 
     // MARK: Capture Photo
 
-    public func capturePhoto() {
+    func capturePhoto(saveCollection: PhotoCollection) {
         /*
          Retrieve the video preview layer's video orientation on the main queue before
          entering the session queue. This to ensures that UI elements are accessed on
@@ -564,7 +561,7 @@ public class CameraService: NSObject, Identifiable {
                     photoSettings.photoQualityPrioritization = .quality
                 }
 
-                let photoCaptureProcessor = PhotoCaptureProcessor(photoCollection: self.photoCollection, with: photoSettings, willCapturePhotoAnimation: {
+                let photoCaptureProcessor = PhotoCaptureProcessor(saveCollection: saveCollection, with: photoSettings, willCapturePhotoAnimation: {
                     // Flash the screen to signal that AVCam took a photo.
                     self.willCapturePhoto = true
                 }, completionHandler: { (photoCaptureProcessor) in

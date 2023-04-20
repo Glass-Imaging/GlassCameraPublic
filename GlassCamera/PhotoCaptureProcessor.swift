@@ -100,17 +100,17 @@ class PhotoCaptureProcessor: NSObject {
     private let rawProcessor = RawProcessor()
     private let rawProcessingQueue = OperationQueue()
     
-    private let photoCollection: PhotoCollection
+    private let saveCollection: PhotoCollection
 
     // Save the location of captured photos
     var location: CLLocation?
 
-    init(photoCollection: PhotoCollection,
+    init(saveCollection: PhotoCollection,
          with requestedPhotoSettings: AVCapturePhotoSettings,
          willCapturePhotoAnimation: @escaping () -> Void,
          completionHandler: @escaping (PhotoCaptureProcessor) -> Void,
          photoProcessingHandler: @escaping (Bool) -> Void) {
-        self.photoCollection = photoCollection
+        self.saveCollection = saveCollection
         self.requestedPhotoSettings = requestedPhotoSettings
         self.willCapturePhotoAnimation = willCapturePhotoAnimation
         self.completionHandler = completionHandler
@@ -318,6 +318,9 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
             }
         }
         
+        // Wait for RAW data to be processed
+        rawProcessingQueue.waitUntilAllOperationsAreFinished();
+        
         let dateFMT = DateFormatter()
         dateFMT.locale = Locale(identifier: "en_US_POSIX")
         dateFMT.dateFormat = "yyyy-MM-dd-HH-mm-ss-SSSS"
@@ -327,14 +330,11 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
 
         if let capturedImage = self.capturedImage {
             Task {
-                try! await photoCollection.addImage(capturedImage, timestamp: timestamp, photoCategory: PhotoCategories.ISP, alternateResource: self.dngFile, location: self.location)
+                try! await saveCollection.addImage(capturedImage, timestamp: timestamp, photoCategory: PhotoCategories.ISP, alternateResource: self.dngFile, location: self.location)
                 completeTransaction()
                 self.dngFile = nil
             }
         }
-
-        // Wait for RAW data to be processed
-        rawProcessingQueue.waitUntilAllOperationsAreFinished();
 
         // Save the processed RAW image as a separate file
         if let procesedImage = self.procesedImage {
@@ -343,7 +343,7 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
                let heicData = cgImage.heic(withMetadata: self.imageMetadata) {
                 
                 Task {
-                    try! await photoCollection.addImage(heicData, timestamp: timestamp, photoCategory: PhotoCategories.GlassTraditional, alternateResource: nil, location: self.location)
+                    try! await saveCollection.addImage(heicData, timestamp: timestamp, photoCategory: PhotoCategories.GlassTraditional, alternateResource: nil, location: self.location)
                     completeTransaction()
                     self.procesedImage = nil
                     self.imageMetadata = nil
