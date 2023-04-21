@@ -131,6 +131,8 @@ public:
         float white_level;
         float shadows;
         float highlights;
+        float brightness;
+        float median;
     };
 
     RawConverter(NS::SharedPtr<MTL::Device> mtlDevice, const std::vector<uint8_t>* icc_profile_data = nullptr, bool calibrateFromImage = false) :
