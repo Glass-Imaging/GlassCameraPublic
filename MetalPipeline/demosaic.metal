@@ -1415,7 +1415,7 @@ kernel void histogramStatistics(device histogram_data& histogram_data [[buffer(0
 
         histogram_data.highlights = 1;
         histogram_data.shadows = 1;
-        histogram_data.highlights = 1.5 + 4 * smoothstep(0.01, 0.1, (histogram_data.bands[5] +
+        histogram_data.highlights = 1.5 + 2 * smoothstep(0.01, 0.1, (histogram_data.bands[5] +
                                                                      histogram_data.bands[6] +
                                                                      histogram_data.bands[7]) / (float) image_size);
 
@@ -1473,7 +1473,7 @@ kernel void convertTosRGB(texture2d<float> linearImage                  [[textur
             // rgb = mix(1 - (1.0 - rgb) * (1 - ltmBoost * luma) / (1 - luma), rgb * ltmBoost, smoothstep(0.125, 0.25, luma));
             rgb = mix(rgb * ltmBoost,
                       mix(1 - (1.0 - rgb) * (1 - ltmBoost * luma) / (1 - luma), rgb * ltmBoost, smoothstep(0.5, 0.8, luma)),
-                      min(2 * pow(luma, 0.5), 1.0));
+                      min(pow(luma, 0.5), 1.0));
         } else if (ltmBoost < 1) {
             rgb *= ltmBoost;
         }
