@@ -1268,7 +1268,7 @@ float computeLtmMultiplier(float3 input, float2 gfAb, float eps, float shadows,
     const float reflectance = input.x / illuminance;
 
     // LTM curve computed in Log space
-    const float midtones = 0.25;
+    const float midtones = 0.22;
 
     float adjusted_illuminance =
         // Shadows adjustment
@@ -1415,11 +1415,11 @@ kernel void histogramStatistics(device histogram_data& histogram_data [[buffer(0
 
         histogram_data.highlights = 1;
         histogram_data.shadows = 1;
-        histogram_data.highlights = 1.5 + 2 * smoothstep(0.01, 0.1, (histogram_data.bands[5] +
+        histogram_data.highlights = 1 + 1.5 * smoothstep(0.01, 0.1, (histogram_data.bands[5] +
                                                                      histogram_data.bands[6] +
                                                                      histogram_data.bands[7]) / (float) image_size);
 
-        histogram_data.shadows = 0.9 - 0.4 * smoothstep(0.25, 0.5,
+        histogram_data.shadows = 0.8 - 0.5 * smoothstep(0.25, 0.5,
                                                         (histogram_data.bands[0] +
                                                          histogram_data.bands[1]) / (float) image_size);
     }
@@ -1439,7 +1439,6 @@ kernel void convertTosRGB(texture2d<float> linearImage                  [[textur
     float white_level = 1 - 0.25 * (1 - smoothstep(0.375, 0.625, histogram_data.white_level));
 
     float brightening = 1 + 0.5 * smoothstep(0, 0.1, histogram_data.brightness - histogram_data.median);
-
     if (histogram_data.brightness > 0.22) {
         brightening *= 0.22 / histogram_data.brightness;
     }
