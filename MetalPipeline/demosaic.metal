@@ -1417,7 +1417,7 @@ kernel void histogramStatistics(device histogram_data& histogram_data [[buffer(0
 
 //        histogram_data.highlights = 1;
 //        histogram_data.shadows = 1;
-        histogram_data.highlights = 1 + 1.5 * smoothstep(0.01, 0.1, (histogram_data.bands[5] +
+        histogram_data.highlights = 1 + 2 * smoothstep(0.01, 0.1, (histogram_data.bands[5] +
                                                                      histogram_data.bands[6] +
                                                                      histogram_data.bands[7]) / (float) image_size);
 
