@@ -76,6 +76,19 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::denoise(const gls::mtl_i
     _histogramImage(&_mtlContext, *histogramImage, _histogramBuffer.get());
     _histogramStatistics(&_mtlContext, _histogramBuffer.get(), histogramImage->size());
 
+//    _mtlContext.waitForCompletion();
+//    auto histogramData = this->histogramData();
+//
+//    auto histogramImageCPU = histogramImage->mapImage();
+//    gls::image<gls::luma_pixel_16> lumaImage(histogramImageCPU->width, histogramImageCPU->height);
+//    lumaImage.apply([&](gls::luma_pixel_16* p, int x, int y) {
+//        float luma = std::clamp(((*histogramImageCPU)[y][x].x - histogramData->black_level) / (histogramData->white_level - histogramData->black_level), 0.0f, 1.0f);
+//
+//        p->luma = (uint16_t) (0xffff * std::sqrt(luma));
+//    });
+//    lumaImage.write_png_file("/Users/fabio/luma.png");
+
+
     if (demosaicParameters->rgbConversionParameters.localToneMapping) {
         const std::array<const gls::mtl_image_2d<gls::rgba_pixel_float>*, 3>& guideImage = {
             _pyramidProcessor->denoisedImagePyramid[4].get(),
@@ -265,9 +278,9 @@ RawNLF RawConverter::MeasureRawNLF(float exposure_multiplier, BayerPattern bayer
     });
     err2 /= N;
 
-//    std::cout << "RAW NLF A: " << std::setprecision(4) << std::scientific << nlfA << ", B: " << nlfB
-//                  << ", MSE: " << sqrt(err2) << " on " << std::setprecision(1) << std::fixed
-//                  << 100 * N / (_rawImage->width * _rawImage->height) << "% pixels" << std::endl;
+    std::cout << "RAW NLF A: " << std::setprecision(4) << std::scientific << nlfA << ", B: " << nlfB
+                  << ", MSE: " << sqrt(err2) << " on " << std::setprecision(1) << std::fixed
+                  << 100 * N / (_rawImage->width * _rawImage->height) << "% pixels" << std::endl;
 
     // Update the maximum variance with the model
     varianceMax = nlfB;
@@ -302,15 +315,20 @@ RawNLF RawConverter::MeasureRawNLF(float exposure_multiplier, BayerPattern bayer
     });
     newErr2 /= N;
 
-    // Estimate the new regression parameters
-    nlfB = max((N * s_xy - s_x * s_y) / (N * s_xx - s_x * s_x), 1e-8);
-    nlfA = max((s_y - nlfB * s_x) / N, 1e-8);
+    if (newErr2 < err2) {
+        err2 = newErr2;
 
-    assert(all(newErr2 < err2));
+        // Estimate the new regression parameters
+        nlfB = max((N * s_xy - s_x * s_y) / (N * s_xx - s_x * s_x), 1e-8);
+        nlfA = max((s_y - nlfB * s_x) / N, 1e-8);
+
+    } else {
+        std::cout << "WARNING: the second noise estimate is worse than the first..." << std::endl;
+    }
 
     std::cout << "RAW NLF A: " << std::setprecision(4) << std::scientific << nlfA << ", B: " << nlfB
-                  << ", MSE: " << sqrt(newErr2) << " on " << std::setprecision(1) << std::fixed
-                  << 100 * N / (_rawImage->width * _rawImage->height) << "% pixels" << std::endl;
+    << ", MSE: " << sqrt(err2) << " on " << std::setprecision(1) << std::fixed
+    << 100 * N / (_rawImage->width * _rawImage->height) << "% pixels" << std::endl;
 
 //    meanImage.unmapImage(meanImageCpu);
 //    varImage.unmapImage(varImageCpu);

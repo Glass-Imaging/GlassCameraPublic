@@ -1268,10 +1268,13 @@ float computeLtmMultiplier(float3 input, float2 gfAb, float eps, float shadows,
     const float reflectance = input.x / illuminance;
 
     // LTM curve computed in Log space
-    float midtones = 0.2;
-    float adjusted_illuminance = illuminance <= midtones ?
-        midtones * pow(illuminance / midtones, shadows) :                                           // Shadows adjustment
-        (1 - midtones) * pow((illuminance - midtones) / (1 - midtones), highlights) + midtones;     // Highlights adjustment
+    const float midtones = 0.22;
+
+    float adjusted_illuminance =
+        // Shadows adjustment
+        illuminance <= midtones ? midtones * pow(illuminance / midtones, shadows) :
+        // Highlights adjustment
+        (1 - midtones) * pow((illuminance - midtones) / (1 - midtones), highlights) + midtones;
 
     return adjusted_illuminance * pow(reflectance, detail) / input.x;
 }
@@ -1292,6 +1295,8 @@ struct histogram_data {
     float white_level;
     float shadows;
     float highlights;
+    float brightness;
+    float median;
 };
 
 kernel void localToneMappingMaskImage(texture2d<float> inputImage                   [[texture(0)]],
@@ -1363,31 +1368,57 @@ kernel void histogramStatistics(device histogram_data& histogram_data [[buffer(0
 
         const uint32_t image_size = image_dimensions.x * image_dimensions.y;
 
+        float brightness = 0;
+        bool found_median = false;
         bool found_black = false;
         bool found_white = false;
+        int median_index = 0;
+        int black_index = 0;
+        int white_index = 0;
         uint32_t sum = 0;
         for (int i = 0; i < histogramSize; i++) {
             const uint32_t entry = (*plain_histogram)[i];
+
+            // Compute subsampled (8 bands) histogram
             histogram_data.bands[i / 32] += entry;
+
+            // Compute average image value
+            brightness += entry * (i + 1) / (float) histogramSize;
+
+            // Compute cumulative function statistics
             sum += entry;
+            if (!found_median && (sum >= (image_size + 1) / 2)) {
+                median_index = i;
+                found_median = true;
+            }
             if (!found_black && sum >= 0.001 * image_size) {
-                float v = (i - 1) / (float) (histogramSize - 1);
-                histogram_data.black_level = 2 * v * v;
+                black_index = i;
                 found_black = true;
             }
             if (!found_white && sum >= 0.999 * image_size) {
-                float v = i / (float) (histogramSize - 1);
-                histogram_data.white_level = 2 * v * v;
+                white_index = i;
                 found_white = true;
             }
-
-            (*plain_histogram)[i] = (histogramSize - 1) * log(entry / (float) (histogramSize - 1));
         }
+        brightness /= image_size;
 
-        // FIXME: need a reasonable way to control this
-//        histogram_data.highlights = 1;
-//        histogram_data.shadows = 1;
-        histogram_data.highlights = 1.5 + smoothstep(0.01, 0.1, histogram_data.bands[7] / (float) image_size);
+        {
+            float v = (black_index - 1) / (float) (histogramSize - 1);
+            histogram_data.black_level = 2 * v * v;
+        }
+        {
+            float v = white_index / (float) (histogramSize - 1);
+            histogram_data.white_level = 2 * v * v;
+        }
+        histogram_data.median = median_index / (float) (histogramSize - 1) - histogram_data.black_level;
+        histogram_data.brightness = brightness - histogram_data.black_level;
+
+        histogram_data.highlights = 1;
+        histogram_data.shadows = 1;
+        histogram_data.highlights = 1 + 1.5 * smoothstep(0.01, 0.1, (histogram_data.bands[5] +
+                                                                     histogram_data.bands[6] +
+                                                                     histogram_data.bands[7]) / (float) image_size);
+
         histogram_data.shadows = 0.8 - 0.5 * smoothstep(0.25, 0.5,
                                                         (histogram_data.bands[0] +
                                                          histogram_data.bands[1]) / (float) image_size);
@@ -1405,10 +1436,15 @@ kernel void convertTosRGB(texture2d<float> linearImage                  [[textur
     const int2 imageCoordinates = (int2) index;
 
     float black_level = histogram_data.black_level;
-    float white_level = 0.5 + 0.5 * smoothstep(0.25, 0.5, histogram_data.white_level);
+    float white_level = 1 - 0.25 * (1 - smoothstep(0.375, 0.625, histogram_data.white_level));
+
+    float brightening = 1 + 0.5 * smoothstep(0, 0.1, histogram_data.brightness - histogram_data.median);
+    if (histogram_data.brightness > 0.22) {
+        brightening *= 0.22 / histogram_data.brightness;
+    }
 
     // FIXME: Compute the black and white levels dynamically
-    float3 pixel_value = (read_imagef(linearImage, imageCoordinates).xyz - black_level) / (white_level - black_level);
+    float3 pixel_value = brightening * (read_imagef(linearImage, imageCoordinates).xyz - black_level) / (white_level - black_level);
 
     // Exposure Bias
     pixel_value *= parameters.exposureBias != 0 ? powr(2.0, parameters.exposureBias) : 1;
@@ -1436,7 +1472,7 @@ kernel void convertTosRGB(texture2d<float> linearImage                  [[textur
             // rgb = mix(1 - (1.0 - rgb) * (1 - ltmBoost * luma) / (1 - luma), rgb * ltmBoost, smoothstep(0.125, 0.25, luma));
             rgb = mix(rgb * ltmBoost,
                       mix(1 - (1.0 - rgb) * (1 - ltmBoost * luma) / (1 - luma), rgb * ltmBoost, smoothstep(0.5, 0.8, luma)),
-                      min(2 * pow(luma, 0.5), 1.0));
+                      min(pow(luma, 0.5), 1.0));
         } else if (ltmBoost < 1) {
             rgb *= ltmBoost;
         }

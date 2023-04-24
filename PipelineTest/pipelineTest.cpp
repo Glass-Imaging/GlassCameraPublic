@@ -123,23 +123,28 @@ void demosaicFile(RawConverter* rawConverter, std::filesystem::path input_path) 
     std::cout << "Metal Pipeline Execution Time: " << (int)elapsed_time_ms
     << "ms for image of size: " << rawImage->width << " x " << rawImage->height << std::endl;
 
-    const auto output_path = input_path.replace_extension("_r.png");
+    const auto output_path = input_path.replace_extension("_r_exp_hi_sh_2.png");
 
     const auto srgbImageCpu = srgbImage->mapImage();
     saveImage<gls::rgb_pixel_16>(*srgbImageCpu, output_path.string(), rawConverter->icc_profile_data());
 
-//    auto histogramData = rawConverter->histogramData();
+    auto histogramData = rawConverter->histogramData();
     // plotHistogram(histogramData->histogram, input_path.filename().string());
 
-//    int imageSize = rawImage->width * rawImage->height;
-//    std::cout << "bands: ";
-//    for (int i = 0; i < 8; i++) {
-//        std::cout << histogramData->bands[i] / (float) imageSize << ", ";
-//    }
-//    std::cout << std::endl;
-//
-//    std::cout << "black_level: " << histogramData->black_level << ", white_level: " << histogramData->white_level << std::endl;
-//    std::cout << "shadows: " << histogramData->shadows << ", highlights: " << histogramData->highlights << std::endl;
+    int imageSize = rawImage->width * rawImage->height / 64;
+    float sum = 0;
+    std::cout << "bands: ";
+    for (int i = 0; i < 8; i++) {
+        sum += histogramData->bands[i] / (float) imageSize;
+        std::cout << histogramData->bands[i] / (float) imageSize << ", ";
+    }
+    std::cout << "sum: " << sum << std::endl;
+
+    std::cout << "black_level: " << histogramData->black_level << ", white_level: " << histogramData->white_level << std::endl;
+    std::cout << "shadows: " << histogramData->shadows << ", highlights: " << histogramData->highlights << std::endl;
+    std::cout << "brightness: " << histogramData->brightness << std::endl;
+    std::cout << "median: " << histogramData->median << std::endl;
+    std::cout << "brightness - median: " << histogramData->brightness - histogramData->median << std::endl;
 }
 
 void demosaicDirectory(RawConverter* rawConverter, std::filesystem::path input_path) {
@@ -180,9 +185,9 @@ int main(int argc, const char * argv[]) {
     if (argc > 1) {
         auto input_path = std::filesystem::path(argv[1]);
 
-        demosaicFile(&rawConverter, input_path);
+        // demosaicFile(&rawConverter, input_path);
 
-        // demosaicDirectory(&rawConverter, input_path);
+        demosaicDirectory(&rawConverter, input_path);
 
         return 0;
     } else {
