@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		86276B3D29F3037200EFF0C3 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 86276B3C29F3019300EFF0C3 /* Assets.xcassets */; };
 		E522296829CD646600D13A4F /* pyramid_processor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E522296629CD646600D13A4F /* pyramid_processor.cpp */; };
 		E522296929CD646600D13A4F /* pyramid_processor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E522296629CD646600D13A4F /* pyramid_processor.cpp */; };
 		E522296D29D026DA00D13A4F /* iPhoneCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E522296C29D026DA00D13A4F /* iPhoneCalibration.cpp */; };
@@ -84,6 +85,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		86276B3C29F3019300EFF0C3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		E522296629CD646600D13A4F /* pyramid_processor.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = pyramid_processor.cpp; sourceTree = "<group>"; };
 		E522296729CD646600D13A4F /* pyramid_processor.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = pyramid_processor.hpp; sourceTree = "<group>"; };
 		E522296B29CE421000D13A4F /* tinyicc.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = tinyicc.hpp; sourceTree = "<group>"; };
@@ -128,7 +130,7 @@
 		E5C6986C29C926F100F7062C /* Sonya6400Calibration.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Sonya6400Calibration.cpp; sourceTree = "<group>"; };
 		E5C6987D29CBAD8300F7062C /* RawProcessor.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RawProcessor.h; sourceTree = "<group>"; };
 		E5C6987E29CBAD8300F7062C /* RawProcessor.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = RawProcessor.mm; sourceTree = "<group>"; };
-		E5D4D88927D1798D00F1D944 /* GlassCamera.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GlassCamera.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E5D4D88927D1798D00F1D944 /* Glass Camera.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Glass Camera.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		E5D4D88C27D1798D00F1D944 /* GlassCameraApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassCameraApp.swift; sourceTree = "<group>"; };
 		E5D4D88E27D1798D00F1D944 /* CameraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraView.swift; sourceTree = "<group>"; };
 		E5D4D89027D1798E00F1D944 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -289,6 +291,7 @@
 		E5D4D88027D1798D00F1D944 = {
 			isa = PBXGroup;
 			children = (
+				86276B3C29F3019300EFF0C3 /* Assets.xcassets */,
 				E57CA85A29D3D472006F5D3F /* sciplot */,
 				E5C5C00029BD37F600AAB593 /* metal-cpp */,
 				E5C5C01229BD3DAE00AAB593 /* MetalPipeline */,
@@ -304,7 +307,7 @@
 		E5D4D88A27D1798D00F1D944 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				E5D4D88927D1798D00F1D944 /* GlassCamera.app */,
+				E5D4D88927D1798D00F1D944 /* Glass Camera.app */,
 				E5FAE7E129C5420200213AE6 /* PipelineTest */,
 			);
 			name = Products;
@@ -362,7 +365,7 @@
 			);
 			name = GlassCamera;
 			productName = GlassCamera;
-			productReference = E5D4D88927D1798D00F1D944 /* GlassCamera.app */;
+			productReference = E5D4D88927D1798D00F1D944 /* Glass Camera.app */;
 			productType = "com.apple.product-type.application";
 		};
 		E5FAE7E029C5420200213AE6 /* PipelineTest */ = {
@@ -426,6 +429,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				E5D4D89427D1798E00F1D944 /* Preview Assets.xcassets in Resources */,
+				86276B3D29F3037200EFF0C3 /* Assets.xcassets in Resources */,
 				E5D4D89127D1798E00F1D944 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -616,6 +620,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
 				CLANG_CXX_LIBRARY = "";
 				CLANG_ENABLE_MODULES = YES;
@@ -624,7 +629,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"GlassCamera/Preview Content\"";
-				DEVELOPMENT_TEAM = 4A4DGXV9V7;
+				DEVELOPMENT_TEAM = WM2UUQMK8D;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = NO;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -654,18 +659,20 @@
 					"$(PROJECT_DIR)/catalystDependencies/lib",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.glass-imaging.GlassCamera";
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.glass-imaging.GlassImagingCamera";
+				PRODUCT_NAME = "Glass Camera";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				STRIP_INSTALLED_PRODUCT = NO;
 				STRIP_SWIFT_SYMBOLS = NO;
-				SUPPORTS_MACCATALYST = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "Objective-C/GlassCamera-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				SYSTEM_HEADER_SEARCH_PATHS = "\"$(SRCROOT)/iosDependencies/include\"";
-				TARGETED_DEVICE_FAMILY = "1,2,6";
+				TARGETED_DEVICE_FAMILY = "1,6";
 			};
 			name = Debug;
 		};
@@ -674,6 +681,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
 				CLANG_CXX_LIBRARY = "";
 				CLANG_ENABLE_MODULES = YES;
@@ -682,7 +690,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"GlassCamera/Preview Content\"";
-				DEVELOPMENT_TEAM = 4A4DGXV9V7;
+				DEVELOPMENT_TEAM = WM2UUQMK8D;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = NO;
 				ENABLE_TESTABILITY = YES;
@@ -715,17 +723,19 @@
 				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.glass-imaging.GlassCamera";
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.glass-imaging.GlassImagingCamera";
+				PRODUCT_NAME = "Glass Camera";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				STRIP_INSTALLED_PRODUCT = NO;
 				STRIP_SWIFT_SYMBOLS = NO;
-				SUPPORTS_MACCATALYST = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "Objective-C/GlassCamera-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				SYSTEM_HEADER_SEARCH_PATHS = "\"$(SRCROOT)/iosDependencies/include\"";
-				TARGETED_DEVICE_FAMILY = "1,2,6";
+				TARGETED_DEVICE_FAMILY = "1,6";
 			};
 			name = Release;
 		};
