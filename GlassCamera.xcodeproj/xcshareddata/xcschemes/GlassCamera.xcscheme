@@ -15,7 +15,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "E5D4D88827D1798D00F1D944"
-               BuildableName = "GlassCamera.app"
+               BuildableName = "Glass Camera.app"
                BlueprintName = "GlassCamera"
                ReferencedContainer = "container:GlassCamera.xcodeproj">
             </BuildableReference>
@@ -48,7 +48,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "E5D4D88827D1798D00F1D944"
-            BuildableName = "GlassCamera.app"
+            BuildableName = "Glass Camera.app"
             BlueprintName = "GlassCamera"
             ReferencedContainer = "container:GlassCamera.xcodeproj">
          </BuildableReference>
@@ -65,7 +65,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "E5D4D88827D1798D00F1D944"
-            BuildableName = "GlassCamera.app"
+            BuildableName = "Glass Camera.app"
             BlueprintName = "GlassCamera"
             ReferencedContainer = "container:GlassCamera.xcodeproj">
          </BuildableReference>
