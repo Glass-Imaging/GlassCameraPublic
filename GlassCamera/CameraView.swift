@@ -18,9 +18,11 @@ import Combine
 import AVFoundation
 
 final class CameraModel: ObservableObject {
-    private let service = CameraService()
-
-    @Published var photo: UIImage!
+    let photoCollection = PhotoCollection(albumNamed: "Glass Photos", createIfNotFound: true)
+    let service = CameraService()
+    var isPhotosLoaded = false
+    
+    @Published var thumbnailImage: Image?
 
     @Published var showAlertError = false
 
@@ -44,8 +46,9 @@ final class CameraModel: ObservableObject {
         self.session = service.session
 
         service.$thumbnail.sink { [weak self] (photo) in
-            guard let pic = photo else { return }
-            self?.photo = pic
+            if let photo = photo {
+                self?.thumbnailImage = Image(uiImage: photo)
+            }
         }
         .store(in: &self.subscriptions)
 
@@ -92,7 +95,7 @@ final class CameraModel: ObservableObject {
     }
 
     func capturePhoto() {
-        service.capturePhoto()
+        service.capturePhoto(saveCollection: self.photoCollection)
     }
 
     func flipCamera() {
@@ -108,6 +111,39 @@ final class CameraModel: ObservableObject {
 
     func switchFlash() {
         service.flashMode = service.flashMode == .on ? .off : .on
+    }
+    
+    func loadPhotos() async {
+        guard !isPhotosLoaded else { return }
+        
+        let authorized = await PhotoLibrary.checkAuthorization()
+        guard authorized else {
+            // logger.error("Photo library access was not authorized.")
+            print("Photo library access was not authorized.")
+            return
+        }
+        
+        Task {
+            do {
+                try await self.photoCollection.load()
+                await self.loadThumbnail()
+            } catch let error {
+                //logger.error("Failed to load photo collection: \(error.localizedDescription)")
+                print("Failed to load photo collection: \(error.localizedDescription)")
+            }
+            self.isPhotosLoaded = true
+        }
+    }
+    
+    func loadThumbnail() async {
+        guard let asset = photoCollection.photoAssets.first  else { return }
+        await photoCollection.cache.requestImage(for: asset, targetSize: CGSize(width: 256, height: 256))  { result in
+            if let result = result {
+                Task { @MainActor in
+                    self.thumbnailImage = result.image
+                }
+            }
+        }
     }
 }
 
@@ -129,25 +165,6 @@ struct CameraView: View {
                         .frame(width: 65, height: 65, alignment: .center)
                 )
         })
-    }
-
-    var capturedPhotoThumbnail: some View {
-        Group {
-            if let thumbnail = model.photo {
-                Image(uiImage: thumbnail)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: 60, height: 60)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    .animation(.spring(), value: model.willCapturePhoto)
-            } else {
-                RoundedRectangle(cornerRadius: 10)
-                    .frame(width: 60, height: 60, alignment: .center)
-                    .foregroundColor(.black)
-            }
-        }.onTapGesture {
-            UIApplication.shared.open(URL(string:"photos-redirect://")!)
-        }
     }
 
     var flipCameraButton: some View {
@@ -180,75 +197,92 @@ struct CameraView: View {
     }
 
     var body: some View {
-        GeometryReader { reader in
-            ZStack {
-                Color.black.edgesIgnoringSafeArea(.all)
-
-                VStack {
-                    Button(action: {
-                        model.switchFlash()
-                    }, label: {
-                        Image(systemName: model.isFlashOn ? "bolt.fill" : "bolt.slash.fill")
-                            .font(.system(size: 20, weight: .medium, design: .default))
-                    })
-                    .accentColor(model.isFlashOn ? .yellow : .white)
-
-                    ZStack {
-                        CameraPreview(session: model.session)
-                            .onAppear {
-                                // TODO: Fetch this from stored preferences
-                                model.configure(DeviceConfiguration(position: .back, deviceType: .builtInWideAngleCamera))
-                            }
-                            .alert(isPresented: $model.showAlertError, content: {
-                                Alert(title: Text(model.alertError.title),
-                                      message: Text(model.alertError.message),
-                                      dismissButton: .default(Text(model.alertError.primaryButtonTitle), action: {
-                                    model.alertError.primaryAction?()
-                                }))
-                            })
-                            .overlay(Group {
-                                if model.showSpinner {
-                                    Color.black.opacity(0.2)
-
-                                    ProgressView()
-                                        .scaleEffect(2, anchor: .center)
-                                        .progressViewStyle(CircularProgressViewStyle(tint: Color.white))
+        NavigationStack {
+            
+            GeometryReader { reader in
+                ZStack {
+                    Color.black.edgesIgnoringSafeArea(.all)
+                    
+                    VStack {
+                        Button(action: {
+                            model.switchFlash()
+                        }, label: {
+                            Image(systemName: model.isFlashOn ? "bolt.fill" : "bolt.slash.fill")
+                                .font(.system(size: 20, weight: .medium, design: .default))
+                        })
+                        .accentColor(model.isFlashOn ? .yellow : .white)
+                        
+                        ZStack {
+                            CameraPreview(session: model.session)
+                                .onAppear {
+                                    // TODO: Fetch this from stored preferences
+                                    model.configure(DeviceConfiguration(position: .back, deviceType: .builtInWideAngleCamera))
                                 }
-
-                                if model.willCapturePhoto {
-                                    Group {
-                                        Color.black
-                                    }.onAppear {
-                                        withAnimation {
-                                            model.willCapturePhoto = false
+                                .alert(isPresented: $model.showAlertError, content: {
+                                    Alert(title: Text(model.alertError.title),
+                                          message: Text(model.alertError.message),
+                                          dismissButton: .default(Text(model.alertError.primaryButtonTitle), action: {
+                                        model.alertError.primaryAction?()
+                                    }))
+                                })
+                                .overlay(Group {
+                                    if model.showSpinner {
+                                        Color.black.opacity(0.2)
+                                        
+                                        ProgressView()
+                                            .scaleEffect(2, anchor: .center)
+                                            .progressViewStyle(CircularProgressViewStyle(tint: Color.white))
+                                    }
+                                    
+                                    if model.willCapturePhoto {
+                                        Group {
+                                            Color.black
+                                        }.onAppear {
+                                            withAnimation {
+                                                model.willCapturePhoto = false
+                                            }
                                         }
                                     }
+                                })
+                            
+                            if (model.currentDevice?.position == .back) {
+                                VStack {
+                                    Spacer()
+                                    
+                                    zoomLevelPicker
+                                        .padding(.all, 20)
                                 }
-                            })
-
-                        if (model.currentDevice?.position == .back) {
-                            VStack {
-                                Spacer()
-
-                                zoomLevelPicker
-                                    .padding(.all, 20)
                             }
                         }
+                        
+                        HStack {
+                            NavigationLink {
+                                PhotoCollectionView(photoCollection: model.photoCollection)
+                            } label: {
+                                Label {} icon: {
+                                    ThumbnailView(image: model.thumbnailImage)
+                                }
+                            }
+                            
+                            Spacer()
+                            
+                            captureButton
+                            
+                            Spacer()
+                            
+                            flipCameraButton
+                            
+                        }
+                        .padding(.horizontal, 20)
+                        
+                        
                     }
-
-                    HStack {
-                        capturedPhotoThumbnail
-
-                        Spacer()
-
-                        captureButton
-
-                        Spacer()
-
-                        flipCameraButton
-                    }
-                    .padding(.horizontal, 20)
                 }
+            }
+            .preferredColorScheme(.dark)
+            .task {
+                await model.loadPhotos()
+                await model.loadThumbnail()
             }
         }
     }
