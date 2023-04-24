@@ -109,7 +109,7 @@ void demosaicFile(RawConverter* rawConverter, std::filesystem::path input_path) 
     gls::tiff_metadata dng_metadata, exif_metadata;
     const auto rawImage =
     gls::image<gls::luma_pixel_16>::read_dng_file(input_path.string(), &dng_metadata, &exif_metadata);
-    auto demosaicParameters = unpackiPhoneRawImage(*rawImage, rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
+    auto demosaicParameters = unpackiPhone14TeleRawImage(*rawImage, rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
 
     rawConverter->allocateTextures(rawImage->size());
 
@@ -123,13 +123,23 @@ void demosaicFile(RawConverter* rawConverter, std::filesystem::path input_path) 
     std::cout << "Metal Pipeline Execution Time: " << (int)elapsed_time_ms
     << "ms for image of size: " << rawImage->width << " x " << rawImage->height << std::endl;
 
-    const auto output_path = input_path.replace_extension("_r_exp_hi_sh_2.png");
+    const auto output_path = input_path.replace_extension("_s.png");
 
     const auto srgbImageCpu = srgbImage->mapImage();
     saveImage<gls::rgb_pixel_16>(*srgbImageCpu, output_path.string(), rawConverter->icc_profile_data());
 
     auto histogramData = rawConverter->histogramData();
-    // plotHistogram(histogramData->histogram, input_path.filename().string());
+//    plotHistogram(histogramData->histogram, input_path.filename().string());
+//    std::array<uint32_t, 0x100> integral;
+//    {
+//        uint32_t sum = histogramData->histogram[0];
+//        integral[0] = 0;
+//        for (int i = 0; i < 0x100; i++) {
+//            sum += histogramData->histogram[i];
+//            integral[i] = sum;
+//        }
+//    }
+//    plotHistogram(integral, input_path.filename().string());
 
     int imageSize = rawImage->width * rawImage->height / 64;
     float sum = 0;
@@ -145,6 +155,8 @@ void demosaicFile(RawConverter* rawConverter, std::filesystem::path input_path) 
     std::cout << "brightness: " << histogramData->brightness << std::endl;
     std::cout << "median: " << histogramData->median << std::endl;
     std::cout << "brightness - median: " << histogramData->brightness - histogramData->median << std::endl;
+
+    // Bv = log2(A^2/(T * Sx)) + log2(1/0.297) => Bv = log2(A^2/(T*Sx)) + 1.751465
 }
 
 void demosaicDirectory(RawConverter* rawConverter, std::filesystem::path input_path) {

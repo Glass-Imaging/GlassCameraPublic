@@ -86,9 +86,10 @@ int2 get_image_dim(texture2d<T, a> image) {
 
 half lensShading(half lensShadingCorrection, half distance_from_center) {
     // New iPhones
-    return 0.8 + lensShadingCorrection * distance_from_center * distance_from_center;
+    // return 0.8 + lensShadingCorrection * distance_from_center * distance_from_center;
     // Old iPhones
     // return 1 + distance_from_center * distance_from_center;
+    return 1;
 }
 
 // Work on one Quad (2x2) at a time
@@ -705,6 +706,12 @@ half length(_half8 x) {
     return sqrt(dot(x.hi, x.hi) + dot(x.lo, x.lo));
 }
 
+half length(_half8 x, int pca_components) {
+    return sqrt(dot(x.hi, x.hi) + (pca_components == 7 ? dot(x.lo.xyz, x.lo.xyz) :
+                                   pca_components == 6 ? dot(x.lo.xy, x.lo.xy) :
+                                   /* pca_components == 5 */ x.lo.x * x.lo.x));
+}
+
 kernel void collectPatches(texture2d<half> inputImage         [[texture(0)]],
                             device array<float, 25>* patches  [[buffer(1)]],
                             uint2 index                       [[thread_position_in_grid]]) {
@@ -766,20 +773,15 @@ kernel void blockMatchingDenoiseImage(texture2d<half> inputImage                
 
     const half3 inputYCC = read_imageh(inputImage, imageCoordinates).xyz;
     const _half8 inputPCA = _half8(read_imageui(pcaImage, imageCoordinates));
-//    const _half8 leftPCA = _half8(read_imageui(pcaImage, imageCoordinates - int2(1, 0)));
-//    const _half8 topPCA = _half8(read_imageui(pcaImage, imageCoordinates - int2(0, 1)));
 
-    float2 imageCenter = float2(get_image_dim(inputImage) / 2);
-    float distance_from_center = length(float2(imageCoordinates) - imageCenter) / length(imageCenter);
+//    float2 imageCenter = float2(get_image_dim(inputImage) / 2);
+//    float distance_from_center = length(float2(imageCoordinates) - imageCenter) / length(imageCenter);
 
-    /* FIXME: lensShadingCorrection is a parameter */
-    half3 sigma = half3(sqrt(var_a + var_b * inputYCC.x *
-                             lensShading(/*lensShadingCorrection=*/ 1.6, distance_from_center)));
+    /* FIXME: add lensShadingCorrection */
+    half3 sigma = half3(sqrt(var_a + var_b * inputYCC.x));
     half3 diffMultiplier = 1 / (half3(thresholdMultipliers) * sigma);
 
     half2 gradient = read_imageh(gradientImage, imageCoordinates).xy;
-    // half2 gradient = half2(inputPCA.hi.x - topPCA.hi.x, inputPCA.hi.x - leftPCA.hi.x);
-    // half angle = atan2(gradient.y, gradient.x);
     half magnitude = length(gradient);
     half edge = smoothstep(2, 8, magnitude / sigma.x);
 
@@ -816,7 +818,7 @@ kernel void blockMatchingDenoiseImage(texture2d<half> inputImage                
     }
     half3 denoisedPixel = half3(filtered_pixel / kernel_norm);
 
-    write_imageh(denoisedImage, imageCoordinates, half4(denoisedPixel, clamp(0.0h, 255.0h, 256 * magnitude)));
+    write_imageh(denoisedImage, imageCoordinates, half4(denoisedPixel, (half) kernel_norm.x));
 }
 
 kernel void downsampleImageXYZ(texture2d<float> inputImage                  [[texture(0)]],
@@ -1413,8 +1415,8 @@ kernel void histogramStatistics(device histogram_data& histogram_data [[buffer(0
         histogram_data.median = median_index / (float) (histogramSize - 1) - histogram_data.black_level;
         histogram_data.brightness = brightness - histogram_data.black_level;
 
-        histogram_data.highlights = 1;
-        histogram_data.shadows = 1;
+//        histogram_data.highlights = 1;
+//        histogram_data.shadows = 1;
         histogram_data.highlights = 1 + 1.5 * smoothstep(0.01, 0.1, (histogram_data.bands[5] +
                                                                      histogram_data.bands[6] +
                                                                      histogram_data.bands[7]) / (float) image_size);

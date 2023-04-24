@@ -42,6 +42,8 @@
 		E5D4D8A627D183F700F1D944 /* PhotoCaptureProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5D4D8A527D183F700F1D944 /* PhotoCaptureProcessor.swift */; };
 		E5E7CBA929DF593200067C0B /* PCA.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5E7CBA829DF593200067C0B /* PCA.cpp */; };
 		E5E7CBAA29DF593200067C0B /* PCA.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5E7CBA829DF593200067C0B /* PCA.cpp */; };
+		E5E7CBAD29F4CA8300067C0B /* iPhone14TeleCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5E7CBAB29F4CA8300067C0B /* iPhone14TeleCalibration.cpp */; };
+		E5E7CBAE29F4CA8300067C0B /* iPhone14TeleCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5E7CBAB29F4CA8300067C0B /* iPhone14TeleCalibration.cpp */; };
 		E5FAE7AD29C50D2C00213AE6 /* gls_mtl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5FAE7AB29C50D2C00213AE6 /* gls_mtl.cpp */; };
 		E5FAE7E429C5420200213AE6 /* pipelineTest.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5FAE7E329C5420200213AE6 /* pipelineTest.cpp */; };
 		E5FAE7EB29C5425300213AE6 /* gls_mtl_image.hpp in Sources */ = {isa = PBXBuildFile; fileRef = E5FAE7A629C1368900213AE6 /* gls_mtl_image.hpp */; };
@@ -141,6 +143,7 @@
 		E5D4D8A527D183F700F1D944 /* PhotoCaptureProcessor.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PhotoCaptureProcessor.swift; sourceTree = "<group>"; };
 		E5E7CBA729DF593200067C0B /* PCA.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = PCA.hpp; sourceTree = "<group>"; };
 		E5E7CBA829DF593200067C0B /* PCA.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = PCA.cpp; sourceTree = "<group>"; };
+		E5E7CBAB29F4CA8300067C0B /* iPhone14TeleCalibration.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = iPhone14TeleCalibration.cpp; sourceTree = "<group>"; };
 		E5FAE7A629C1368900213AE6 /* gls_mtl_image.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = gls_mtl_image.hpp; sourceTree = "<group>"; };
 		E5FAE7AB29C50D2C00213AE6 /* gls_mtl.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = gls_mtl.cpp; sourceTree = "<group>"; };
 		E5FAE7AC29C50D2C00213AE6 /* gls_mtl.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = gls_mtl.hpp; sourceTree = "<group>"; };
@@ -278,6 +281,7 @@
 				E5C6986229C925A600F7062C /* CameraCalibration.cpp */,
 				E5C6986C29C926F100F7062C /* Sonya6400Calibration.cpp */,
 				E522296C29D026DA00D13A4F /* iPhoneCalibration.cpp */,
+				E5E7CBAB29F4CA8300067C0B /* iPhone14TeleCalibration.cpp */,
 				E5C6986929C926CD00F7062C /* ThreadPool.cpp */,
 				E5C6986829C926CD00F7062C /* ThreadPool.hpp */,
 				E522296B29CE421000D13A4F /* tinyicc.hpp */,
@@ -455,6 +459,7 @@
 				E5C6984D29C906FC00F7062C /* raw_converter.cpp in Sources */,
 				E5D4D8A127D183D800F1D944 /* CameraService+Extensions.swift in Sources */,
 				E5D4D8A427D183D900F1D944 /* CameraService+Enums.swift in Sources */,
+				E5E7CBAD29F4CA8300067C0B /* iPhone14TeleCalibration.cpp in Sources */,
 				E5D4D88D27D1798D00F1D944 /* GlassCameraApp.swift in Sources */,
 				E5C5BFFD29BD36B600AAB593 /* gls_logging.cpp in Sources */,
 				E5FAE7AD29C50D2C00213AE6 /* gls_mtl.cpp in Sources */,
@@ -472,6 +477,7 @@
 				E5C6986E29C926F100F7062C /* Sonya6400Calibration.cpp in Sources */,
 				E522296E29D026DA00D13A4F /* iPhoneCalibration.cpp in Sources */,
 				E5C6986B29C926CD00F7062C /* ThreadPool.cpp in Sources */,
+				E5E7CBAE29F4CA8300067C0B /* iPhone14TeleCalibration.cpp in Sources */,
 				E5C6986F29C92E9600F7062C /* demosaic.metal in Sources */,
 				E5FAE7EB29C5425300213AE6 /* gls_mtl_image.hpp in Sources */,
 				E5FAE7EC29C5425300213AE6 /* gls_mtl.cpp in Sources */,
