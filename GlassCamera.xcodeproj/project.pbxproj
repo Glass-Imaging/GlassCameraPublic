@@ -26,7 +26,6 @@
 		E518E69529F7397C0056E6BF /* CoreImage.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E518E69429F7397C0056E6BF /* CoreImage.framework */; };
 		E518E69729F73A760056E6BF /* CoreImage.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E518E69629F73A760056E6BF /* CoreImage.framework */; };
 		E518E69929F73A7D0056E6BF /* CoreML.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E518E69829F73A7D0056E6BF /* CoreML.framework */; };
-		E518E69B29F73B180056E6BF /* Vision.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E518E69A29F73B180056E6BF /* Vision.framework */; };
 		E518E69D29F748480056E6BF /* CoreML.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E518E69C29F748480056E6BF /* CoreML.framework */; };
 		E522296829CD646600D13A4F /* pyramid_processor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E522296629CD646600D13A4F /* pyramid_processor.cpp */; };
 		E522296929CD646600D13A4F /* pyramid_processor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E522296629CD646600D13A4F /* pyramid_processor.cpp */; };
@@ -232,7 +231,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				E518E69B29F73B180056E6BF /* Vision.framework in Frameworks */,
 				E518E69929F73A7D0056E6BF /* CoreML.framework in Frameworks */,
 				E518E69729F73A760056E6BF /* CoreImage.framework in Frameworks */,
 				E5FAE7F929C5439500213AE6 /* Foundation.framework in Frameworks */,

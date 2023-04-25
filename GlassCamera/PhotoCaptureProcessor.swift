@@ -143,7 +143,6 @@ class PhotoCaptureProcessor: NSObject {
                let rawPixelBuffer = photo.pixelBuffer {
                 let rawMetadata = RawMetadata(from: photo.metadata)
 
-                // TODO: Do we need to release the pixelBuffer?
                 let pixelBuffer = rawProcessor.convertRawPixelBuffer(rawPixelBuffer, with: rawMetadata).takeRetainedValue()
                 // let pixelBuffer = rawProcessor.fmenRawPixelBuffer(rawPixelBuffer, with: rawMetadata).takeRetainedValue()
 

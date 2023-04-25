@@ -73,16 +73,16 @@ void dumpGradientImage(const gls::mtl_image_2d<T>& image, const std::string& pat
 
 template <typename pixel_type>
 void saveImage(const gls::image<gls::rgba_pixel_float>& image, const std::string& path,
-               const std::vector<uint8_t>* icc_profile_data) {
+               const std::vector<uint8_t>* icc_profile_data, float exposure_multiplier = 1.0) {
     gls::image<pixel_type> saveImage(image.width, image.height);
     saveImage.apply([&](pixel_type* p, int x, int y) {
         float scale = std::numeric_limits<typename pixel_type::value_type>::max();
 
         const auto& pi = image[y][x];
         *p = {
-            (uint8_t) (scale * pi.red),
-            (uint8_t) (scale * pi.green),
-            (uint8_t) (scale * pi.blue)
+            (uint8_t) std::clamp(scale * exposure_multiplier * pi.red, 0.0f, scale),
+            (uint8_t) std::clamp(scale * exposure_multiplier * pi.green, 0.0f, scale),
+            (uint8_t) std::clamp(scale * exposure_multiplier * pi.blue, 0.0f, scale)
         };
     });
     saveImage.write_png_file(path, /*skip_alpha=*/true, icc_profile_data);
@@ -161,6 +161,31 @@ void demosaicFile(RawConverter* rawConverter, std::filesystem::path input_path) 
     // Bv = log2(A^2/(T * Sx)) + log2(1/0.297) => Bv = log2(A^2/(T*Sx)) + 1.751465
 }
 
+void fmenApplyToFile(std::filesystem::path input_path, std::vector<uint8_t>* icc_profile_data) {
+    std::cout << "Processing File: " << input_path.filename() << std::endl;
+
+    gls::tiff_metadata dng_metadata, exif_metadata;
+    const auto rawImage = gls::image<gls::luma_pixel_16>::read_dng_file(input_path.string(), &dng_metadata, &exif_metadata);
+
+    const auto white_level_vec = getVector<uint32_t>(dng_metadata, TIFFTAG_WHITELEVEL);
+
+    float baseline_exposure = 0;
+    getValue(dng_metadata, TIFFTAG_BASELINEEXPOSURE, &baseline_exposure);
+    float exposure_multiplier = pow(2.0, baseline_exposure);
+    std::cout << "baseline_exposure: " << baseline_exposure << ", exposure_multiplier: " << exposure_multiplier
+                  << std::endl;
+
+    // Result Image
+    gls::image<gls::rgba_pixel_fp16> processedImage(rawImage->width, rawImage->height);
+
+    // Apply model to image
+    fmenApplyToImage(*rawImage, /*whiteLevel*/ white_level_vec[0], &processedImage);
+
+    const auto output_path = input_path.replace_extension("_s.png");
+
+    saveImage<gls::rgb_pixel_16>(processedImage, output_path.string(), icc_profile_data, exposure_multiplier);
+}
+
 void demosaicDirectory(RawConverter* rawConverter, std::filesystem::path input_path) {
     std::cout << "Processing Directory: " << input_path.filename() << std::endl;
 
@@ -187,14 +212,35 @@ void demosaicDirectory(RawConverter* rawConverter, std::filesystem::path input_p
     }
 }
 
+void fmenApplyToDirectory(std::filesystem::path input_path, std::vector<uint8_t>* icc_profile_data) {
+    std::cout << "Processing Directory: " << input_path.filename() << std::endl;
+
+    auto input_dir = std::filesystem::directory_entry(input_path).is_directory() ? input_path : input_path.parent_path();
+    std::vector<std::filesystem::path> directory_listing;
+    std::copy(std::filesystem::directory_iterator(input_dir), std::filesystem::directory_iterator(),
+              std::back_inserter(directory_listing));
+    std::sort(directory_listing.begin(), directory_listing.end());
+
+    for (const auto& input_path : directory_listing) {
+        if (input_path.filename().string().starts_with(".")) {
+            continue;
+        }
+
+        if (std::filesystem::directory_entry(input_path).is_regular_file()) {
+            const auto extension = input_path.extension();
+            if ((extension != ".dng" && extension != ".DNG")) {
+                continue;
+            }
+            fmenApplyToFile(input_path, icc_profile_data);
+        } else if (std::filesystem::directory_entry(input_path).is_directory()) {
+            fmenApplyToDirectory(input_path, icc_profile_data);
+        }
+    }
+}
+
 int main(int argc, const char * argv[]) {
     // Read ICC color profile data
     auto icc_profile_data = read_binary_file("/System/Library/ColorSync/Profiles/Display P3.icc");
-
-    auto test_result = test();
-    std::cout << "test_result: " << test_result << std::endl;
-
-    runModel();
 
     auto allMetalDevices = NS::TransferPtr(MTL::CopyAllDevices());
     auto metalDevice = NS::RetainPtr(allMetalDevices->object<MTL::Device>(0));
@@ -204,9 +250,13 @@ int main(int argc, const char * argv[]) {
     if (argc > 1) {
         auto input_path = std::filesystem::path(argv[1]);
 
-        demosaicFile(&rawConverter, input_path);
+        // demosaicFile(&rawConverter, input_path);
 
-        // demosaicDirectory(&rawConverter, input_path);
+        // fmenApplyToFile(input_path, &icc_profile_data);
+
+        demosaicDirectory(&rawConverter, input_path);
+
+        // fmenApplyToDirectory(input_path, &icc_profile_data);
 
         return 0;
     } else {

@@ -8,8 +8,6 @@
 #ifndef CoreMLSupport_h
 #define CoreMLSupport_h
 
-int test();
-
-void runModel();
+void fmenApplyToImage(const gls::image<gls::luma_pixel_16>& rawImage, int whiteLevel, gls::image<gls::rgba_pixel_fp16>* processedImage);
 
 #endif /* CoreMLSupport_h */
