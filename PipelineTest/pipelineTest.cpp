@@ -24,6 +24,8 @@
 
 #include "CameraCalibration.hpp"
 
+#include "CoreMLSupport.h"
+
 #include <sciplot/sciplot.hpp>
 using namespace sciplot;
 
@@ -189,6 +191,11 @@ int main(int argc, const char * argv[]) {
     // Read ICC color profile data
     auto icc_profile_data = read_binary_file("/System/Library/ColorSync/Profiles/Display P3.icc");
 
+    auto test_result = test();
+    std::cout << "test_result: " << test_result << std::endl;
+
+    runModel();
+
     auto allMetalDevices = NS::TransferPtr(MTL::CopyAllDevices());
     auto metalDevice = NS::RetainPtr(allMetalDevices->object<MTL::Device>(0));
 
@@ -197,9 +204,9 @@ int main(int argc, const char * argv[]) {
     if (argc > 1) {
         auto input_path = std::filesystem::path(argv[1]);
 
-        // demosaicFile(&rawConverter, input_path);
+        demosaicFile(&rawConverter, input_path);
 
-        demosaicDirectory(&rawConverter, input_path);
+        // demosaicDirectory(&rawConverter, input_path);
 
         return 0;
     } else {

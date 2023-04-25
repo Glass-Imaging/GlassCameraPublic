@@ -19,6 +19,15 @@
 		86276B3729EF4DA900EFF0C3 /* PhotoLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86276B2E29EF4DA900EFF0C3 /* PhotoLibrary.swift */; };
 		86276B3929F1CD6700EFF0C3 /* PhotoCategories.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86276B3829F1CD6700EFF0C3 /* PhotoCategories.swift */; };
 		86276B3D29F3037200EFF0C3 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 86276B3C29F3019300EFF0C3 /* Assets.xcassets */; };
+		E518E68E29F7362C0056E6BF /* NSObject+CoreMLSupport.m in Sources */ = {isa = PBXBuildFile; fileRef = E518E68D29F7362C0056E6BF /* NSObject+CoreMLSupport.m */; };
+		E518E68F29F7362C0056E6BF /* NSObject+CoreMLSupport.m in Sources */ = {isa = PBXBuildFile; fileRef = E518E68D29F7362C0056E6BF /* NSObject+CoreMLSupport.m */; };
+		E518E69129F7367A0056E6BF /* CoreMLSupport.mm in Sources */ = {isa = PBXBuildFile; fileRef = E518E69029F7367A0056E6BF /* CoreMLSupport.mm */; };
+		E518E69229F7367A0056E6BF /* CoreMLSupport.mm in Sources */ = {isa = PBXBuildFile; fileRef = E518E69029F7367A0056E6BF /* CoreMLSupport.mm */; };
+		E518E69529F7397C0056E6BF /* CoreImage.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E518E69429F7397C0056E6BF /* CoreImage.framework */; };
+		E518E69729F73A760056E6BF /* CoreImage.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E518E69629F73A760056E6BF /* CoreImage.framework */; };
+		E518E69929F73A7D0056E6BF /* CoreML.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E518E69829F73A7D0056E6BF /* CoreML.framework */; };
+		E518E69B29F73B180056E6BF /* Vision.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E518E69A29F73B180056E6BF /* Vision.framework */; };
+		E518E69D29F748480056E6BF /* CoreML.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E518E69C29F748480056E6BF /* CoreML.framework */; };
 		E522296829CD646600D13A4F /* pyramid_processor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E522296629CD646600D13A4F /* pyramid_processor.cpp */; };
 		E522296929CD646600D13A4F /* pyramid_processor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E522296629CD646600D13A4F /* pyramid_processor.cpp */; };
 		E522296D29D026DA00D13A4F /* iPhoneCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E522296C29D026DA00D13A4F /* iPhoneCalibration.cpp */; };
@@ -110,6 +119,15 @@
 		86276B2E29EF4DA900EFF0C3 /* PhotoLibrary.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PhotoLibrary.swift; sourceTree = "<group>"; };
 		86276B3829F1CD6700EFF0C3 /* PhotoCategories.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoCategories.swift; sourceTree = "<group>"; };
 		86276B3C29F3019300EFF0C3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		E518E68C29F7362C0056E6BF /* NSObject+CoreMLSupport.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "NSObject+CoreMLSupport.h"; sourceTree = "<group>"; };
+		E518E68D29F7362C0056E6BF /* NSObject+CoreMLSupport.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "NSObject+CoreMLSupport.m"; sourceTree = "<group>"; };
+		E518E69029F7367A0056E6BF /* CoreMLSupport.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = CoreMLSupport.mm; sourceTree = "<group>"; };
+		E518E69329F7369B0056E6BF /* CoreMLSupport.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CoreMLSupport.h; sourceTree = "<group>"; };
+		E518E69429F7397C0056E6BF /* CoreImage.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreImage.framework; path = System/Library/Frameworks/CoreImage.framework; sourceTree = SDKROOT; };
+		E518E69629F73A760056E6BF /* CoreImage.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreImage.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.3.sdk/System/Library/Frameworks/CoreImage.framework; sourceTree = DEVELOPER_DIR; };
+		E518E69829F73A7D0056E6BF /* CoreML.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreML.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.3.sdk/System/Library/Frameworks/CoreML.framework; sourceTree = DEVELOPER_DIR; };
+		E518E69A29F73B180056E6BF /* Vision.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Vision.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.3.sdk/System/Library/Frameworks/Vision.framework; sourceTree = DEVELOPER_DIR; };
+		E518E69C29F748480056E6BF /* CoreML.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreML.framework; path = System/Library/Frameworks/CoreML.framework; sourceTree = SDKROOT; };
 		E522296629CD646600D13A4F /* pyramid_processor.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = pyramid_processor.cpp; sourceTree = "<group>"; };
 		E522296729CD646600D13A4F /* pyramid_processor.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = pyramid_processor.hpp; sourceTree = "<group>"; };
 		E522296B29CE421000D13A4F /* tinyicc.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = tinyicc.hpp; sourceTree = "<group>"; };
@@ -196,6 +214,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E518E69D29F748480056E6BF /* CoreML.framework in Frameworks */,
+				E518E69529F7397C0056E6BF /* CoreImage.framework in Frameworks */,
 				E5FAE82229C5928900213AE6 /* libz.tbd in Frameworks */,
 				E5FAE82729C592C600213AE6 /* libtiffxx_ios.a in Frameworks */,
 				E5FAE82829C592C600213AE6 /* libpng_ios.a in Frameworks */,
@@ -212,6 +232,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E518E69B29F73B180056E6BF /* Vision.framework in Frameworks */,
+				E518E69929F73A7D0056E6BF /* CoreML.framework in Frameworks */,
+				E518E69729F73A760056E6BF /* CoreImage.framework in Frameworks */,
 				E5FAE7F929C5439500213AE6 /* Foundation.framework in Frameworks */,
 				E5FAE7F729C5438A00213AE6 /* Metal.framework in Frameworks */,
 				E5FAE7FC29C543C500213AE6 /* libtiffxx.dylib in Frameworks */,
@@ -242,12 +265,23 @@
 			path = ImageGalleryViewer;
 			sourceTree = "<group>";
 		};
+		E518E6A629F74CA60056E6BF /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
 		E5C5BFA529BC5DF900AAB593 /* Objective-C */ = {
 			isa = PBXGroup;
 			children = (
 				E5C5BFA629BC5E4B00AAB593 /* GlassCamera-Bridging-Header.h */,
 				E5C6987D29CBAD8300F7062C /* RawProcessor.h */,
 				E5C6987E29CBAD8300F7062C /* RawProcessor.mm */,
+				E518E68C29F7362C0056E6BF /* NSObject+CoreMLSupport.h */,
+				E518E68D29F7362C0056E6BF /* NSObject+CoreMLSupport.m */,
+				E518E69329F7369B0056E6BF /* CoreMLSupport.h */,
+				E518E69029F7367A0056E6BF /* CoreMLSupport.mm */,
 			);
 			path = "Objective-C";
 			sourceTree = "<group>";
@@ -255,6 +289,11 @@
 		E5C5BFAA29BC630C00AAB593 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				E518E69C29F748480056E6BF /* CoreML.framework */,
+				E518E69A29F73B180056E6BF /* Vision.framework */,
+				E518E69829F73A7D0056E6BF /* CoreML.framework */,
+				E518E69429F7397C0056E6BF /* CoreImage.framework */,
+				E518E69629F73A760056E6BF /* CoreImage.framework */,
 				E522296F29D02EEA00D13A4F /* CoreGraphics.framework */,
 				E5FAE82629C592C600213AE6 /* libjpeg_ios.a */,
 				E5FAE82429C592C600213AE6 /* libpng_ios.a */,
@@ -360,6 +399,7 @@
 		E5D4D88B27D1798D00F1D944 /* GlassCamera */ = {
 			isa = PBXGroup;
 			children = (
+				E518E6A629F74CA60056E6BF /* Resources */,
 				86276B3A29F1ECB500EFF0C3 /* ImageGalleryViewer */,
 				E5C5BF4229BA833F00AAB593 /* Info.plist */,
 				E5D4D89A27D17A5C00F1D944 /* GlassCamera.entitlements */,
@@ -507,6 +547,7 @@
 				E5C6984629C805B500F7062C /* demosaic.metal in Sources */,
 				86276B3329EF4DA900EFF0C3 /* PhotoAsset.swift in Sources */,
 				86276B2529EF4D9700EFF0C3 /* CachedImageManager.swift in Sources */,
+				E518E68E29F7362C0056E6BF /* NSObject+CoreMLSupport.m in Sources */,
 				E5D4D8A627D183F700F1D944 /* PhotoCaptureProcessor.swift in Sources */,
 				E5C6986D29C926F100F7062C /* Sonya6400Calibration.cpp in Sources */,
 				E5C6984D29C906FC00F7062C /* raw_converter.cpp in Sources */,
@@ -518,6 +559,7 @@
 				E5C5BFFD29BD36B600AAB593 /* gls_logging.cpp in Sources */,
 				86276B3529EF4DA900EFF0C3 /* PhotoView.swift in Sources */,
 				E5FAE7AD29C50D2C00213AE6 /* gls_mtl.cpp in Sources */,
+				E518E69129F7367A0056E6BF /* CoreMLSupport.mm in Sources */,
 				E5C6986629C9269400F7062C /* demosaic_utils.cpp in Sources */,
 				E5C5BFFB29BD36B600AAB593 /* gls_image_tiff.cpp in Sources */,
 				86276B3729EF4DA900EFF0C3 /* PhotoLibrary.swift in Sources */,
@@ -538,6 +580,7 @@
 				E5FAE7EB29C5425300213AE6 /* gls_mtl_image.hpp in Sources */,
 				E5FAE7EC29C5425300213AE6 /* gls_mtl.cpp in Sources */,
 				E5FAE7ED29C5425300213AE6 /* gls_mtl.hpp in Sources */,
+				E518E68F29F7362C0056E6BF /* NSObject+CoreMLSupport.m in Sources */,
 				E5C6986729C9269400F7062C /* demosaic_utils.cpp in Sources */,
 				E5FAE7EE29C5425300213AE6 /* gls_color_science.cpp in Sources */,
 				E5C6986429C925A600F7062C /* CameraCalibration.cpp in Sources */,
@@ -545,6 +588,7 @@
 				E522296929CD646600D13A4F /* pyramid_processor.cpp in Sources */,
 				E5FAE7F029C5425300213AE6 /* gls_image_jpeg.cpp in Sources */,
 				E5FAE7F129C5425300213AE6 /* gls_image_png.cpp in Sources */,
+				E518E69229F7367A0056E6BF /* CoreMLSupport.mm in Sources */,
 				E5C6984E29C906FC00F7062C /* raw_converter.cpp in Sources */,
 				E5FAE7F229C5425300213AE6 /* gls_image_tiff.cpp in Sources */,
 				E5E7CBAA29DF593200067C0B /* PCA.cpp in Sources */,
@@ -685,6 +729,8 @@
 				CODE_SIGN_ENTITLEMENTS = GlassCamera/GlassCamera.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
+				COREML_CODEGEN_LANGUAGE = "Objective-C";
+				COREML_CODEGEN_SWIFT_GLOBAL_MODULE = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"GlassCamera/Preview Content\"";
 				DEVELOPMENT_TEAM = WM2UUQMK8D;
@@ -746,6 +792,8 @@
 				CODE_SIGN_ENTITLEMENTS = GlassCamera/GlassCamera.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
+				COREML_CODEGEN_LANGUAGE = "Objective-C";
+				COREML_CODEGEN_SWIFT_GLOBAL_MODULE = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"GlassCamera/Preview Content\"";
 				DEVELOPMENT_TEAM = WM2UUQMK8D;
@@ -803,6 +851,8 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
 				CODE_SIGN_ENTITLEMENTS = PipelineTest/PipelineTest.entitlements;
 				CODE_SIGN_STYLE = Automatic;
+				COREML_CODEGEN_LANGUAGE = "Objective-C";
+				COREML_CODEGEN_SWIFT_GLOBAL_MODULE = YES;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 4A4DGXV9V7;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -830,6 +880,8 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
 				CODE_SIGN_ENTITLEMENTS = PipelineTest/PipelineTest.entitlements;
 				CODE_SIGN_STYLE = Automatic;
+				COREML_CODEGEN_LANGUAGE = "Objective-C";
+				COREML_CODEGEN_SWIFT_GLOBAL_MODULE = YES;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 4A4DGXV9V7;
 				ENABLE_HARDENED_RUNTIME = YES;

@@ -25,6 +25,10 @@
 
 #include "CameraCalibration.hpp"
 
+#ifdef USE_FEMN_MODEL
+#import "FMEN.h"
+#endif
+
 std::vector<uint8_t> ICCProfileData(const CFStringRef colorSpaceName) {
     CGColorSpaceRef colorSpace = CGColorSpaceCreateWithName(colorSpaceName);
     if (colorSpace) {
@@ -217,10 +221,11 @@ CVPixelBufferRef buildCVPixelBuffer(const gls::image<gls::rgba_pixel_float>& rgb
 
     auto rgbImage = _rawConverter->demosaic(rawImage, demosaicParameters.get());
 
+    // All done with rawImage, release rawPixelBuffer
+    CVPixelBufferUnlockBaseAddress(rawPixelBuffer, 0);
+
     auto t_metal_end = std::chrono::high_resolution_clock::now();
     auto elapsed_time_ms = std::chrono::duration<double, std::milli>(t_metal_end - t_metal_start).count();
-
-    CVPixelBufferUnlockBaseAddress(rawPixelBuffer, 0);
 
     std::cout << "Metal Pipeline Execution Time: " << (int)elapsed_time_ms << std::endl;
 
@@ -228,6 +233,34 @@ CVPixelBufferRef buildCVPixelBuffer(const gls::image<gls::rgba_pixel_float>& rgb
     CVPixelBufferRef pixelBuffer = CVPixelBufferFromFP16ImageBytes(*rgbImageCPU);
 
     return pixelBuffer;
+}
+
+- (void) runModel {
+#ifdef USE_FEMN_MODEL
+    MLModel* fmen = [[[FMEN alloc] init] model];
+
+    NSError *error = nil;
+    NSArray<NSNumber *> *tile_shape = @[@1, @1, @1024, @1024];
+    MLMultiArray *multiarray_tile = [[MLMultiArray alloc] initWithShape:tile_shape
+                                                               dataType:MLMultiArrayDataTypeFloat error: &error];
+    if (error != nil) {
+        // Handle the error.
+        return;
+    }
+
+    FMENInput *femn_input = [[FMENInput alloc] initWithX_3:multiarray_tile];
+
+    auto t_fmen_start = std::chrono::high_resolution_clock::now();
+
+    FMENOutput* femn_output = [fmen predictionFromFeatures: femn_input error: &error];
+
+    auto t_fmen_end = std::chrono::high_resolution_clock::now();
+    auto elapsed_time_ms = std::chrono::duration<double, std::milli>(t_fmen_end - t_fmen_start).count();
+
+    std::cout << "FMEN Pipeline Execution Time: " << (int)elapsed_time_ms << std::endl;
+
+    printf("result is %p\n", femn_output);
+#endif
 }
 
 @end
