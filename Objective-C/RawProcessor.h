@@ -43,6 +43,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (CVPixelBufferRef) convertRawPixelBuffer: (CVPixelBufferRef) rawPixelBuffer withMetadata: (RawMetadata*) metadata;
 
+- (CVPixelBufferRef) fmenRawPixelBuffer: (CVPixelBufferRef) rawPixelBuffer withMetadata: (RawMetadata*) metadata;
+
 - (void) runModel;
 
 @end

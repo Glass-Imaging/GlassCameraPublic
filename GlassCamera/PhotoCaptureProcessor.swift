@@ -142,7 +142,10 @@ class PhotoCaptureProcessor: NSObject {
             if let displayP3 = CGColorSpace(name: CGColorSpace.displayP3),
                let rawPixelBuffer = photo.pixelBuffer {
                 let rawMetadata = RawMetadata(from: photo.metadata)
+
+                // TODO: Do we need to release the pixelBuffer?
                 let pixelBuffer = rawProcessor.convertRawPixelBuffer(rawPixelBuffer, with: rawMetadata).takeRetainedValue()
+                // let pixelBuffer = rawProcessor.fmenRawPixelBuffer(rawPixelBuffer, with: rawMetadata).takeRetainedValue()
 
                 let cgImage = pixelBuffer.createCGImage(colorSpace: displayP3)
 

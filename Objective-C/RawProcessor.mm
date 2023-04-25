@@ -25,6 +25,8 @@
 
 #include "CameraCalibration.hpp"
 
+// #define USE_FEMN_MODEL true
+
 #ifdef USE_FEMN_MODEL
 #import "FMEN.h"
 #endif
@@ -237,7 +239,7 @@ CVPixelBufferRef buildCVPixelBuffer(const gls::image<gls::rgba_pixel_float>& rgb
 
 - (void) runModel {
 #ifdef USE_FEMN_MODEL
-    MLModel* fmen = [[[FMEN alloc] init] model];
+    FMEN* fmen = [[FMEN alloc] init];
 
     NSError *error = nil;
     NSArray<NSNumber *> *tile_shape = @[@1, @1, @1024, @1024];
@@ -259,7 +261,109 @@ CVPixelBufferRef buildCVPixelBuffer(const gls::image<gls::rgba_pixel_float>& rgb
 
     std::cout << "FMEN Pipeline Execution Time: " << (int)elapsed_time_ms << std::endl;
 
-    printf("result is %p\n", femn_output);
+    MLMultiArray *result_tile = [femn_output var_540];
+    NSArray<NSNumber *> *resultShape = [result_tile shape];
+    std::cout << "Output tile shape: ";
+    for (int i = 0; i < resultShape.count; i++) {
+        std::cout << [resultShape[i] longValue] << ", ";
+    }
+    std::cout << std::endl;
+#endif
+}
+
+- (CVPixelBufferRef) fmenRawPixelBuffer: (CVPixelBufferRef) rawPixelBuffer withMetadata: (RawMetadata*) metadata {
+#ifdef USE_FEMN_MODEL
+    @autoreleasepool {
+        FMEN* fmen = [[FMEN alloc] init];
+
+        const int fmen_tile_size = 1024;
+        const int fmen_tile_pixels = fmen_tile_size * fmen_tile_size;
+
+        NSError *error = nil;
+        NSArray<NSNumber *> *tile_shape = @[@1, @1, @1024, @1024];
+        MLMultiArray *multiarray_tile = [[MLMultiArray alloc] initWithShape:tile_shape
+                                                                   dataType:MLMultiArrayDataTypeFloat error: &error];
+        if (error != nil) {
+            // Handle the error.
+            return nil;
+        }
+
+        FMENInput *femn_input = [[FMENInput alloc] initWithX_3:multiarray_tile];
+
+        CVPixelBufferLockBaseAddress(rawPixelBuffer, 0);
+        size_t width = CVPixelBufferGetWidth(rawPixelBuffer);
+        size_t height = CVPixelBufferGetHeight(rawPixelBuffer);
+        size_t bytesPerRow = CVPixelBufferGetBytesPerRow(rawPixelBuffer);
+        size_t stride = (int) bytesPerRow / sizeof(uint16_t);
+        uint16_t* data = (uint16_t*) CVPixelBufferGetBaseAddress(rawPixelBuffer);
+
+        auto rawImage = gls::image<uint16_t>((int) width, (int) height, (int) stride, std::span(data, stride * height));
+
+        auto t_fmen_start = std::chrono::high_resolution_clock::now();
+
+        // copy data to FMENInput
+
+        gls::image<gls::rgba_pixel_fp16> rgbImageCPU((int) width, (int) height);
+
+        gls::image<float> tile(fmen_tile_size, fmen_tile_size, fmen_tile_size,
+                               std::span((float *) multiarray_tile.dataPointer, fmen_tile_pixels));
+
+        for (int y = 0; y < height; y += fmen_tile_size) {
+            for (int x = 0; x < width; x += fmen_tile_size) {
+                for (int j = 0; j < fmen_tile_size; j++) {
+                    for (int i = 0; i < fmen_tile_size; i++) {
+                        tile[j][i] = rawImage.getPixel(x + i, y + j) / (float) 0xffff;
+                    }
+                }
+
+                FMENOutput* femn_output = [fmen predictionFromFeatures: femn_input error: &error];
+                assert(error == nil);
+
+                MLMultiArray *result_multiarray = [femn_output var_540];
+
+                // Minimal sanity check
+                NSArray<NSNumber *> *resultShape = [result_multiarray shape];
+                assert([resultShape[0] longValue] == 1 &&
+                       [resultShape[1] longValue] == 3 &&
+                       [resultShape[2] longValue] == fmen_tile_size &&
+                       [resultShape[3] longValue] == fmen_tile_size);
+
+                gls::image<float> resultTileRed(fmen_tile_size, fmen_tile_size, fmen_tile_size,
+                                                std::span((float *) result_multiarray.dataPointer, fmen_tile_pixels));
+                gls::image<float> resultTileGreen(fmen_tile_size, fmen_tile_size, fmen_tile_size,
+                                                  std::span((float *) result_multiarray.dataPointer + fmen_tile_pixels, fmen_tile_pixels));
+                gls::image<float> resultTileBlue(fmen_tile_size, fmen_tile_size, fmen_tile_size,
+                                                 std::span((float *) result_multiarray.dataPointer + 2 * fmen_tile_pixels, fmen_tile_pixels));
+
+                for (int j = 0; j < fmen_tile_size; j++) {
+                    for (int i = 0; i < fmen_tile_size; i++) {
+                        if (y + j < height && x + i < width) {
+                            rgbImageCPU[y + j][x + i] = {
+                                (float16_t) resultTileRed[j][i],
+                                (float16_t) resultTileGreen[j][i],
+                                (float16_t) resultTileBlue[j][i],
+                                (float16_t) 1
+                            };
+                        }
+                    }
+                }
+            }
+        }
+
+        // All done with rawImage, release rawPixelBuffer
+        CVPixelBufferUnlockBaseAddress(rawPixelBuffer, 0);
+
+        auto t_fmen_end = std::chrono::high_resolution_clock::now();
+        auto elapsed_time_ms = std::chrono::duration<double, std::milli>(t_fmen_end - t_fmen_start).count();
+
+        std::cout << "FMEN Pipeline Execution Time: " << (int)elapsed_time_ms << std::endl;
+
+        CVPixelBufferRef pixelBuffer = buildCVPixelBuffer<gls::rgba_pixel_fp16>(rgbImageCPU);
+
+        return pixelBuffer;
+    }
+#else
+    return nil;
 #endif
 }
 
