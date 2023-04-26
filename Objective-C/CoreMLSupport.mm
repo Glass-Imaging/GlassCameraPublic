@@ -21,10 +21,12 @@ void fmenApplyToImage(const gls::image<gls::luma_pixel_16>& rawImage, int whiteL
 #ifdef USE_FEMN_MODEL
     const int fmen_tile_size = 1024;
     const int fmen_tile_pixels = fmen_tile_size * fmen_tile_size;
+    const int image_tile_padding = 32;
+    const int image_tile_size = fmen_tile_size - 2 * image_tile_padding;
 
     @autoreleasepool {
         // Allocate FMEN model
-        FMEN* fmen = [[FMEN alloc] init];
+        static FMEN* fmen = [[FMEN alloc] init];
 
         // Counting out time
         auto t_fmen_start = std::chrono::high_resolution_clock::now();
@@ -39,11 +41,11 @@ void fmenApplyToImage(const gls::image<gls::luma_pixel_16>& rawImage, int whiteL
         gls::image<float> tile(fmen_tile_size, fmen_tile_size, fmen_tile_size,
                                std::span((float *) multiarray_tile.dataPointer, fmen_tile_pixels));
 
-        for (int y = 0; y < rawImage.height; y += fmen_tile_size) {
-            for (int x = 0; x < rawImage.width; x += fmen_tile_size) {
-                for (int j = 0; j < fmen_tile_size; j++) {
-                    for (int i = 0; i < fmen_tile_size; i++) {
-                        tile[j][i] = rawImage.getPixel(x + i, y + j) / (float) whiteLevel;
+        for (int y = 0; y < rawImage.height; y += image_tile_size) {
+            for (int x = 0; x < rawImage.width; x += image_tile_size) {
+                for (int j = 0, sj = -image_tile_padding; j < fmen_tile_size; j++, sj++) {
+                    for (int i = 0, si = -image_tile_padding; i < fmen_tile_size; i++, si++) {
+                        tile[j][i] = rawImage.getPixel(x + si, y + sj) / (float) whiteLevel;
                     }
                 }
 
@@ -66,13 +68,13 @@ void fmenApplyToImage(const gls::image<gls::luma_pixel_16>& rawImage, int whiteL
                 gls::image<float> resultTileBlue(fmen_tile_size, fmen_tile_size, fmen_tile_size,
                                                  std::span((float *) result_multiarray.dataPointer + 2 * fmen_tile_pixels, fmen_tile_pixels));
 
-                for (int j = 0; j < fmen_tile_size; j++) {
-                    for (int i = 0; i < fmen_tile_size; i++) {
+                for (int j = 0, rj = image_tile_padding; j < image_tile_size; j++, rj++) {
+                    for (int i = 0, ri = image_tile_padding; i < image_tile_size; i++, ri++) {
                         if (y + j < rawImage.height && x + i < rawImage.width) {
                             (*processedImage)[y + j][x + i] = {
-                                (float16_t) resultTileRed[j][i],
-                                (float16_t) resultTileGreen[j][i],
-                                (float16_t) resultTileBlue[j][i],
+                                (float16_t) resultTileRed[rj][ri],
+                                (float16_t) resultTileGreen[rj][ri],
+                                (float16_t) resultTileBlue[rj][ri],
                                 (float16_t) 1
                             };
                         }
