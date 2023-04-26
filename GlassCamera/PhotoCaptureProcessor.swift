@@ -102,6 +102,9 @@ class PhotoCaptureProcessor: NSObject {
     
     private let saveCollection: PhotoCollection
 
+    // Select the image processing pipeline
+    private let useTraditionalPipeline = true;
+
     // Save the location of captured photos
     var location: CLLocation?
 
@@ -143,8 +146,9 @@ class PhotoCaptureProcessor: NSObject {
                let rawPixelBuffer = photo.pixelBuffer {
                 let rawMetadata = RawMetadata(from: photo.metadata)
 
-                let pixelBuffer = rawProcessor.convertRawPixelBuffer(rawPixelBuffer, with: rawMetadata).takeRetainedValue()
-                // let pixelBuffer = rawProcessor.fmenRawPixelBuffer(rawPixelBuffer, with: rawMetadata).takeRetainedValue()
+                let pixelBuffer = useTraditionalPipeline
+                    ? rawProcessor.convertRawPixelBuffer(rawPixelBuffer, with: rawMetadata).takeRetainedValue()
+                    : rawProcessor.nnProcessRawPixelBuffer(rawPixelBuffer, with: rawMetadata).takeRetainedValue()
 
                 let cgImage = pixelBuffer.createCGImage(colorSpace: displayP3)
 
@@ -345,7 +349,9 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
                let heicData = cgImage.heic(withMetadata: self.imageMetadata) {
                 
                 Task {
-                    try! await saveCollection.addImage(heicData, timestamp: timestamp, photoCategory: PhotoCategories.GlassTraditional, alternateResource: nil, location: self.location)
+                    try! await saveCollection.addImage(heicData, timestamp: timestamp,
+                                                       photoCategory: useTraditionalPipeline ? PhotoCategories.GlassTraditional : PhotoCategories.GlassNN,
+                                                       alternateResource: nil, location: self.location)
                     completeTransaction()
                     self.procesedImage = nil
                     self.imageMetadata = nil

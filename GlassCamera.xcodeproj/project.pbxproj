@@ -19,8 +19,6 @@
 		86276B3729EF4DA900EFF0C3 /* PhotoLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86276B2E29EF4DA900EFF0C3 /* PhotoLibrary.swift */; };
 		86276B3929F1CD6700EFF0C3 /* PhotoCategories.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86276B3829F1CD6700EFF0C3 /* PhotoCategories.swift */; };
 		86276B3D29F3037200EFF0C3 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 86276B3C29F3019300EFF0C3 /* Assets.xcassets */; };
-		E518E68E29F7362C0056E6BF /* NSObject+CoreMLSupport.m in Sources */ = {isa = PBXBuildFile; fileRef = E518E68D29F7362C0056E6BF /* NSObject+CoreMLSupport.m */; };
-		E518E68F29F7362C0056E6BF /* NSObject+CoreMLSupport.m in Sources */ = {isa = PBXBuildFile; fileRef = E518E68D29F7362C0056E6BF /* NSObject+CoreMLSupport.m */; };
 		E518E69129F7367A0056E6BF /* CoreMLSupport.mm in Sources */ = {isa = PBXBuildFile; fileRef = E518E69029F7367A0056E6BF /* CoreMLSupport.mm */; };
 		E518E69229F7367A0056E6BF /* CoreMLSupport.mm in Sources */ = {isa = PBXBuildFile; fileRef = E518E69029F7367A0056E6BF /* CoreMLSupport.mm */; };
 		E518E69529F7397C0056E6BF /* CoreImage.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E518E69429F7397C0056E6BF /* CoreImage.framework */; };
@@ -118,8 +116,6 @@
 		86276B2E29EF4DA900EFF0C3 /* PhotoLibrary.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PhotoLibrary.swift; sourceTree = "<group>"; };
 		86276B3829F1CD6700EFF0C3 /* PhotoCategories.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoCategories.swift; sourceTree = "<group>"; };
 		86276B3C29F3019300EFF0C3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		E518E68C29F7362C0056E6BF /* NSObject+CoreMLSupport.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "NSObject+CoreMLSupport.h"; sourceTree = "<group>"; };
-		E518E68D29F7362C0056E6BF /* NSObject+CoreMLSupport.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "NSObject+CoreMLSupport.m"; sourceTree = "<group>"; };
 		E518E69029F7367A0056E6BF /* CoreMLSupport.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = CoreMLSupport.mm; sourceTree = "<group>"; };
 		E518E69329F7369B0056E6BF /* CoreMLSupport.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CoreMLSupport.h; sourceTree = "<group>"; };
 		E518E69429F7397C0056E6BF /* CoreImage.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreImage.framework; path = System/Library/Frameworks/CoreImage.framework; sourceTree = SDKROOT; };
@@ -276,8 +272,6 @@
 				E5C5BFA629BC5E4B00AAB593 /* GlassCamera-Bridging-Header.h */,
 				E5C6987D29CBAD8300F7062C /* RawProcessor.h */,
 				E5C6987E29CBAD8300F7062C /* RawProcessor.mm */,
-				E518E68C29F7362C0056E6BF /* NSObject+CoreMLSupport.h */,
-				E518E68D29F7362C0056E6BF /* NSObject+CoreMLSupport.m */,
 				E518E69329F7369B0056E6BF /* CoreMLSupport.h */,
 				E518E69029F7367A0056E6BF /* CoreMLSupport.mm */,
 			);
@@ -545,7 +539,6 @@
 				E5C6984629C805B500F7062C /* demosaic.metal in Sources */,
 				86276B3329EF4DA900EFF0C3 /* PhotoAsset.swift in Sources */,
 				86276B2529EF4D9700EFF0C3 /* CachedImageManager.swift in Sources */,
-				E518E68E29F7362C0056E6BF /* NSObject+CoreMLSupport.m in Sources */,
 				E5D4D8A627D183F700F1D944 /* PhotoCaptureProcessor.swift in Sources */,
 				E5C6986D29C926F100F7062C /* Sonya6400Calibration.cpp in Sources */,
 				E5C6984D29C906FC00F7062C /* raw_converter.cpp in Sources */,
@@ -578,7 +571,6 @@
 				E5FAE7EB29C5425300213AE6 /* gls_mtl_image.hpp in Sources */,
 				E5FAE7EC29C5425300213AE6 /* gls_mtl.cpp in Sources */,
 				E5FAE7ED29C5425300213AE6 /* gls_mtl.hpp in Sources */,
-				E518E68F29F7362C0056E6BF /* NSObject+CoreMLSupport.m in Sources */,
 				E5C6986729C9269400F7062C /* demosaic_utils.cpp in Sources */,
 				E5FAE7EE29C5425300213AE6 /* gls_color_science.cpp in Sources */,
 				E5C6986429C925A600F7062C /* CameraCalibration.cpp in Sources */,

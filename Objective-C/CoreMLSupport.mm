@@ -1,9 +1,17 @@
+// Copyright (c) 2021-2023 Glass Imaging Inc.
+// Author: Fabio Riccardi <fabio@glass-imaging.com>
 //
-//  CoreMLSupport.m
-//  GlassCamera
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-//  Created by Fabio Riccardi on 4/24/23.
+//    http://www.apache.org/licenses/LICENSE-2.0
 //
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #import <Foundation/Foundation.h>
 #import <CoreImage/CoreImage.h>
@@ -17,22 +25,89 @@
 #import "FMEN.h"
 #endif
 
+void fmenApplyToImageFullRes(const gls::image<gls::luma_pixel_16>& rawImage, int whiteLevel, gls::image<gls::rgba_pixel_fp16>* processedImage) {
+#ifdef USE_FEMN_MODEL
+    assert(rawImage.width == 4032 && rawImage.height == 3024);
+
+    const int fmen_tile_pixels = rawImage.width * rawImage.height;
+
+    @autoreleasepool {
+        // Allocate FMEN model
+        FMEN* fmen = [[FMEN alloc] init];
+
+        // Counting out time
+        auto t_fmen_start = std::chrono::high_resolution_clock::now();
+
+        NSError *error = nil;
+        NSArray<NSNumber *> *tile_shape = @[@1, @1, @4032, @3024];
+        MLMultiArray *multiarray_tile = [[MLMultiArray alloc] initWithShape:tile_shape
+                                                                   dataType:MLMultiArrayDataTypeFloat error: &error];
+        assert(error == nil);
+        FMENInput *femn_input = [[FMENInput alloc] initWithX_3:multiarray_tile];
+
+        gls::image<float> tile(rawImage.height, rawImage.width, rawImage.height,
+                               std::span((float *) multiarray_tile.dataPointer, fmen_tile_pixels));
+
+        for (int y = 0; y < rawImage.height; y++) {
+            for (int x = 0; x < rawImage.width; x++) {
+                tile[x][y] = rawImage[y][x] / (float) whiteLevel;
+            }
+        }
+
+        FMENOutput* femn_output = [fmen predictionFromFeatures: femn_input error: &error];
+        assert(error == nil);
+
+        MLMultiArray *result_multiarray = [femn_output var_540];
+
+        // Minimal sanity check
+        NSArray<NSNumber *> *resultShape = [result_multiarray shape];
+        assert([resultShape[0] longValue] == 1 &&
+               [resultShape[1] longValue] == 3 &&
+               [resultShape[2] longValue] == rawImage.width &&
+               [resultShape[3] longValue] == rawImage.height);
+
+        gls::image<float> resultTileRed(rawImage.height, rawImage.width, rawImage.height,
+                                        std::span((float *) result_multiarray.dataPointer, fmen_tile_pixels));
+        gls::image<float> resultTileGreen(rawImage.height, rawImage.width, rawImage.height,
+                                          std::span((float *) result_multiarray.dataPointer + fmen_tile_pixels, fmen_tile_pixels));
+        gls::image<float> resultTileBlue(rawImage.height, rawImage.width, rawImage.height,
+                                         std::span((float *) result_multiarray.dataPointer + 2 * fmen_tile_pixels, fmen_tile_pixels));
+
+        for (int y = 0; y < rawImage.height; y++) {
+            for (int x = 0; x < rawImage.width; x++) {
+                (*processedImage)[y][x] = {
+                    (float16_t) resultTileRed[y][x],
+                    (float16_t) resultTileGreen[y][x],
+                    (float16_t) resultTileBlue[y][x],
+                    (float16_t) 1
+                };
+            }
+        }
+
+        // Measure execution time
+        auto t_fmen_end = std::chrono::high_resolution_clock::now();
+        auto elapsed_time_ms = std::chrono::duration<double, std::milli>(t_fmen_end - t_fmen_start).count();
+        std::cout << "FMEN Pipeline Execution Time: " << (int)elapsed_time_ms << std::endl;
+    }
+#endif
+}
+
 void fmenApplyToImage(const gls::image<gls::luma_pixel_16>& rawImage, int whiteLevel, gls::image<gls::rgba_pixel_fp16>* processedImage) {
 #ifdef USE_FEMN_MODEL
-    const int fmen_tile_size = 1024;
+    const int fmen_tile_size = 1072;
     const int fmen_tile_pixels = fmen_tile_size * fmen_tile_size;
     const int image_tile_padding = 32;
     const int image_tile_size = fmen_tile_size - 2 * image_tile_padding;
 
     @autoreleasepool {
         // Allocate FMEN model
-        static FMEN* fmen = [[FMEN alloc] init];
+        FMEN* fmen = [[FMEN alloc] init];
 
         // Counting out time
         auto t_fmen_start = std::chrono::high_resolution_clock::now();
 
         NSError *error = nil;
-        NSArray<NSNumber *> *tile_shape = @[@1, @1, @1024, @1024];
+        NSArray<NSNumber *> *tile_shape = @[@1, @1, @1072, @1072];
         MLMultiArray *multiarray_tile = [[MLMultiArray alloc] initWithShape:tile_shape
                                                                    dataType:MLMultiArrayDataTypeFloat error: &error];
         assert(error == nil);

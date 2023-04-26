@@ -181,9 +181,9 @@ void fmenApplyToFile(std::filesystem::path input_path, std::vector<uint8_t>* icc
     // Apply model to image
     fmenApplyToImage(*rawImage, /*whiteLevel*/ white_level_vec[0], &processedImage);
 
-    const auto output_path = input_path.replace_extension("_s.png");
+    const auto output_path = input_path.replace_extension("_fmen_1072.png");
 
-    saveImage<gls::rgb_pixel_16>(processedImage, output_path.string(), icc_profile_data, exposure_multiplier);
+    saveImage<gls::rgb_pixel_16>(processedImage, output_path.string(), icc_profile_data, /*exposure_multiplier*/ 1);
 }
 
 void demosaicDirectory(RawConverter* rawConverter, std::filesystem::path input_path) {
@@ -254,9 +254,9 @@ int main(int argc, const char * argv[]) {
 
         // fmenApplyToFile(input_path, &icc_profile_data);
 
-        demosaicDirectory(&rawConverter, input_path);
+        // demosaicDirectory(&rawConverter, input_path);
 
-        // fmenApplyToDirectory(input_path, &icc_profile_data);
+        fmenApplyToDirectory(input_path, &icc_profile_data);
 
         return 0;
     } else {

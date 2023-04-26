@@ -234,7 +234,7 @@ CVPixelBufferRef buildCVPixelBuffer(const gls::image<gls::rgba_pixel_float>& rgb
     return pixelBuffer;
 }
 
-- (CVPixelBufferRef) fmenRawPixelBuffer: (CVPixelBufferRef) rawPixelBuffer withMetadata: (RawMetadata*) metadata {
+- (CVPixelBufferRef) nnProcessRawPixelBuffer: (CVPixelBufferRef) rawPixelBuffer withMetadata: (RawMetadata*) metadata {
     // Extract some metadata
     float baselineExposure = [metadata baselineExposure];
     float exposureTime = [metadata exposureTime];
