@@ -128,7 +128,7 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
         _localToneMapping->allocateTextures(&_mtlContext, rawImage.width, rawImage.height);
     }
 
-    bool high_noise_image = demosaicParameters->iso >= 800;
+    bool high_noise_image = _calibrateFromImage ? false : demosaicParameters->iso >= 800;
     if (high_noise_image) {
         allocateHighNoiseTextures(rawImage.size());
     }
@@ -218,10 +218,10 @@ RawNLF RawConverter::MeasureRawNLF(float exposure_multiplier, BayerPattern bayer
     const auto meanImageCpu = _meanImage->mapImage();
     const auto varImageCpu = _varImage->mapImage();
 
-    static int count = 0;
-    dumpNoiseImage(*meanImageCpu, 1, 0, "mean9x9-" + std::to_string(count));
-    dumpNoiseImage(*varImageCpu, 100, 0, "variance9x9-" + std::to_string(count));
-    count++;
+//    static int count = 0;
+//    dumpNoiseImage(*meanImageCpu, 1, 0, "mean9x9-" + std::to_string(count));
+//    dumpNoiseImage(*varImageCpu, 100, 0, "variance9x9-" + std::to_string(count));
+//    count++;
 
     using double4 = gls::DVector<4>;
 
@@ -234,30 +234,19 @@ RawNLF RawConverter::MeasureRawNLF(float exposure_multiplier, BayerPattern bayer
         if (validStats) {
             const auto scale = gls::apply(std::log10, v);
 
-            if (max_element(scale) < -5.0) {
-                varianceHistogram[0]++;
-            } else if (max_element(scale) >= -5.0 && max_element(scale) < -4.0) {
-                varianceHistogram[1]++;
-            } else if (max_element(scale) >= -4.0 && max_element(scale) < -3.0) {
-                varianceHistogram[2]++;
-            } else if (max_element(scale) >= -3.0 && max_element(scale) < -2.0) {
-                varianceHistogram[3]++;
-            } else if (max_element(scale) >= -2.0 && max_element(scale) < -1.0) {
-                varianceHistogram[4]++;
-            } else if (max_element(scale) >= -1.0) {
-                varianceHistogram[5]++;
-            }
+            int entry = 6 + (int) std::clamp(max_element(scale), -6.0, -1.0);
+            varianceHistogram[entry]++;
         }
     });
 
     // Only consider pixels with variance lower than the expected noise value
-    double4 varianceMax = varianceHistogram[0] > 1e4 ? 1.0e-5 :
-                          varianceHistogram[1] > 1e4 ? 1.0e-4 :
-                          varianceHistogram[2] > 1e4 ? 1.0e-3 :
-                          varianceHistogram[3] > 1e4 ? 1.0e-2 :
-                                                       1.0e-1;
+    double4 varianceMax = varianceHistogram[0] > 1e3 ? 1.0e-5 :
+                          varianceHistogram[1] > 1e3 ? 1.0e-4 :
+                          varianceHistogram[2] > 1e3 ? 1.0e-3 :
+                          varianceHistogram[3] > 1e3 ? 1.0e-2 :
+                          varianceHistogram[4] > 1e3 ? 1.0e-1 : 1;
 
-    // std::cout << "MeasureRawNLF - varianceHistogram: " << varianceHistogram << ", varianceMax: " << varianceMax << std::endl;
+    std::cout << "MeasureRawNLF - varianceHistogram: " << varianceHistogram << ", varianceMax: " << varianceMax << std::endl;
 
     // Limit to pixels the more linear intensity zone of the sensor
     const double maxValue = 0.9;
