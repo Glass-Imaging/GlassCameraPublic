@@ -184,11 +184,43 @@ YCbCrNLF PyramidProcessor<levels>::MeasureYCbCrNLF(MetalContext* context,
 
     using double3 = gls::DVector<3>;
 
+    gls::DVector<6> varianceHistogram = {0, 0, 0, 0, 0, 0};   // 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1
+    noiseStatsCpu->apply([&](const gls::rgba_pixel_float& ns, int x, int y) {
+        double m = ns[0];
+        double3 v = {ns[1], ns[2], ns[3]};
+
+        bool validStats = !any(isnan(v));
+
+        if (validStats) {
+            const auto scale = gls::apply(std::log10, v);
+
+            if (max_element(scale) < -5.0) {
+                varianceHistogram[0]++;
+            } else if (max_element(scale) >= -5.0 && max_element(scale) < -4.0) {
+                varianceHistogram[1]++;
+            } else if (max_element(scale) >= -4.0 && max_element(scale) < -3.0) {
+                varianceHistogram[2]++;
+            } else if (max_element(scale) >= -3.0 && max_element(scale) < -2.0) {
+                varianceHistogram[3]++;
+            } else if (max_element(scale) >= -2.0 && max_element(scale) < -1.0) {
+                varianceHistogram[4]++;
+            } else if (max_element(scale) >= -1.0) {
+                varianceHistogram[5]++;
+            }
+        }
+    });
+
     // Only consider pixels with variance lower than the expected noise value
-    double3 varianceMax = 0.001;
+    double3 varianceMax = varianceHistogram[0] > 1e4 ? 1.0e-5 :
+                          varianceHistogram[1] > 1e4 ? 1.0e-4 :
+                          varianceHistogram[2] > 1e4 ? 1.0e-3 :
+                          varianceHistogram[3] > 1e4 ? 1.0e-2 :
+                                                       1.0e-1;
+
+    // std::cout << "MeasureYCbCrNLF - varianceHistogram: " << varianceHistogram << ", varianceMax: " << varianceMax << std::endl;
 
     // Limit to pixels the more linear intensity zone of the sensor
-    const double maxValue = 0.5;
+    const double maxValue = 0.9;
     const double minValue = 0.001;
 
     // Collect pixel statistics

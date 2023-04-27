@@ -111,7 +111,7 @@ void demosaicFile(RawConverter* rawConverter, std::filesystem::path input_path) 
     gls::tiff_metadata dng_metadata, exif_metadata;
     const auto rawImage =
     gls::image<gls::luma_pixel_16>::read_dng_file(input_path.string(), &dng_metadata, &exif_metadata);
-    auto demosaicParameters = unpackiPhone14TeleRawImage(*rawImage, rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
+    auto demosaicParameters = unpackiPhone14WideRawImage(*rawImage, rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
 
     rawConverter->allocateTextures(rawImage->size());
 
@@ -125,7 +125,7 @@ void demosaicFile(RawConverter* rawConverter, std::filesystem::path input_path) 
     std::cout << "Metal Pipeline Execution Time: " << (int)elapsed_time_ms
     << "ms for image of size: " << rawImage->width << " x " << rawImage->height << std::endl;
 
-    const auto output_path = input_path.replace_extension("_s.png");
+    const auto output_path = input_path.replace_extension("_s_cal.png");
 
     const auto srgbImageCpu = srgbImage->mapImage();
     saveImage<gls::rgb_pixel_16>(*srgbImageCpu, output_path.string(), rawConverter->icc_profile_data());
@@ -252,11 +252,11 @@ int main(int argc, const char * argv[]) {
 
         // demosaicFile(&rawConverter, input_path);
 
+        demosaicDirectory(&rawConverter, input_path);
+
         // fmenApplyToFile(input_path, &icc_profile_data);
 
-        // demosaicDirectory(&rawConverter, input_path);
-
-        fmenApplyToDirectory(input_path, &icc_profile_data);
+        // fmenApplyToDirectory(input_path, &icc_profile_data);
 
         return 0;
     } else {

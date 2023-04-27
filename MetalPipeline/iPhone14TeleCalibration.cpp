@@ -68,7 +68,7 @@ public:
         float lerp = std::lerp(0.5f, 2.5f, nlf_alpha);
         float lerp_c = 1;
 
-        std::cout << "iPhone DenoiseParameters nlf_alpha: " << nlf_alpha << ", ISO: " << iso << ", lerp: " << lerp << std::endl;
+        std::cout << "iPhone 14 Tele DenoiseParameters nlf_alpha: " << nlf_alpha << ", ISO: " << iso << ", lerp: " << lerp << std::endl;
 
         float lmult[5] = { 2, 2, 1, 0.5, 0.25 };
         float cmult[5] = { 1, 0.5, 0.5, 0.5, 0.25 };
@@ -128,55 +128,6 @@ public:
         };
     }
 };
-
-//std::pair<float, std::array<DenoiseParameters, levels>> getDenoiseParameters(int iso) const override {
-//    const float nlf_alpha = std::clamp((log2(iso) - log2(20)) / (log2(2500) - log2(20)), 0.0, 1.0);
-//
-//    float lerp = std::lerp(1.0f, 2.0f, nlf_alpha);
-//    float lerp_c = 1;
-//
-//    std::cout << "iPhone DenoiseParameters nlf_alpha: " << nlf_alpha << ", ISO: " << iso << ", lerp: " << lerp << std::endl;
-//
-//    float lmult[5] = { 1, 0.25, 0.25, 0.125, 0.125 };
-//    float cmult[5] = { 0.5, 0.5, 0.5, 0.5, 0.5 };
-//
-//    float chromaBoost = 4 * (2 - smoothstep(0.25, 0.35, nlf_alpha));
-//
-//    std::array<DenoiseParameters, 5> denoiseParameters = {{
-//        {
-//            .luma = lmult[0] * lerp,
-//            .chroma = cmult[0] * lerp_c,
-//            .chromaBoost = chromaBoost,
-//            // .gradientBoost = 2 * (2 - smoothstep(0.7, 1.0, nlf_alpha)),
-//            .sharpening = std::lerp(1.5f, 1.0f, nlf_alpha)
-//        },
-//        {
-//            .luma = lmult[1] * lerp,
-//            .chroma = cmult[1] * lerp_c,
-//            .chromaBoost = chromaBoost,
-//            // .gradientBoost = (2 - smoothstep(0.7, 1.0, nlf_alpha)),
-//            .sharpening = 1.1
-//        },
-//        {
-//            .luma = lmult[2] * lerp,
-//            .chroma = cmult[2] * lerp_c,
-//            .chromaBoost = chromaBoost,
-//        },
-//        {
-//            .luma = lmult[3] * lerp,
-//            .chroma = cmult[3] * lerp_c,
-//            .chromaBoost = chromaBoost,
-//        },
-//        {
-//            .luma = lmult[4] * lerp,
-//            .chroma = cmult[4] * lerp_c,
-//            .chromaBoost = chromaBoost,
-//        }
-//    }};
-//
-//    return { nlf_alpha, denoiseParameters };
-//}
-
 
 std::unique_ptr<DemosaicParameters> unpackiPhone14TeleRawImage(const gls::image<gls::luma_pixel_16>& inputImage,
                                                                const gls::Matrix<3, 3>& xyz_rgb,

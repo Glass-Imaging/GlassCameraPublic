@@ -86,10 +86,10 @@ int2 get_image_dim(texture2d<T, a> image) {
 
 half lensShading(half lensShadingCorrection, half distance_from_center) {
     // New iPhones
-    // return 0.8 + lensShadingCorrection * distance_from_center * distance_from_center;
+    return 0.8 + lensShadingCorrection * distance_from_center * distance_from_center;
     // Old iPhones
     // return 1 + distance_from_center * distance_from_center;
-    return 1;
+    // return 1;
 }
 
 // Work on one Quad (2x2) at a time
@@ -1025,7 +1025,7 @@ kernel void basicRawNoiseStatistics(texture2d<float> rawImage                   
     constant const int2* offsets = bayerOffsets[bayerPattern];
 
     int radius = 4;
-    int count = (2 * radius + 1) * (2 * radius + 1);
+    const float count = (2 * radius + 1) * (2 * radius + 1);
 
     float4 sum = 0;
     float4 sumSq = 0;

@@ -220,16 +220,47 @@ RawNLF RawConverter::MeasureRawNLF(float exposure_multiplier, BayerPattern bayer
 
     static int count = 0;
     dumpNoiseImage(*meanImageCpu, 1, 0, "mean9x9-" + std::to_string(count));
-    dumpNoiseImage(*varImageCpu, 1, 0, "variance9x9-" + std::to_string(count));
+    dumpNoiseImage(*varImageCpu, 100, 0, "variance9x9-" + std::to_string(count));
     count++;
 
     using double4 = gls::DVector<4>;
 
+    gls::DVector<6> varianceHistogram = {0, 0, 0, 0, 0, 0};   // 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1
+    varImageCpu->apply([&](const gls::rgba_pixel_float& vv, int x, int y) {
+        double4 v = vv.v;
+
+        bool validStats = !any(isnan(v));
+
+        if (validStats) {
+            const auto scale = gls::apply(std::log10, v);
+
+            if (max_element(scale) < -5.0) {
+                varianceHistogram[0]++;
+            } else if (max_element(scale) >= -5.0 && max_element(scale) < -4.0) {
+                varianceHistogram[1]++;
+            } else if (max_element(scale) >= -4.0 && max_element(scale) < -3.0) {
+                varianceHistogram[2]++;
+            } else if (max_element(scale) >= -3.0 && max_element(scale) < -2.0) {
+                varianceHistogram[3]++;
+            } else if (max_element(scale) >= -2.0 && max_element(scale) < -1.0) {
+                varianceHistogram[4]++;
+            } else if (max_element(scale) >= -1.0) {
+                varianceHistogram[5]++;
+            }
+        }
+    });
+
     // Only consider pixels with variance lower than the expected noise value
-    double4 varianceMax = 0.01;
+    double4 varianceMax = varianceHistogram[0] > 1e4 ? 1.0e-5 :
+                          varianceHistogram[1] > 1e4 ? 1.0e-4 :
+                          varianceHistogram[2] > 1e4 ? 1.0e-3 :
+                          varianceHistogram[3] > 1e4 ? 1.0e-2 :
+                                                       1.0e-1;
+
+    // std::cout << "MeasureRawNLF - varianceHistogram: " << varianceHistogram << ", varianceMax: " << varianceMax << std::endl;
 
     // Limit to pixels the more linear intensity zone of the sensor
-    const double maxValue = 0.5;
+    const double maxValue = 0.9;
     const double minValue = 0.001;
 
     // Collect pixel statistics
@@ -238,7 +269,7 @@ RawNLF RawConverter::MeasureRawNLF(float exposure_multiplier, BayerPattern bayer
     double4 s_xx = 0;
     double4 s_xy = 0;
 
-    double N = 0;
+    double N1 = 0;
     meanImageCpu->apply([&](const gls::rgba_pixel_float& mm, int x, int y) {
         double4 m = mm.v;
         double4 v = (*varImageCpu)[y][x].v;
@@ -250,17 +281,17 @@ RawNLF RawConverter::MeasureRawNLF(float exposure_multiplier, BayerPattern bayer
             s_y += v;
             s_xx += m * m;
             s_xy += m * v;
-            N++;
+            N1++;
         }
     });
 
     // Linear regression on pixel statistics to extract a linear noise model: nlf = A + B * Y
-    auto nlfB = max((N * s_xy - s_x * s_y) / (N * s_xx - s_x * s_x), 1e-8);
-    auto nlfA = max((s_y - nlfB * s_x) / N, 1e-8);
+    auto nlfB = max((N1 * s_xy - s_x * s_y) / (N1 * s_xx - s_x * s_x), 1e-8);
+    auto nlfA = max((s_y - nlfB * s_x) / N1, 1e-8);
 
 //    std::cout << "RAW NLF A: " << std::setprecision(4) << std::scientific << nlfA << ", B: " << nlfB
 //                  << " on " << std::setprecision(1) << std::fixed
-//                  << 100 * N / (_rawImage->width * _rawImage->height) << "% pixels" << std::endl;
+//                  << 100 * N1 / (_rawImage->width * _rawImage->height) << "% pixels" << std::endl;
 
     // Estimate regression mean square error
     double4 err2 = 0;
@@ -276,11 +307,11 @@ RawNLF RawConverter::MeasureRawNLF(float exposure_multiplier, BayerPattern bayer
             err2 += diff * diff;
         }
     });
-    err2 /= N;
+    err2 /= N1;
 
-    std::cout << "RAW NLF A: " << std::setprecision(4) << std::scientific << nlfA << ", B: " << nlfB
-                  << ", MSE: " << sqrt(err2) << " on " << std::setprecision(1) << std::fixed
-                  << 100 * N / (_rawImage->width * _rawImage->height) << "% pixels" << std::endl;
+//    std::cout << "RAW NLF A: " << std::setprecision(4) << std::scientific << nlfA << ", B: " << nlfB
+//                  << ", MSE: " << sqrt(err2) << " on " << std::setprecision(1) << std::fixed
+//                  << 100 * N1 / (_rawImage->width * _rawImage->height) << "% pixels" << std::endl;
 
     // Update the maximum variance with the model
     varianceMax = nlfB;
@@ -290,7 +321,7 @@ RawNLF RawConverter::MeasureRawNLF(float exposure_multiplier, BayerPattern bayer
     s_y = 0;
     s_xx = 0;
     s_xy = 0;
-    N = 0;
+    double N2 = 0;
     double4 newErr2 = 0;
     meanImageCpu->apply([&](const gls::rgba_pixel_float& mm, int x, int y) {
         double4 m = mm.v;
@@ -308,27 +339,28 @@ RawNLF RawConverter::MeasureRawNLF(float exposure_multiplier, BayerPattern bayer
                 s_y += v;
                 s_xx += m * m;
                 s_xy += m * v;
-                N++;
+                N2++;
                 newErr2 += diffSquare;
             }
         }
     });
-    newErr2 /= N;
+    newErr2 /= N2;
 
-    if (newErr2 < err2) {
+    if (N2 > 0.001 * (_rawImage->width * _rawImage->height) && !any(isnan(newErr2)) && newErr2 < err2) {
         err2 = newErr2;
+        N1 = N2;
 
         // Estimate the new regression parameters
-        nlfB = max((N * s_xy - s_x * s_y) / (N * s_xx - s_x * s_x), 1e-8);
-        nlfA = max((s_y - nlfB * s_x) / N, 1e-8);
+        nlfB = max((N2 * s_xy - s_x * s_y) / (N2 * s_xx - s_x * s_x), 1e-8);
+        nlfA = max((s_y - nlfB * s_x) / N2, 1e-8);
 
     } else {
         std::cout << "WARNING: the second noise estimate is worse than the first..." << std::endl;
     }
 
     std::cout << "RAW NLF A: " << std::setprecision(4) << std::scientific << nlfA << ", B: " << nlfB
-    << ", MSE: " << sqrt(err2) << " on " << std::setprecision(1) << std::fixed
-    << 100 * N / (_rawImage->width * _rawImage->height) << "% pixels" << std::endl;
+              << ", MSE: " << sqrt(err2) << " on " << std::setprecision(1) << std::fixed
+              << 100 * N1 / (_rawImage->width * _rawImage->height) << "% pixels" << std::endl;
 
 //    meanImage.unmapImage(meanImageCpu);
 //    varImage.unmapImage(varImageCpu);

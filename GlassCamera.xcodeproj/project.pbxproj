@@ -25,6 +25,8 @@
 		E518E69729F73A760056E6BF /* CoreImage.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E518E69629F73A760056E6BF /* CoreImage.framework */; };
 		E518E69929F73A7D0056E6BF /* CoreML.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E518E69829F73A7D0056E6BF /* CoreML.framework */; };
 		E518E69D29F748480056E6BF /* CoreML.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E518E69C29F748480056E6BF /* CoreML.framework */; };
+		E518E6D529F9D1D10056E6BF /* iPhone14WideCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E518E6D429F9D1D10056E6BF /* iPhone14WideCalibration.cpp */; };
+		E518E6D629F9D1D10056E6BF /* iPhone14WideCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E518E6D429F9D1D10056E6BF /* iPhone14WideCalibration.cpp */; };
 		E522296829CD646600D13A4F /* pyramid_processor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E522296629CD646600D13A4F /* pyramid_processor.cpp */; };
 		E522296929CD646600D13A4F /* pyramid_processor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E522296629CD646600D13A4F /* pyramid_processor.cpp */; };
 		E522296D29D026DA00D13A4F /* iPhoneCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E522296C29D026DA00D13A4F /* iPhoneCalibration.cpp */; };
@@ -123,6 +125,7 @@
 		E518E69829F73A7D0056E6BF /* CoreML.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreML.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.3.sdk/System/Library/Frameworks/CoreML.framework; sourceTree = DEVELOPER_DIR; };
 		E518E69A29F73B180056E6BF /* Vision.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Vision.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.3.sdk/System/Library/Frameworks/Vision.framework; sourceTree = DEVELOPER_DIR; };
 		E518E69C29F748480056E6BF /* CoreML.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreML.framework; path = System/Library/Frameworks/CoreML.framework; sourceTree = SDKROOT; };
+		E518E6D429F9D1D10056E6BF /* iPhone14WideCalibration.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = iPhone14WideCalibration.cpp; sourceTree = "<group>"; };
 		E522296629CD646600D13A4F /* pyramid_processor.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = pyramid_processor.cpp; sourceTree = "<group>"; };
 		E522296729CD646600D13A4F /* pyramid_processor.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = pyramid_processor.hpp; sourceTree = "<group>"; };
 		E522296B29CE421000D13A4F /* tinyicc.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = tinyicc.hpp; sourceTree = "<group>"; };
@@ -355,6 +358,7 @@
 				E5C6986C29C926F100F7062C /* Sonya6400Calibration.cpp */,
 				E522296C29D026DA00D13A4F /* iPhoneCalibration.cpp */,
 				E5E7CBAB29F4CA8300067C0B /* iPhone14TeleCalibration.cpp */,
+				E518E6D429F9D1D10056E6BF /* iPhone14WideCalibration.cpp */,
 				E5C6986929C926CD00F7062C /* ThreadPool.cpp */,
 				E5C6986829C926CD00F7062C /* ThreadPool.hpp */,
 				E522296B29CE421000D13A4F /* tinyicc.hpp */,
@@ -555,6 +559,7 @@
 				E5C5BFFB29BD36B600AAB593 /* gls_image_tiff.cpp in Sources */,
 				86276B3729EF4DA900EFF0C3 /* PhotoLibrary.swift in Sources */,
 				E5C5BFFE29BD36B600AAB593 /* gls_tiff_metadata.cpp in Sources */,
+				E518E6D529F9D1D10056E6BF /* iPhone14WideCalibration.cpp in Sources */,
 				E5C6987F29CBAD8300F7062C /* RawProcessor.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -585,6 +590,7 @@
 				E5FAE7F329C5425300213AE6 /* gls_logging.cpp in Sources */,
 				E5FAE7F429C5425300213AE6 /* gls_tiff_metadata.cpp in Sources */,
 				E5FAE7E429C5420200213AE6 /* pipelineTest.cpp in Sources */,
+				E518E6D629F9D1D10056E6BF /* iPhone14WideCalibration.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
