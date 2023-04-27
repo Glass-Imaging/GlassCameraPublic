@@ -145,6 +145,7 @@ typename PyramidProcessor<levels>::imageType* PyramidProcessor<levels>::denoise(
             _collectPatches(context, *layerImage, pcaPatches->buffer());
 
             context->waitForCompletion();
+            std::cout << "building level " << i << " PCA..." << std::endl;
             build_pca_space(std::span(pcaPatches->data(), sample_size), &pcaSpace);
 
             _pcaProjection(context, *layerImage, pcaSpace, pcaImagePyramid[i].get());

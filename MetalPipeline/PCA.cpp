@@ -38,10 +38,20 @@ void build_pca_space(const std::span<std::array<float, components>>& patches,
 
     // std::cout << std::scientific << variances << std::endl;
 
-//    for (int i = variances.size() - 1; i > 0; i--) {
-//        std::cout << variances.size() - i - 1 << " : " << std::scientific << variances[i] << ", delta: " << variances[i] - variances[i-1] << std::endl;
-//    }
-//    std::cout << variances.size() - 1 << " : " << std::scientific << variances[variances.size() - 1] << std::endl;
+    const int N = (int) variances.size();
+    const float maxValue = variances[N - 1];
+
+    int lastComponentIndex = N - 1;
+    for (int i = N - 1; i > 0; i--) {
+        // std::cout << N - i - 1 << " : " << std::scientific << variances[i] << ", delta: " << variances[i] - variances[i-1] << std::endl;
+
+        bool pcaTest = variances[i] - variances[i-1] > 0.01 * maxValue;
+        if (pcaTest) {
+            lastComponentIndex = N - i;
+        }
+    }
+//    std::cout << variances.size() - 1 << " : " << std::scientific << variances[0] << std::endl;
+    std::cout << "principal components: " << lastComponentIndex + 1 << std::endl;
 
     auto t_end = std::chrono::high_resolution_clock::now();
     auto elapsed_time_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();

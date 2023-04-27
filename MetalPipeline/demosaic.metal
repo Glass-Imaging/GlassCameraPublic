@@ -686,8 +686,15 @@ kernel void denoiseImage(texture2d<half> inputImage                     [[textur
 }
 
 struct _half8 {
-    half4 hi;
-    half4 lo;
+    union {
+        struct {
+            half4 hi;
+            half4 lo;
+        };
+        array<half, 8> vec;
+    };
+
+    _half8() {}
 
     _half8(half val) : hi(val), lo(val) { }
 
@@ -700,10 +707,28 @@ struct _half8 {
     }
 
     operator uint4() const { return uint4(uint2(hi), uint2(lo)); }
+
+    _half8 mask() const {
+        _half8 result;
+
+        result.vec[0] = 1;
+        for (int i = 1; i < 8; i++) {
+            result.vec[i] = vec[i] - vec[i-1] > vec[i-1] ? 1 : 0;
+        }
+
+        return result;
+    }
 };
 
 half length(_half8 x) {
     return sqrt(dot(x.hi, x.hi) + dot(x.lo, x.lo));
+}
+
+half length(_half8 x, _half8 mask) {
+    half4 hi = x.hi * mask.hi;
+    half4 lo = x.lo * mask.lo;
+
+    return sqrt(dot(hi, hi) + dot(lo, lo));
 }
 
 half length(_half8 x, int pca_components) {
@@ -773,6 +798,7 @@ kernel void blockMatchingDenoiseImage(texture2d<half> inputImage                
 
     const half3 inputYCC = read_imageh(inputImage, imageCoordinates).xyz;
     const _half8 inputPCA = _half8(read_imageui(pcaImage, imageCoordinates));
+    const _half8 pcaMask = inputPCA.mask();
 
 //    float2 imageCenter = float2(get_image_dim(inputImage) / 2);
 //    float distance_from_center = length(float2(imageCoordinates) - imageCenter) / length(imageCenter);
@@ -795,7 +821,7 @@ kernel void blockMatchingDenoiseImage(texture2d<half> inputImage                
             half3 inputSampleYCC = read_imageh(inputImage, imageCoordinates + int2(x, y)).xyz;
             _half8 samplePCA = _half8(read_imageui(pcaImage, imageCoordinates + int2(x, y)));
 
-            half pcaDiff = length(samplePCA - inputPCA);
+            half pcaDiff = length(samplePCA - inputPCA, pcaMask);
 
             half2 inputChromaDiff = (inputSampleYCC.yz - inputYCC.yz) * diffMultiplier.yz;
 
