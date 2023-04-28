@@ -40,6 +40,7 @@ final class CameraModel: ObservableObject {
 
     var session: AVCaptureSession
 
+    private let SHUTTER_DELAY = true
     private var subscriptions = Set<AnyCancellable>()
 
     init() {
@@ -95,7 +96,13 @@ final class CameraModel: ObservableObject {
     }
 
     func capturePhoto() {
-        service.capturePhoto(saveCollection: self.photoCollection)
+        if SHUTTER_DELAY {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                self.service.capturePhoto(saveCollection: self.photoCollection)
+            }
+        } else {
+            service.capturePhoto(saveCollection: self.photoCollection)
+        }
     }
 
     func flipCamera() {
