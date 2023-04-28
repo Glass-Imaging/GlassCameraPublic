@@ -186,6 +186,45 @@ void fmenApplyToFile(std::filesystem::path input_path, std::vector<uint8_t>* icc
     saveImage<gls::rgb_pixel_16>(processedImage, output_path.string(), icc_profile_data, /*exposure_multiplier*/ 1);
 }
 
+void fmenApplyToFile(RawConverter* rawConverter, std::filesystem::path input_path, std::vector<uint8_t>* icc_profile_data) {
+    std::cout << "Processing File: " << input_path.filename() << std::endl;
+
+    gls::tiff_metadata dng_metadata, exif_metadata;
+    const auto rawImage = gls::image<gls::luma_pixel_16>::read_dng_file(input_path.string(), &dng_metadata, &exif_metadata);
+    // FIXME: use the real xyz_rgb color space...
+    auto demosaicParameters = unpackiPhone14TeleRawImage(*rawImage, rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
+
+    float baseline_exposure = 0;
+    getValue(dng_metadata, TIFFTAG_BASELINEEXPOSURE, &baseline_exposure);
+    float exposure_multiplier = pow(2.0, baseline_exposure);
+    std::cout << "baseline_exposure: " << baseline_exposure << ", exposure_multiplier: " << exposure_multiplier
+                  << std::endl;
+
+    // Result Image
+    gls::image<gls::rgba_pixel_fp16> processedImage(rawImage->width, rawImage->height);
+
+    // Apply model to image
+    fmenApplyToImage(*rawImage, /*whiteLevel*/ demosaicParameters->white_level, &processedImage);
+
+    gls::Vector<3> normalized_scale_mul = { demosaicParameters->scale_mul[0], demosaicParameters->scale_mul[1], demosaicParameters->scale_mul[2] };
+    normalized_scale_mul /= *std::max_element(std::begin(normalized_scale_mul), std::end(normalized_scale_mul));
+
+    const auto scaled_black_level = demosaicParameters->black_level / demosaicParameters->white_level;
+
+    processedImage.apply([&] (gls::rgba_pixel_float* p, int x, int y) {
+        gls::Vector<3> v = { (*p)[0], (*p)[1], (*p)[2] };
+
+        v = demosaicParameters->rgb_cam * ((v - scaled_black_level) * normalized_scale_mul);
+
+        *p = { (float16_t) v[0], (float16_t) v[1], (float16_t) v[2], 1 };
+    });
+
+    const auto output_path = input_path.replace_extension("_fmen_1072.png");
+
+    saveImage<gls::rgb_pixel_16>(processedImage, output_path.string(), icc_profile_data, /*exposure_multiplier*/ 1);
+}
+
+
 void demosaicDirectory(RawConverter* rawConverter, std::filesystem::path input_path) {
     std::cout << "Processing Directory: " << input_path.filename() << std::endl;
 
@@ -252,9 +291,9 @@ int main(int argc, const char * argv[]) {
 
         // demosaicFile(&rawConverter, input_path);
 
-        demosaicDirectory(&rawConverter, input_path);
+        // demosaicDirectory(&rawConverter, input_path);
 
-        // fmenApplyToFile(input_path, &icc_profile_data);
+        fmenApplyToFile(&rawConverter, input_path, &icc_profile_data);
 
         // fmenApplyToDirectory(input_path, &icc_profile_data);
 
