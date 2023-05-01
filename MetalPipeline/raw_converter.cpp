@@ -55,6 +55,16 @@ void RawConverter::allocateHighNoiseTextures(const gls::size& imageSize) {
     }
 }
 
+void RawConverter::allocateLtmImagePyramid(const gls::size& imageSize) {
+    if (_ltmImagePyramid[0] == nullptr || _ltmImagePyramid[0]->width != imageSize.width / 2 || _ltmImagePyramid[0]->height != imageSize.height / 2) {
+        auto mtlDevice = _mtlContext.device();
+        int levels = _ltmImagePyramid.size() + 1;
+        for (int i = 0, scale = 2; i < levels - 1; i++, scale *= 2) {
+            _ltmImagePyramid[i] = std::make_unique<gls::mtl_image_2d<gls::rgba_pixel_float>>(mtlDevice, imageSize.width / scale, imageSize.height / scale);
+        }
+    }
+}
+
 gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::denoise(const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
                                                                 DemosaicParameters* demosaicParameters) {
     NoiseModel<5>* noiseModel = &demosaicParameters->noiseModel;
@@ -193,6 +203,86 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
 
     // FIXME: This is horrible!
     demosaicParameters->rgbConversionParameters.exposureBias += log2(demosaicParameters->exposure_multiplier);
+
+    _convertTosRGB(context, *_linearRGBImageA, _localToneMapping->getMask(), *demosaicParameters,
+                   _histogramBuffer.get(), _linearRGBImageA.get());
+
+    _mtlContext.waitForCompletion();
+
+    return _linearRGBImageA.get();
+}
+
+gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::postprocess(gls::image<gls::rgba_pixel_float>& rgbImage, DemosaicParameters* demosaicParameters) {
+    allocateTextures(rgbImage.size());
+
+    // Zero histogram data
+    bzero(_histogramBuffer->contents(), _histogramBuffer->length());
+
+    if (demosaicParameters->rgbConversionParameters.localToneMapping) {
+        _localToneMapping->allocateTextures(&_mtlContext, rgbImage.width, rgbImage.height);
+    }
+
+    allocateLtmImagePyramid(rgbImage.size());
+
+    gls::Vector<3> normalized_scale_mul = { demosaicParameters->scale_mul[0], demosaicParameters->scale_mul[1], demosaicParameters->scale_mul[2] };
+    normalized_scale_mul /= *std::max_element(std::begin(normalized_scale_mul), std::end(normalized_scale_mul));
+
+    const auto exposure_multiplier = std::max(demosaicParameters->raw_exposure_multiplier, 1.0f);
+
+    const auto scaled_black_level = demosaicParameters->black_level / demosaicParameters->white_level;
+
+    rgbImage.apply([&] (gls::rgba_pixel_float* p, int x, int y) {
+        gls::Vector<3> v = { (*p)[0], (*p)[1], (*p)[2] };
+
+        v = clamp((2 * exposure_multiplier * max(v - scaled_black_level, 0.0f) * normalized_scale_mul) * 0.9f + 0.1f, 0.0f, 1.0f);
+
+        *p = {
+            (float16_t) v[0],
+            (float16_t) v[1],
+            (float16_t) v[2],
+            1
+        };
+    });
+
+    _linearRGBImageA->copyPixelsFrom(rgbImage);
+
+    // Convert linear image to YCbCr for denoising
+    const auto cam_to_ycbcr = cam_ycbcr(demosaicParameters->rgb_cam, xyz_rgb());
+
+    // Convert result back to camera RGB
+    const auto ycbcr_to_cam = inverse(cam_to_ycbcr);
+
+    NoiseModel<5>* noiseModel = &demosaicParameters->noiseModel;
+
+    auto context = &_mtlContext;
+
+    // histogram_data* hd = histogramData();
+
+    // Convert to YCbCr
+    _transformImage(context, *_linearRGBImageA, _linearRGBImageB.get(), cam_to_ycbcr);
+
+    for (int i = 0; i < 4; i++) {
+        const auto currentLayer = i > 0 ? _ltmImagePyramid[i - 1].get() : _linearRGBImageB.get();
+        _pyramidProcessor->_resampleImage(context, *currentLayer, _ltmImagePyramid[i].get());
+    }
+
+    // Use a lower level of the pyramid to compute the histogram
+    const auto histogramImage = _ltmImagePyramid[2].get();
+    _histogramImage(&_mtlContext, *histogramImage, _histogramBuffer.get());
+    _histogramStatistics(&_mtlContext, _histogramBuffer.get(), histogramImage->size());
+
+    if (demosaicParameters->rgbConversionParameters.localToneMapping) {
+        const std::array<const gls::mtl_image_2d<gls::rgba_pixel_float>*, 3>& guideImage = {
+            _ltmImagePyramid[3].get(),
+            _ltmImagePyramid[1].get(),
+            _linearRGBImageB.get()
+        };
+        _localToneMapping->createMask(&_mtlContext, *_linearRGBImageB, guideImage, *noiseModel,
+                                      demosaicParameters->ltmParameters, _histogramBuffer.get());
+    }
+
+    // Convert to RGB
+    _transformImage(context, *_linearRGBImageB, _linearRGBImageA.get(), ycbcr_to_cam);
 
     _convertTosRGB(context, *_linearRGBImageA, _localToneMapping->getMask(), *demosaicParameters,
                    _histogramBuffer.get(), _linearRGBImageA.get());

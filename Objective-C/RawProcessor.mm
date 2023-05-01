@@ -235,24 +235,6 @@ CVPixelBufferRef buildCVPixelBuffer(const gls::image<gls::rgba_pixel_float>& rgb
 }
 
 - (CVPixelBufferRef) nnProcessRawPixelBuffer: (CVPixelBufferRef) rawPixelBuffer withMetadata: (RawMetadata*) metadata {
-    // Extract some metadata
-    float baselineExposure = [metadata baselineExposure];
-    float exposureTime = [metadata exposureTime];
-    int isoSpeedRating = [metadata isoSpeedRating];
-    int blackLevel = [metadata blackLevel];
-    int whiteLevel = [metadata whiteLevel];
-    // int calibrationIlluminant1 = [metadata calibrationIlluminant1];
-    // int calibrationIlluminant2 = [metadata calibrationIlluminant2];
-    // NSArray<NSNumber*>* colorMatrix1 = [metadata colorMatrix1];
-    // NSArray<NSNumber*>* colorMatrix2 = [metadata colorMatrix2];
-    // NSArray<NSNumber*>* asShotNeutral = [metadata asShotNeutral];
-
-    float exposureMultiplier = pow(2.0, baselineExposure);
-
-    std::cout << "blackLevel: " << blackLevel << ", whiteLevel: " << whiteLevel
-              << ", baselineExposure: " << baselineExposure << "EV - " << exposureMultiplier
-              << " scale, isoSpeedRating: " << isoSpeedRating << ", exposureTime: " << exposureTime << std::endl;
-
     // Unpack the input pixelBuffer
     CVPixelBufferLockBaseAddress(rawPixelBuffer, 0);
     size_t width = CVPixelBufferGetWidth(rawPixelBuffer);
@@ -264,17 +246,68 @@ CVPixelBufferRef buildCVPixelBuffer(const gls::image<gls::rgba_pixel_float>& rgb
     // Wrap the input pixel buffer into an image
     auto rawImage = gls::image<gls::luma_pixel_16>((int) width, (int) height, (int) stride, std::span(pixelBufferData, stride * height));
 
+    // Extract some metadata
+    float baselineExposure = [metadata baselineExposure];
+    float exposureTime = [metadata exposureTime];
+    int isoSpeedRating = [metadata isoSpeedRating];
+    int blackLevel = [metadata blackLevel];
+    int whiteLevel = [metadata whiteLevel];
+    // int calibrationIlluminant1 = [metadata calibrationIlluminant1];
+    // int calibrationIlluminant2 = [metadata calibrationIlluminant2];
+    NSArray<NSNumber*>* colorMatrix1 = [metadata colorMatrix1];
+    NSArray<NSNumber*>* colorMatrix2 = [metadata colorMatrix2];
+    NSArray<NSNumber*>* asShotNeutral = [metadata asShotNeutral];
+
+    std::vector<float> as_shot_neutral(3);
+    for (int i = 0; i < 3; i++) {
+        as_shot_neutral[i] = [asShotNeutral[i] floatValue];
+    }
+
+    std::vector<float> color_matrix(9);
+    for (int i = 0; i < 9; i++) {
+        color_matrix[i] = [colorMatrix2[i] floatValue];
+    }
+
+    gls::tiff_metadata dng_metadata, exif_metadata;
+
+    // Basic DNG image interpretation metadata
+    dng_metadata.insert({ TIFFTAG_COLORMATRIX1, color_matrix });
+    dng_metadata.insert({ TIFFTAG_ASSHOTNEUTRAL, as_shot_neutral });
+
+    dng_metadata.insert({ TIFFTAG_BASELINEEXPOSURE, baselineExposure });
+    dng_metadata.insert({ TIFFTAG_CFAREPEATPATTERNDIM, std::vector<uint16_t>{ 2, 2 } });
+    std::vector<uint8_t> cfaPattern = { 0, 1, 1, 2 };
+    dng_metadata.insert({ TIFFTAG_CFAPATTERN, cfaPattern });
+    dng_metadata.insert({ TIFFTAG_BLACKLEVEL, std::vector<float>{ (float) blackLevel } });
+    dng_metadata.insert({ TIFFTAG_WHITELEVEL, std::vector<uint32_t>{ (uint32_t) whiteLevel } });
+
+    // Basic EXIF metadata
+    exif_metadata.insert({ EXIFTAG_ISOSPEEDRATINGS, std::vector<uint16_t>{ (uint16_t) isoSpeedRating } });
+    exif_metadata.insert({ EXIFTAG_EXPOSURETIME, std::vector<float>{ (float) exposureTime } });
+
+    // FIXME: we need to select the right parameters for the right camera
+    auto demosaicParameters = unpackiPhone14TeleFEMNRawImage(rawImage, _rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
+
+    float exposureMultiplier = pow(2.0, baselineExposure);
+
+    std::cout << "blackLevel: " << blackLevel << ", whiteLevel: " << whiteLevel
+              << ", baselineExposure: " << baselineExposure << "EV - " << exposureMultiplier
+              << " scale, isoSpeedRating: " << isoSpeedRating << ", exposureTime: " << exposureTime << std::endl;
+
     // Result Image
     gls::image<gls::rgba_pixel_fp16> processedImage((int) width, (int) height);
 
     // Apply model to image
     fmenApplyToImage(rawImage, whiteLevel, &processedImage);
 
+    auto srgbImage = _rawConverter->postprocess(processedImage, demosaicParameters.get());
+    const auto srgbImageCpu = srgbImage->mapImage();
+
     // All done with rawImage, release rawPixelBuffer
     CVPixelBufferUnlockBaseAddress(rawPixelBuffer, 0);
 
     // Copy the result data to a pixelBuffer
-    CVPixelBufferRef pixelBuffer = buildCVPixelBuffer<gls::rgba_pixel_fp16>(processedImage);
+    CVPixelBufferRef pixelBuffer = buildCVPixelBuffer<gls::rgba_pixel_fp16>(*srgbImageCpu);
 
     return pixelBuffer;
 }

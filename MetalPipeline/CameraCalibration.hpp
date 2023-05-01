@@ -58,4 +58,8 @@ std::unique_ptr<DemosaicParameters> unpackiPhone14TeleRawImage(const gls::image<
                                                                gls::tiff_metadata* dng_metadata,
                                                                gls::tiff_metadata* exif_metadata);
 
+std::unique_ptr<DemosaicParameters> unpackiPhone14TeleFEMNRawImage(const gls::image<gls::luma_pixel_16>& inputImage,
+                                                                   const gls::Matrix<3, 3>& xyz_rgb,
+                                                                   gls::tiff_metadata* dng_metadata,
+                                                                   gls::tiff_metadata* exif_metadata);
 #endif /* CameraCalibration_hpp */

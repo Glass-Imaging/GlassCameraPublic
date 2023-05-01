@@ -103,7 +103,7 @@ class PhotoCaptureProcessor: NSObject {
     private let saveCollection: PhotoCollection
 
     // Select the image processing pipeline
-    private let useTraditionalPipeline = true;
+    private let useTraditionalPipeline = false;
 
     // Save the location of captured photos
     var location: CLLocation?

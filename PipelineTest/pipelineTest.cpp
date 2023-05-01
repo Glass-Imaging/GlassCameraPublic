@@ -125,7 +125,7 @@ void demosaicFile(RawConverter* rawConverter, std::filesystem::path input_path) 
     std::cout << "Metal Pipeline Execution Time: " << (int)elapsed_time_ms
     << "ms for image of size: " << rawImage->width << " x " << rawImage->height << std::endl;
 
-    const auto output_path = input_path.replace_extension("_s_cal_c_cal3.png");
+    const auto output_path = input_path.replace_extension("_s_ltm_sharp.png");
 
     const auto srgbImageCpu = srgbImage->mapImage();
     saveImage<gls::rgb_pixel_16>(*srgbImageCpu, output_path.string(), rawConverter->icc_profile_data());
@@ -153,46 +153,43 @@ void demosaicFile(RawConverter* rawConverter, std::filesystem::path input_path) 
     std::cout << "sum: " << sum << std::endl;
 
     std::cout << "black_level: " << histogramData->black_level << ", white_level: " << histogramData->white_level << std::endl;
+    std::cout << "mean: " << histogramData->mean << ", median: " << histogramData->median << ", mean - median: " << histogramData->mean - histogramData->median << std::endl;
     std::cout << "shadows: " << histogramData->shadows << ", highlights: " << histogramData->highlights << std::endl;
-    std::cout << "brightness: " << histogramData->brightness << std::endl;
-    std::cout << "median: " << histogramData->median << std::endl;
-    std::cout << "brightness - median: " << histogramData->brightness - histogramData->median << std::endl;
 
     // Bv = log2(A^2/(T * Sx)) + log2(1/0.297) => Bv = log2(A^2/(T*Sx)) + 1.751465
 }
 
-void fmenApplyToFile(std::filesystem::path input_path, std::vector<uint8_t>* icc_profile_data) {
-    std::cout << "Processing File: " << input_path.filename() << std::endl;
-
-    gls::tiff_metadata dng_metadata, exif_metadata;
-    const auto rawImage = gls::image<gls::luma_pixel_16>::read_dng_file(input_path.string(), &dng_metadata, &exif_metadata);
-
-    const auto white_level_vec = getVector<uint32_t>(dng_metadata, TIFFTAG_WHITELEVEL);
-
-    float baseline_exposure = 0;
-    getValue(dng_metadata, TIFFTAG_BASELINEEXPOSURE, &baseline_exposure);
-    float exposure_multiplier = pow(2.0, baseline_exposure);
-    std::cout << "baseline_exposure: " << baseline_exposure << ", exposure_multiplier: " << exposure_multiplier
-                  << std::endl;
-
-    // Result Image
-    gls::image<gls::rgba_pixel_fp16> processedImage(rawImage->width, rawImage->height);
-
-    // Apply model to image
-    fmenApplyToImage(*rawImage, /*whiteLevel*/ white_level_vec[0], &processedImage);
-
-    const auto output_path = input_path.replace_extension("_fmen_1072.png");
-
-    saveImage<gls::rgb_pixel_16>(processedImage, output_path.string(), icc_profile_data, /*exposure_multiplier*/ 1);
-}
+//void fmenApplyToFile(std::filesystem::path input_path, std::vector<uint8_t>* icc_profile_data) {
+//    std::cout << "Processing File: " << input_path.filename() << std::endl;
+//
+//    gls::tiff_metadata dng_metadata, exif_metadata;
+//    const auto rawImage = gls::image<gls::luma_pixel_16>::read_dng_file(input_path.string(), &dng_metadata, &exif_metadata);
+//
+//    const auto white_level_vec = getVector<uint32_t>(dng_metadata, TIFFTAG_WHITELEVEL);
+//
+//    float baseline_exposure = 0;
+//    getValue(dng_metadata, TIFFTAG_BASELINEEXPOSURE, &baseline_exposure);
+//    float exposure_multiplier = pow(2.0, baseline_exposure);
+//    std::cout << "baseline_exposure: " << baseline_exposure << ", exposure_multiplier: " << exposure_multiplier
+//                  << std::endl;
+//
+//    // Result Image
+//    gls::image<gls::rgba_pixel_fp16> processedImage(rawImage->width, rawImage->height);
+//
+//    // Apply model to image
+//    fmenApplyToImage(*rawImage, /*whiteLevel*/ white_level_vec[0], &processedImage);
+//
+//    const auto output_path = input_path.replace_extension("_fmen_1072.png");
+//
+//    saveImage<gls::rgb_pixel_16>(processedImage, output_path.string(), icc_profile_data, /*exposure_multiplier*/ 1);
+//}
 
 void fmenApplyToFile(RawConverter* rawConverter, std::filesystem::path input_path, std::vector<uint8_t>* icc_profile_data) {
     std::cout << "Processing File: " << input_path.filename() << std::endl;
 
     gls::tiff_metadata dng_metadata, exif_metadata;
     const auto rawImage = gls::image<gls::luma_pixel_16>::read_dng_file(input_path.string(), &dng_metadata, &exif_metadata);
-    // FIXME: use the real xyz_rgb color space...
-    auto demosaicParameters = unpackiPhone14TeleRawImage(*rawImage, rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
+    auto demosaicParameters = unpackiPhone14TeleFEMNRawImage(*rawImage, rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
 
     float baseline_exposure = 0;
     getValue(dng_metadata, TIFFTAG_BASELINEEXPOSURE, &baseline_exposure);
@@ -206,22 +203,25 @@ void fmenApplyToFile(RawConverter* rawConverter, std::filesystem::path input_pat
     // Apply model to image
     fmenApplyToImage(*rawImage, /*whiteLevel*/ demosaicParameters->white_level, &processedImage);
 
-    gls::Vector<3> normalized_scale_mul = { demosaicParameters->scale_mul[0], demosaicParameters->scale_mul[1], demosaicParameters->scale_mul[2] };
-    normalized_scale_mul /= *std::max_element(std::begin(normalized_scale_mul), std::end(normalized_scale_mul));
+    const auto output_path = input_path.replace_extension("_fmen_1072_ltm_sharp.png");
 
-    const auto scaled_black_level = demosaicParameters->black_level / demosaicParameters->white_level;
+    auto srgbImage = rawConverter->postprocess(processedImage, demosaicParameters.get());
+    const auto srgbImageCpu = srgbImage->mapImage();
+    saveImage<gls::rgb_pixel_16>(*srgbImageCpu, output_path.string(), rawConverter->icc_profile_data());
 
-    processedImage.apply([&] (gls::rgba_pixel_float* p, int x, int y) {
-        gls::Vector<3> v = { (*p)[0], (*p)[1], (*p)[2] };
+    auto histogramData = rawConverter->histogramData();
+    int imageSize = rawImage->width * rawImage->height / 64;
+    float sum = 0;
+    std::cout << "bands: ";
+    for (int i = 0; i < 8; i++) {
+        sum += histogramData->bands[i] / (float) imageSize;
+        std::cout << histogramData->bands[i] / (float) imageSize << ", ";
+    }
+    std::cout << "sum: " << sum << std::endl;
 
-        v = demosaicParameters->rgb_cam * ((v - scaled_black_level) * normalized_scale_mul);
-
-        *p = { (float16_t) v[0], (float16_t) v[1], (float16_t) v[2], 1 };
-    });
-
-    const auto output_path = input_path.replace_extension("_fmen_1072.png");
-
-    saveImage<gls::rgb_pixel_16>(processedImage, output_path.string(), icc_profile_data, /*exposure_multiplier*/ 1);
+    std::cout << "black_level: " << histogramData->black_level << ", white_level: " << histogramData->white_level << std::endl;
+    std::cout << "mean: " << histogramData->mean << ", median: " << histogramData->median << ", mean - median: " << histogramData->mean - histogramData->median << std::endl;
+    std::cout << "shadows: " << histogramData->shadows << ", highlights: " << histogramData->highlights << std::endl;
 }
 
 
@@ -251,7 +251,7 @@ void demosaicDirectory(RawConverter* rawConverter, std::filesystem::path input_p
     }
 }
 
-void fmenApplyToDirectory(std::filesystem::path input_path, std::vector<uint8_t>* icc_profile_data) {
+void fmenApplyToDirectory(RawConverter* rawConverter, std::filesystem::path input_path, std::vector<uint8_t>* icc_profile_data) {
     std::cout << "Processing Directory: " << input_path.filename() << std::endl;
 
     auto input_dir = std::filesystem::directory_entry(input_path).is_directory() ? input_path : input_path.parent_path();
@@ -270,9 +270,9 @@ void fmenApplyToDirectory(std::filesystem::path input_path, std::vector<uint8_t>
             if ((extension != ".dng" && extension != ".DNG")) {
                 continue;
             }
-            fmenApplyToFile(input_path, icc_profile_data);
+            fmenApplyToFile(rawConverter, input_path, icc_profile_data);
         } else if (std::filesystem::directory_entry(input_path).is_directory()) {
-            fmenApplyToDirectory(input_path, icc_profile_data);
+            fmenApplyToDirectory(rawConverter, input_path, icc_profile_data);
         }
     }
 }
@@ -291,11 +291,11 @@ int main(int argc, const char * argv[]) {
 
         // demosaicFile(&rawConverter, input_path);
 
-        // demosaicDirectory(&rawConverter, input_path);
+        demosaicDirectory(&rawConverter, input_path);
 
-        fmenApplyToFile(&rawConverter, input_path, &icc_profile_data);
+        // fmenApplyToFile(&rawConverter, input_path, &icc_profile_data);
 
-        // fmenApplyToDirectory(input_path, &icc_profile_data);
+        // fmenApplyToDirectory(&rawConverter, input_path, &icc_profile_data);
 
         return 0;
     } else {

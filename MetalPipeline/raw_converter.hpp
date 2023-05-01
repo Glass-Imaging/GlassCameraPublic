@@ -98,6 +98,8 @@ class RawConverter {
     gls::mtl_image_2d<gls::rgba_pixel_float>::unique_ptr _denoisedRgbaRawImage;
     gls::mtl_image_2d<gls::luma_pixel_16>::unique_ptr _blueNoise;
 
+    std::array<gls::mtl_image_2d<gls::rgba_pixel_float>::unique_ptr, 4> _ltmImagePyramid;
+
     NS::SharedPtr<MTL::Buffer> _histogramBuffer;
 
     std::unique_ptr<PyramidProcessor<5>> _pyramidProcessor;
@@ -131,7 +133,7 @@ public:
         float white_level;
         float shadows;
         float highlights;
-        float brightness;
+        float mean;
         float median;
     };
 
@@ -190,9 +192,13 @@ public:
 
     void allocateHighNoiseTextures(const gls::size& imageSize);
 
+    void allocateLtmImagePyramid(const gls::size& imageSize);
+
     gls::mtl_image_2d<gls::rgba_pixel_float>* denoise(const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage, DemosaicParameters* demosaicParameters);
 
     gls::mtl_image_2d<gls::rgba_pixel_float>* demosaic(const gls::image<gls::luma_pixel_16>& rawImage, DemosaicParameters* demosaicParameters);
+
+    gls::mtl_image_2d<gls::rgba_pixel_float>* postprocess(gls::image<gls::rgba_pixel_float>& rgbImage, DemosaicParameters* demosaicParameters);
 
     RawNLF MeasureRawNLF(float exposure_multiplier, BayerPattern bayerPattern);
 };

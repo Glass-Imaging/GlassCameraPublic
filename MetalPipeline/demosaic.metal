@@ -86,10 +86,10 @@ int2 get_image_dim(texture2d<T, a> image) {
 
 half lensShading(half lensShadingCorrection, half distance_from_center) {
     // New iPhones
-    return 0.8 + lensShadingCorrection * distance_from_center * distance_from_center;
+    // return 0.8 + lensShadingCorrection * distance_from_center * distance_from_center;
     // Old iPhones
     // return 1 + distance_from_center * distance_from_center;
-    // return 1;
+    return 1;
 }
 
 // Work on one Quad (2x2) at a time
@@ -1263,20 +1263,19 @@ kernel void BoxFilterGFImage(texture2d<float> inputImage                    [[te
     write_imagef(outputImage, imageCoordinates, float4(meanAB, 0, 0));
 }
 
-float computeLtmMultiplier(float3 input, float2 gfAb, float eps, float shadows,
-                           float highlights, float detail) {
+constant constexpr float kLtmMidtones = 0.22;
+
+float computeLtmMultiplier(float3 input, float2 gfAb, float eps, float shadows, float highlights, float detail) {
     // The filtered image is an estimate of the illuminance
     const float illuminance = gfAb.x * input.x + gfAb.y;
     const float reflectance = input.x / illuminance;
 
     // LTM curve computed in Log space
-    const float midtones = 0.22;
-
     float adjusted_illuminance =
         // Shadows adjustment
-        illuminance <= midtones ? midtones * pow(illuminance / midtones, shadows) :
+        illuminance <= kLtmMidtones ? kLtmMidtones * pow(illuminance / kLtmMidtones, shadows) :
         // Highlights adjustment
-        (1 - midtones) * pow((illuminance - midtones) / (1 - midtones), highlights) + midtones;
+        (1 - kLtmMidtones) * pow((illuminance - kLtmMidtones) / (1 - kLtmMidtones), highlights) + kLtmMidtones;
 
     return adjusted_illuminance * pow(reflectance, detail) / input.x;
 }
@@ -1297,7 +1296,7 @@ struct histogram_data {
     float white_level;
     float shadows;
     float highlights;
-    float brightness;
+    float mean;
     float median;
 };
 
@@ -1350,6 +1349,8 @@ kernel void localToneMappingMaskImage(texture2d<float> inputImage               
     write_imagef(ltmMaskImage, imageCoordinates, float4(ltmMultiplier, 0, 0, 0));
 }
 
+constant constexpr float kHistogramScale = 2;
+
 kernel void histogramImage(texture2d<float> inputImage          [[texture(0)]],
                            device histogram_data& histogram_data [[buffer(1)]],
                            uint2 index                          [[thread_position_in_grid]]) {
@@ -1357,7 +1358,7 @@ kernel void histogramImage(texture2d<float> inputImage          [[texture(0)]],
 
     float3 pixelValue = read_imagef(inputImage, imageCoordinates).xyz;
 
-    int histogram_index = clamp((int) ((histogramSize - 1) * sqrt(pixelValue.x / 2)), 0, (histogramSize - 1));
+    int histogram_index = clamp((int) ((histogramSize - 1) * sqrt(pixelValue.x / kHistogramScale)), 0, (histogramSize - 1));
 
     atomic_fetch_add_explicit(&histogram_data.histogram[histogram_index], 1, memory_order_relaxed);
 }
@@ -1370,7 +1371,7 @@ kernel void histogramStatistics(device histogram_data& histogram_data [[buffer(0
 
         const uint32_t image_size = image_dimensions.x * image_dimensions.y;
 
-        float brightness = 0;
+        float mean = 0;
         bool found_median = false;
         bool found_black = false;
         bool found_white = false;
@@ -1385,7 +1386,7 @@ kernel void histogramStatistics(device histogram_data& histogram_data [[buffer(0
             histogram_data.bands[i / 32] += entry;
 
             // Compute average image value
-            brightness += entry * (i + 1) / (float) histogramSize;
+            mean += entry * (i + 1) / (float) histogramSize;
 
             // Compute cumulative function statistics
             sum += entry;
@@ -1402,24 +1403,24 @@ kernel void histogramStatistics(device histogram_data& histogram_data [[buffer(0
                 found_white = true;
             }
         }
-        brightness /= image_size;
+        mean /= image_size;
 
         {
             float v = (black_index - 1) / (float) (histogramSize - 1);
-            histogram_data.black_level = 2 * v * v;
+            histogram_data.black_level = kHistogramScale * v * v;
         }
         {
             float v = white_index / (float) (histogramSize - 1);
-            histogram_data.white_level = 2 * v * v;
+            histogram_data.white_level = kHistogramScale * v * v;
         }
         histogram_data.median = median_index / (float) (histogramSize - 1) - histogram_data.black_level;
-        histogram_data.brightness = brightness - histogram_data.black_level;
+        histogram_data.mean = mean - histogram_data.black_level;
 
 //        histogram_data.highlights = 1;
 //        histogram_data.shadows = 1;
         histogram_data.highlights = 1 + 2 * smoothstep(0.01, 0.1, (histogram_data.bands[5] +
-                                                                     histogram_data.bands[6] +
-                                                                     histogram_data.bands[7]) / (float) image_size);
+                                                                   histogram_data.bands[6] +
+                                                                   histogram_data.bands[7]) / (float) image_size);
 
         histogram_data.shadows = 0.8 - 0.5 * smoothstep(0.25, 0.5,
                                                         (histogram_data.bands[0] +
@@ -1438,15 +1439,15 @@ kernel void convertTosRGB(texture2d<float> linearImage                  [[textur
     const int2 imageCoordinates = (int2) index;
 
     float black_level = histogram_data.black_level;
-    float white_level = 1 - 0.25 * (1 - smoothstep(0.375, 0.625, histogram_data.white_level));
+    float white_level = 1; // - 0.25 * (1 - smoothstep(0.375, 0.625, histogram_data.white_level));
 
-    float brightening = 1 + 0.5 * smoothstep(0, 0.1, histogram_data.brightness - histogram_data.median);
-    if (histogram_data.brightness > 0.22) {
-        brightening *= 0.22 / histogram_data.brightness;
+    float brightening = 1; // + 0.5 * smoothstep(0, 0.1, histogram_data.mean - histogram_data.median);
+    if (histogram_data.mean > 0.22) {
+        brightening *= 0.22 / histogram_data.mean;
     }
 
     // FIXME: Compute the black and white levels dynamically
-    float3 pixel_value = brightening * (read_imagef(linearImage, imageCoordinates).xyz - black_level) / (white_level - black_level);
+    float3 pixel_value = brightening * max(read_imagef(linearImage, imageCoordinates).xyz - black_level, 0) / (white_level - black_level);
 
     // Exposure Bias
     pixel_value *= parameters.exposureBias != 0 ? powr(2.0, parameters.exposureBias) : 1;
