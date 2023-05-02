@@ -16,6 +16,7 @@
 import SwiftUI
 import Combine
 import AVFoundation
+import MediaPlayer
 
 final class CameraModel: ObservableObject {
     let photoCollection = PhotoCollection(albumNamed: "Glass Photos", createIfNotFound: true)
@@ -41,10 +42,15 @@ final class CameraModel: ObservableObject {
     var session: AVCaptureSession
 
     private let SHUTTER_DELAY = true
+    private let volumeButtonListener = VolumeButtonListener()
     private var subscriptions = Set<AnyCancellable>()
 
     init() {
         self.session = service.session
+        
+        volumeButtonListener.onClickCallback {
+            self.capturePhoto()
+        }
 
         service.$thumbnail.sink { [weak self] (photo) in
             if let photo = photo {
@@ -83,8 +89,9 @@ final class CameraModel: ObservableObject {
             self?.availableBackDevices = val
         }
         .store(in: &self.subscriptions)
+        
     }
-
+    
     func deviceConfiguration(_ configuration : BackCameraConfiguration) -> DeviceConfiguration {
         return service.backDeviceConfigurations[configuration] ??
                 DeviceConfiguration(position: .back, deviceType: .builtInWideAngleCamera)
@@ -154,6 +161,54 @@ final class CameraModel: ObservableObject {
     }
 }
 
+class VolumeButtonListener: NSObject {
+    private var volume: Float = 0
+    private let slider: UISlider?
+    private var volumeChangedCB: (() -> Void)?
+    private var rateLimitTimer: Timer?
+    
+    override init() {
+        let audioSession = AVAudioSession.sharedInstance()
+        volume = min(max(audioSession.outputVolume, 0.2), 0.8)
+        let volumeView = MPVolumeView(frame: .zero)
+        slider = volumeView.subviews.first(where: { $0 is UISlider }) as? UISlider
+        super.init()
+        
+        self.slider?.setValue(self.volume, animated: false)
+        
+        try! audioSession.setActive(true)
+        audioSession.addObserver(self, forKeyPath: "outputVolume", options: NSKeyValueObservingOptions.new, context: nil)
+    }
+    
+    override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
+        // Set volume back to the original value
+        DispatchQueue.main.asyncAfter(deadline: DispatchTime.now() + 0.03) {
+            self.slider?.setValue(self.volume, animated: false)
+        }
+        
+        // Limit the rate that the callback is called
+        if(!(self.rateLimitTimer?.isValid ?? false)) {
+            volumeChangedCB?()
+            self.rateLimitTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) {_ in }
+        }
+    }
+    
+    func onClickCallback(_ _volumeChangedCB: @escaping () -> Void) {
+        volumeChangedCB = _volumeChangedCB
+    }
+}
+
+// Faux volume overlay. iOS requires some view show the volume status. This hides it since we use volume buttons as capture buttons
+struct HideVolumeOverlay: UIViewRepresentable {
+    func makeUIView(context: Context) -> MPVolumeView {
+       let volumeView = MPVolumeView(frame: CGRect.zero)
+       volumeView.alpha = 0.001
+       return volumeView
+    }
+
+    func updateUIView(_ uiView: MPVolumeView, context: Context) {}
+}
+
 struct CameraView: View {
     @StateObject var model = CameraModel()
 
@@ -211,6 +266,7 @@ struct CameraView: View {
                     Color.black.edgesIgnoringSafeArea(.all)
                     
                     VStack {
+                        HideVolumeOverlay().frame(width: 0, height: 0)
                         Button(action: {
                             model.switchFlash()
                         }, label: {
