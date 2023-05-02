@@ -62,7 +62,7 @@ class NetworkAdapter {
     private var isPollingServer: Bool = true
     private let serverURL = URL(string: "http://192.168.1.2/network_camera/")
     // private let serverURL = URL(string: "http://192.168.50.101/network_camera/")
-    private let POLLING_INTERVAL = 0.25 //seconds
+    private let POLLING_INTERVAL = 0.1 //seconds
     private var uploader: AVCapturePhotoCaptureDelegate?
     
     init(cameraService: CameraService) {
