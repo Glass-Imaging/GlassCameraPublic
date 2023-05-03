@@ -47,7 +47,7 @@ final class CameraModel: ObservableObject {
 
     init() {
         self.session = service.session
-        
+
         volumeButtonListener.onClickCallback {
             self.capturePhoto()
         }
@@ -89,7 +89,6 @@ final class CameraModel: ObservableObject {
             self?.availableBackDevices = val
         }
         .store(in: &self.subscriptions)
-        
     }
     
     func deviceConfiguration(_ configuration : BackCameraConfiguration) -> DeviceConfiguration {
@@ -148,7 +147,7 @@ final class CameraModel: ObservableObject {
             self.isPhotosLoaded = true
         }
     }
-    
+
     func loadThumbnail() async {
         guard let asset = photoCollection.photoAssets.first  else { return }
         await photoCollection.cache.requestImage(for: asset, targetSize: CGSize(width: 256, height: 256))  { result in
@@ -166,39 +165,39 @@ class VolumeButtonListener: NSObject {
     private let slider: UISlider?
     private var volumeChangedCB: (() -> Void)?
     private var rateLimitTimer: Timer?
-    
+
     override init() {
         let audioSession = AVAudioSession.sharedInstance()
         volume = min(max(audioSession.outputVolume, 0.2), 0.8)
         let volumeView = MPVolumeView(frame: .zero)
         slider = volumeView.subviews.first(where: { $0 is UISlider }) as? UISlider
         super.init()
-        
+
         self.slider?.setValue(self.volume, animated: false)
-        
+
         try! audioSession.setActive(true)
         audioSession.addObserver(self, forKeyPath: "outputVolume", options: NSKeyValueObservingOptions.new, context: nil)
     }
-    
+
     override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
         // Set volume back to the original value
         DispatchQueue.main.asyncAfter(deadline: DispatchTime.now() + 0.03) {
             self.slider?.setValue(self.volume, animated: false)
         }
-        
+
         // Limit the rate that the callback is called
         if(!(self.rateLimitTimer?.isValid ?? false)) {
             volumeChangedCB?()
             self.rateLimitTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) {_ in }
         }
     }
-    
+
     func onClickCallback(_ _volumeChangedCB: @escaping () -> Void) {
         volumeChangedCB = _volumeChangedCB
     }
 }
 
-// Faux volume overlay. iOS requires some view show the volume status. This hides it since we use volume buttons as capture buttons
+// Volume overlay. iOS requires that some view show the volume status. This hides it since we use volume buttons as capture buttons
 struct HideVolumeOverlay: UIViewRepresentable {
     func makeUIView(context: Context) -> MPVolumeView {
        let volumeView = MPVolumeView(frame: CGRect.zero)
