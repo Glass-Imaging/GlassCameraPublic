@@ -27,7 +27,9 @@ final class CameraModel: ObservableObject {
     @Published var showAlertError = false
 
     @Published var isFlashOn = false
-
+    
+    @Published var isDelayOn = false
+    
     @Published var willCapturePhoto = false
 
     @Published var showSpinner = false
@@ -40,7 +42,6 @@ final class CameraModel: ObservableObject {
 
     var session: AVCaptureSession
 
-    private let SHUTTER_DELAY = true
     private var subscriptions = Set<AnyCancellable>()
 
     init() {
@@ -96,8 +97,8 @@ final class CameraModel: ObservableObject {
     }
 
     func capturePhoto() {
-        if SHUTTER_DELAY {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+        if isDelayOn {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                 self.service.capturePhoto(saveCollection: self.photoCollection)
             }
         } else {
@@ -118,6 +119,10 @@ final class CameraModel: ObservableObject {
 
     func switchFlash() {
         service.flashMode = service.flashMode == .on ? .off : .on
+    }
+    
+    func switchDelay() {
+        isDelayOn = !isDelayOn
     }
     
     func loadPhotos() async {
@@ -202,6 +207,31 @@ struct CameraView: View {
             model.switchCamera(model.deviceConfiguration(newValue))
         }
     }
+    
+    var controlBar: some View {
+        HStack {
+            Spacer()
+            
+            Button(action: {
+                model.switchFlash()
+            }, label: {
+                Image(systemName: model.isFlashOn ? "bolt.fill" : "bolt.slash.fill")
+                    .font(.system(size: 20, weight: .medium, design: .default))
+            })
+            .accentColor(model.isFlashOn ? .yellow : .white)
+            
+            Spacer()
+            
+            Button(action: {
+                model.switchDelay()
+            }, label: {
+                Image(systemName: "timer").font(.system(size: 20, weight: .medium, design: .default))
+            })
+            .accentColor(model.isDelayOn ? .yellow : .white)
+            
+            Spacer()
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -211,13 +241,7 @@ struct CameraView: View {
                     Color.black.edgesIgnoringSafeArea(.all)
                     
                     VStack {
-                        Button(action: {
-                            model.switchFlash()
-                        }, label: {
-                            Image(systemName: model.isFlashOn ? "bolt.fill" : "bolt.slash.fill")
-                                .font(.system(size: 20, weight: .medium, design: .default))
-                        })
-                        .accentColor(model.isFlashOn ? .yellow : .white)
+                        controlBar
                         
                         ZStack {
                             CameraPreview(session: model.session)
