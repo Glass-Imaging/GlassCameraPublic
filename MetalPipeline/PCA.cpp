@@ -36,12 +36,10 @@ void build_pca_space(const std::span<std::array<float, components>>& patches,
     egn::VectorXf variances = solver.eigenvalues();
     egn::MatrixXf eigenvectors = solver.eigenvectors();
 
-    // std::cout << std::scientific << variances << std::endl;
-
 //    for (int i = variances.size() - 1; i > 0; i--) {
 //        std::cout << variances.size() - i - 1 << " : " << std::scientific << variances[i] << ", delta: " << variances[i] - variances[i-1] << std::endl;
 //    }
-//    std::cout << variances.size() - 1 << " : " << std::scientific << variances[variances.size() - 1] << std::endl;
+//    std::cout << variances.size() - 1 << " : " << std::scientific << variances[0] << std::endl;
 
     auto t_end = std::chrono::high_resolution_clock::now();
     auto elapsed_time_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();

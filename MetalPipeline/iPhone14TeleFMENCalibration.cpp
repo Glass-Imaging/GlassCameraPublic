@@ -34,9 +34,10 @@ public:
         return NLFData[0];
     }
 
-    std::pair<float, std::array<DenoiseParameters, levels>> getDenoiseParameters(int iso) const override {
+    std::pair<RAWDenoiseParameters, std::array<DenoiseParameters, levels>> getDenoiseParameters(int iso) const override {
         std::array<DenoiseParameters, 5> denoiseParameters;
-        return { 0, denoiseParameters };
+        RAWDenoiseParameters rawDenoiseParameters;
+        return { rawDenoiseParameters, denoiseParameters };
     }
 
     DemosaicParameters buildDemosaicParameters() const override {

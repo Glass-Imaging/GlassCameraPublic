@@ -127,6 +127,36 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::denoise(const gls::mtl_i
 
 //#define RUN_ON_SINGLE_COMMAND_BUFFER true
 
+void saveLumaImage(const gls::mtl_image_2d<gls::luma_pixel_float>& denoisedImage) {
+    gls::image<gls::luma_pixel_16> out(denoisedImage.width, denoisedImage.height);
+    const auto denoisedImageCPU = denoisedImage.mapImage();
+    out.apply([&denoisedImageCPU](gls::luma_pixel_16* p, int x, int y) {
+        const auto& ip = (*denoisedImageCPU)[y][x];
+        *p = {
+            (uint16_t) std::clamp((int)(0xffff * ip), 0, 0xffff)
+        };
+    });
+    // denoisedImage.unmapImage(denoisedImageCPU);
+    static int count = 1;
+    out.write_png_file("/Users/fabio/green" + std::to_string(count++) + ".png");
+}
+
+void saveRawChannels(gls::image<gls::rgba_pixel_float>& rgbaRawImage, const std::string& postfix) {
+    std::array<gls::image<gls::luma_pixel_16>::unique_ptr, 4> saveImages;
+    for (auto& img : saveImages) {
+        img = std::make_unique<gls::image<gls::luma_pixel_16>>(rgbaRawImage.size());
+    }
+    rgbaRawImage.apply([&] (const gls::rgba_pixel_float& p, int x, int y){
+        for (int c = 0; c < 4; c++) {
+            (*saveImages[c])[y][x] = std::clamp(0xffff * p[c], 0.0f, (float) 0xffff);
+        }
+    });
+    saveImages[0]->write_png_file("/Users/fabio/red_" + postfix + ".png");
+    saveImages[1]->write_png_file("/Users/fabio/green1_" + postfix + ".png");
+    saveImages[2]->write_png_file("/Users/fabio/blue_" + postfix + ".png");
+    saveImages[3]->write_png_file("/Users/fabio/green2_" + postfix + ".png");
+}
+
 gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::image<gls::luma_pixel_16>& rawImage,
                                                                  DemosaicParameters* demosaicParameters) {
     allocateTextures(rawImage.size());
@@ -138,7 +168,7 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
         _localToneMapping->allocateTextures(&_mtlContext, rawImage.width, rawImage.height);
     }
 
-    bool high_noise_image = _calibrateFromImage ? false : demosaicParameters->iso >= 800;
+    bool high_noise_image = _calibrateFromImage ? false : demosaicParameters->rawDenoiseParameters.highNoiseImage;
     if (high_noise_image) {
         allocateHighNoiseTextures(rawImage.size());
     }
@@ -175,8 +205,11 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
 
     if (high_noise_image) {
         _bayerToRawRGBA(context, *_scaledRawImage, _rgbaRawImage.get(), demosaicParameters->bayerPattern);
-        _despeckleRawRGBAImage(context, *_rgbaRawImage, noiseModel->rawNlf.second, _denoisedRgbaRawImage.get());
-        _rawRGBAToBayer(context, *_denoisedRgbaRawImage, _scaledRawImage.get(), demosaicParameters->bayerPattern);
+
+        _despeckleRawRGBAImage(context, *_rgbaRawImage, *_rawGradientImage, noiseModel->rawNlf.second, _denoisedRgbaRawImage.get());
+        _crossDenoiseRawRGBAImage(context, *_denoisedRgbaRawImage, noiseModel->rawNlf.second, demosaicParameters->rawDenoiseParameters.strength, _rgbaRawImage.get());
+
+        _rawRGBAToBayer(context, *_rgbaRawImage, _scaledRawImage.get(), demosaicParameters->bayerPattern);
     }
 
     _demosaicImage(context, *_scaledRawImage, *_rawGradientImage,

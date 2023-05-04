@@ -111,7 +111,7 @@ void demosaicFile(RawConverter* rawConverter, std::filesystem::path input_path) 
     gls::tiff_metadata dng_metadata, exif_metadata;
     const auto rawImage =
     gls::image<gls::luma_pixel_16>::read_dng_file(input_path.string(), &dng_metadata, &exif_metadata);
-    auto demosaicParameters = unpackiPhone14TeleRawImage(*rawImage, rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
+    auto demosaicParameters = unpackiPhone14WideRawImage(*rawImage, rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
 
     rawConverter->allocateTextures(rawImage->size());
 
@@ -125,7 +125,7 @@ void demosaicFile(RawConverter* rawConverter, std::filesystem::path input_path) 
     std::cout << "Metal Pipeline Execution Time: " << (int)elapsed_time_ms
     << "ms for image of size: " << rawImage->width << " x " << rawImage->height << std::endl;
 
-    const auto output_path = input_path.replace_extension("_s_ltm_sharp.png");
+    const auto output_path = input_path.replace_extension("_s_ltm_raw_denoise.png");
 
     const auto srgbImageCpu = srgbImage->mapImage();
     saveImage<gls::rgb_pixel_16>(*srgbImageCpu, output_path.string(), rawConverter->icc_profile_data());
@@ -156,33 +156,36 @@ void demosaicFile(RawConverter* rawConverter, std::filesystem::path input_path) 
     std::cout << "mean: " << histogramData->mean << ", median: " << histogramData->median << ", mean - median: " << histogramData->mean - histogramData->median << std::endl;
     std::cout << "shadows: " << histogramData->shadows << ", highlights: " << histogramData->highlights << std::endl;
 
+    // TODO: Add brightness value to metadata to estimate exposure adjustments
     // Bv = log2(A^2/(T * Sx)) + log2(1/0.297) => Bv = log2(A^2/(T*Sx)) + 1.751465
+    // LV = 2 * log2(Aperture) - log2(ShutterSpeed) - log2(ISO/100)
 }
 
-//void fmenApplyToFile(std::filesystem::path input_path, std::vector<uint8_t>* icc_profile_data) {
-//    std::cout << "Processing File: " << input_path.filename() << std::endl;
-//
-//    gls::tiff_metadata dng_metadata, exif_metadata;
-//    const auto rawImage = gls::image<gls::luma_pixel_16>::read_dng_file(input_path.string(), &dng_metadata, &exif_metadata);
-//
-//    const auto white_level_vec = getVector<uint32_t>(dng_metadata, TIFFTAG_WHITELEVEL);
-//
-//    float baseline_exposure = 0;
-//    getValue(dng_metadata, TIFFTAG_BASELINEEXPOSURE, &baseline_exposure);
-//    float exposure_multiplier = pow(2.0, baseline_exposure);
-//    std::cout << "baseline_exposure: " << baseline_exposure << ", exposure_multiplier: " << exposure_multiplier
-//                  << std::endl;
-//
-//    // Result Image
-//    gls::image<gls::rgba_pixel_fp16> processedImage(rawImage->width, rawImage->height);
-//
-//    // Apply model to image
-//    fmenApplyToImage(*rawImage, /*whiteLevel*/ white_level_vec[0], &processedImage);
-//
-//    const auto output_path = input_path.replace_extension("_fmen_1072.png");
-//
-//    saveImage<gls::rgb_pixel_16>(processedImage, output_path.string(), icc_profile_data, /*exposure_multiplier*/ 1);
-//}
+void demosaicDirectory(RawConverter* rawConverter, std::filesystem::path input_path) {
+    std::cout << "Processing Directory: " << input_path.filename() << std::endl;
+
+    auto input_dir = std::filesystem::directory_entry(input_path).is_directory() ? input_path : input_path.parent_path();
+    std::vector<std::filesystem::path> directory_listing;
+    std::copy(std::filesystem::directory_iterator(input_dir), std::filesystem::directory_iterator(),
+              std::back_inserter(directory_listing));
+    std::sort(directory_listing.begin(), directory_listing.end());
+
+    for (const auto& input_path : directory_listing) {
+        if (input_path.filename().string().starts_with(".")) {
+            continue;
+        }
+
+        if (std::filesystem::directory_entry(input_path).is_regular_file()) {
+            const auto extension = input_path.extension();
+            if ((extension != ".dng" && extension != ".DNG")) {
+                continue;
+            }
+            demosaicFile(rawConverter, input_path);
+        } else if (std::filesystem::directory_entry(input_path).is_directory()) {
+            demosaicDirectory(rawConverter, input_path);
+        }
+    }
+}
 
 void fmenApplyToFile(RawConverter* rawConverter, std::filesystem::path input_path, std::vector<uint8_t>* icc_profile_data) {
     std::cout << "Processing File: " << input_path.filename() << std::endl;
@@ -222,33 +225,6 @@ void fmenApplyToFile(RawConverter* rawConverter, std::filesystem::path input_pat
     std::cout << "black_level: " << histogramData->black_level << ", white_level: " << histogramData->white_level << std::endl;
     std::cout << "mean: " << histogramData->mean << ", median: " << histogramData->median << ", mean - median: " << histogramData->mean - histogramData->median << std::endl;
     std::cout << "shadows: " << histogramData->shadows << ", highlights: " << histogramData->highlights << std::endl;
-}
-
-
-void demosaicDirectory(RawConverter* rawConverter, std::filesystem::path input_path) {
-    std::cout << "Processing Directory: " << input_path.filename() << std::endl;
-
-    auto input_dir = std::filesystem::directory_entry(input_path).is_directory() ? input_path : input_path.parent_path();
-    std::vector<std::filesystem::path> directory_listing;
-    std::copy(std::filesystem::directory_iterator(input_dir), std::filesystem::directory_iterator(),
-              std::back_inserter(directory_listing));
-    std::sort(directory_listing.begin(), directory_listing.end());
-
-    for (const auto& input_path : directory_listing) {
-        if (input_path.filename().string().starts_with(".")) {
-            continue;
-        }
-
-        if (std::filesystem::directory_entry(input_path).is_regular_file()) {
-            const auto extension = input_path.extension();
-            if ((extension != ".dng" && extension != ".DNG")) {
-                continue;
-            }
-            demosaicFile(rawConverter, input_path);
-        } else if (std::filesystem::directory_entry(input_path).is_directory()) {
-            demosaicDirectory(rawConverter, input_path);
-        }
-    }
 }
 
 void fmenApplyToDirectory(RawConverter* rawConverter, std::filesystem::path input_path, std::vector<uint8_t>* icc_profile_data) {

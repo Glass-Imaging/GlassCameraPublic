@@ -65,7 +65,7 @@ public:
         }
     }
 
-    std::pair<float, std::array<DenoiseParameters, levels>> getDenoiseParameters(int iso) const override {
+    std::pair<RAWDenoiseParameters, std::array<DenoiseParameters, levels>> getDenoiseParameters(int iso) const override {
         const float nlf_alpha = std::clamp((log2(iso) - log2(100)) / (log2(102400) - log2(100)), 0.0, 1.0);
 
         LOG_INFO(TAG) << "Sonya6400 DenoiseParameters nlf_alpha: " << nlf_alpha << ", ISO: " << iso << std::endl;
@@ -120,7 +120,12 @@ public:
             }
         }};
 
-        return { nlf_alpha, denoiseParameters };
+        RAWDenoiseParameters rawDenoiseParameters = {
+            .highNoiseImage = iso >= 6400,
+            .strength = 1
+        };
+
+        return { rawDenoiseParameters, denoiseParameters };
     }
 
     DemosaicParameters buildDemosaicParameters() const override {

@@ -117,6 +117,7 @@ class RawConverter {
     bayerToRawRGBAKernel _bayerToRawRGBA;
     rawRGBAToBayerKernel _rawRGBAToBayer;
     despeckleRawRGBAImageKernel _despeckleRawRGBAImage;
+    crossDenoiseRawRGBAImageKernel _crossDenoiseRawRGBAImage;
     blendHighlightsImageKernel _blendHighlightsImage;
     transformImageKernel _transformImage;
     convertTosRGBKernel _convertTosRGB;
@@ -148,6 +149,7 @@ public:
         _bayerToRawRGBA(&_mtlContext),
         _rawRGBAToBayer(&_mtlContext),
         _despeckleRawRGBAImage(&_mtlContext),
+        _crossDenoiseRawRGBAImage(&_mtlContext),
         _blendHighlightsImage(&_mtlContext),
         _transformImage(&_mtlContext),
         _convertTosRGB(&_mtlContext),

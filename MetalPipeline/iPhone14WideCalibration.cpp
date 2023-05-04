@@ -62,15 +62,18 @@ public:
         }
     }
 
-    std::pair<float, std::array<DenoiseParameters, levels>> getDenoiseParameters(int iso) const override {
+    std::pair<RAWDenoiseParameters, std::array<DenoiseParameters, levels>> getDenoiseParameters(int iso) const override {
+        const float highNoiseISO = 800;
+
         const float nlf_alpha = std::clamp((log2(iso) - log2(50)) / (log2(12500) - log2(50)), 0.0, 1.0);
+        const float raw_nlf_alpha = std::clamp((log2(iso) - log2(highNoiseISO)) / (log2(12500) - log2(highNoiseISO)), 0.0, 1.0);
 
         float lerp = std::lerp(1.0, 2.0, nlf_alpha);
         float lerp_c = 1;
 
         std::cout << "iPhone 14 Wide DenoiseParameters nlf_alpha: " << nlf_alpha << ", ISO: " << iso << ", lerp: " << lerp << std::endl;
 
-        float lmult[5] = { 2.5, 1, 1, 1, 1 };
+        float lmult[5] = { 2, 1, 1, 1, 1 };
         float cmult[5] = { 1, 1, 1, 1, 1 };
 
         float chromaBoost = 8;
@@ -80,14 +83,14 @@ public:
                 .luma = lmult[0] * lerp,
                 .chroma = cmult[0] * lerp_c,
                 .chromaBoost = chromaBoost,
-                .gradientBoost = 2 * (2 - smoothstep(0.7, 1.0, nlf_alpha)),
+                .gradientBoost = 2 * (2 - smoothstep(0.3, 0.6, nlf_alpha)),
                 .sharpening = std::lerp(1.5f, 1.0f, nlf_alpha)
             },
             {
                 .luma = lmult[1] * lerp,
                 .chroma = cmult[1] * lerp_c,
                 .chromaBoost = chromaBoost,
-                .gradientBoost = (2 - smoothstep(0.7, 1.0, nlf_alpha)),
+                .gradientBoost = (2 - smoothstep(0.3, 0.6, nlf_alpha)),
                 .sharpening = 1.1
             },
             {
@@ -107,7 +110,12 @@ public:
             }
         }};
 
-        return { nlf_alpha, denoiseParameters };
+        RAWDenoiseParameters rawDenoiseParameters = {
+            .highNoiseImage = iso >= highNoiseISO,
+            .strength = std::lerp(0.5f, 3.0f, raw_nlf_alpha)
+        };
+
+        return { rawDenoiseParameters, denoiseParameters };
     }
 
     DemosaicParameters buildDemosaicParameters() const override {

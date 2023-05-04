@@ -985,7 +985,7 @@ void KernelOptimizeBilinear2d(int width, const std::vector<float>& weightsIn,
 }
 
 std::vector<std::array<float, 3>> gaussianKernelBilinearWeights(float radius) {
-    int kernelSize = (int)(ceil(2 * radius));
+    int kernelSize = std::max((int)(ceil(2 * radius)), 2);
     if ((kernelSize % 2) == 0) {
         kernelSize++;
     }

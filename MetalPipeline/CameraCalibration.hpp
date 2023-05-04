@@ -28,7 +28,7 @@ class CameraCalibration {
 
     virtual NoiseModel<levels> nlfFromIso(int iso) const = 0;
 
-    virtual std::pair<float, std::array<DenoiseParameters, levels>> getDenoiseParameters(int iso) const = 0;
+    virtual std::pair<RAWDenoiseParameters, std::array<DenoiseParameters, levels>> getDenoiseParameters(int iso) const = 0;
 
     virtual DemosaicParameters buildDemosaicParameters() const = 0;
 
@@ -62,4 +62,10 @@ std::unique_ptr<DemosaicParameters> unpackiPhone14TeleFEMNRawImage(const gls::im
                                                                    const gls::Matrix<3, 3>& xyz_rgb,
                                                                    gls::tiff_metadata* dng_metadata,
                                                                    gls::tiff_metadata* exif_metadata);
+
+std::unique_ptr<DemosaicParameters> unpackCanonR6IIRawImage(const gls::image<gls::luma_pixel_16>& inputImage,
+                                                            const gls::Matrix<3, 3>& xyz_rgb,
+                                                            gls::tiff_metadata* dng_metadata,
+                                                            gls::tiff_metadata* exif_metadata);
+
 #endif /* CameraCalibration_hpp */
