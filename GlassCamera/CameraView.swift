@@ -42,10 +42,16 @@ final class CameraModel: ObservableObject {
 
     var session: AVCaptureSession
 
+    private let volumeButtonListener = VolumeButtonListener()
+
     private var subscriptions = Set<AnyCancellable>()
 
     init() {
         self.session = service.session
+
+        volumeButtonListener.onClickCallback {
+            self.capturePhoto()
+        }
 
         service.$thumbnail.sink { [weak self] (photo) in
             if let photo = photo {
@@ -146,7 +152,7 @@ final class CameraModel: ObservableObject {
             self.isPhotosLoaded = true
         }
     }
-    
+
     func loadThumbnail() async {
         guard let asset = photoCollection.photoAssets.first  else { return }
         await photoCollection.cache.requestImage(for: asset, targetSize: CGSize(width: 256, height: 256))  { result in
@@ -234,6 +240,7 @@ struct CameraView: View {
     }
 
     var body: some View {
+        HideVolumeIndicator // Required to hide volume indicator when triggering capture with volume rocker
         NavigationStack {
             
             GeometryReader { reader in
