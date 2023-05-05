@@ -15,6 +15,8 @@
 
 #include "raw_converter.hpp"
 
+#include "PerlinNoise.hpp"
+
 void RawConverter::allocateTextures(const gls::size& imageSize) {
     assert(imageSize.width > 0 && imageSize.height > 0);
 
@@ -58,7 +60,7 @@ void RawConverter::allocateHighNoiseTextures(const gls::size& imageSize) {
 void RawConverter::allocateLtmImagePyramid(const gls::size& imageSize) {
     if (_ltmImagePyramid[0] == nullptr || _ltmImagePyramid[0]->width != imageSize.width / 2 || _ltmImagePyramid[0]->height != imageSize.height / 2) {
         auto mtlDevice = _mtlContext.device();
-        int levels = _ltmImagePyramid.size() + 1;
+        int levels = (int) _ltmImagePyramid.size() + 1;
         for (int i = 0, scale = 2; i < levels - 1; i++, scale *= 2) {
             _ltmImagePyramid[i] = std::make_unique<gls::mtl_image_2d<gls::rgba_pixel_float>>(mtlDevice, imageSize.width / scale, imageSize.height / scale);
         }
@@ -109,18 +111,35 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::denoise(const gls::mtl_i
                                       demosaicParameters->ltmParameters, _histogramBuffer.get());
     }
 
-//        // High ISO noise texture replacement
-//        if (clBlueNoise != nullptr) {
-//            const gls::Vector<2> lumaVariance = {np.first[0], np.second[0]};
-//
-//            LOG_INFO(TAG) << "Adding Blue Noise for variance: " << std::scientific << lumaVariance << std::endl;
-//
-//            const auto grainAmount = 1 + 3 * smoothstep(4e-4, 6e-4, lumaVariance[1]);
-//
-//            blueNoiseImage(&_mtlContext, *clDenoisedImage, *clBlueNoise, 2 * grainAmount * lumaVariance,
-//                           clLinearRGBImageB.get());
-//            clDenoisedImage = clLinearRGBImageB.get();
-//        }
+    // High ISO noise texture replacement
+    bool add_perlin_noise = true;
+    if (add_perlin_noise) {
+        const gls::Vector<2> lumaVariance = { np.first[0], np.second[0] };
+
+        std::cout << "Adding Blue Noise for variance: " << std::scientific << lumaVariance << std::endl;
+
+        const siv::PerlinNoise::seed_type seed = 123456u;
+        const siv::PerlinNoise perlin{ seed };
+
+        _mtlContext.waitForCompletion();
+        auto denoisedImageCPU = denoisedImage->mapImage();
+
+        denoisedImageCPU->apply([&] (gls::rgba_pixel_float* p, int x, int y) {
+            float sigma = std::sqrt(p->red * lumaVariance[1] + lumaVariance[0]);
+
+            float noise = perlin.normalizedOctave2D(0.5 * x, 0.5 * y, 4);
+            const float16_t luma = p->red + 3 * sigma * noise;
+
+            float16_t desaturate = std::lerp(1 - std::min(4 * abs(noise), 1.0f), 1, std::min(6 * p->red, 1.0f));
+
+            *p = {
+                luma,
+                (float16_t) (desaturate * p->green),
+                (float16_t) (desaturate * p->blue),
+                p->alpha
+            };
+        });
+    }
 
     return denoisedImage;
 }

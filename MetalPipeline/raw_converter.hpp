@@ -96,7 +96,6 @@ class RawConverter {
     // RawConverter HighNoise textures
     gls::mtl_image_2d<gls::rgba_pixel_float>::unique_ptr _rgbaRawImage;
     gls::mtl_image_2d<gls::rgba_pixel_float>::unique_ptr _denoisedRgbaRawImage;
-    gls::mtl_image_2d<gls::luma_pixel_16>::unique_ptr _blueNoise;
 
     std::array<gls::mtl_image_2d<gls::rgba_pixel_float>::unique_ptr, 4> _ltmImagePyramid;
 
