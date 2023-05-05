@@ -27,7 +27,9 @@ final class CameraModel: ObservableObject {
     @Published var showAlertError = false
 
     @Published var isFlashOn = false
-
+    
+    @Published var isDelayOn = false
+    
     @Published var willCapturePhoto = false
 
     @Published var showSpinner = false
@@ -40,11 +42,16 @@ final class CameraModel: ObservableObject {
 
     var session: AVCaptureSession
 
-    private let SHUTTER_DELAY = true
+    private let volumeButtonListener = VolumeButtonListener()
+
     private var subscriptions = Set<AnyCancellable>()
 
     init() {
         self.session = service.session
+
+        volumeButtonListener.onClickCallback {
+            self.capturePhoto()
+        }
 
         service.$thumbnail.sink { [weak self] (photo) in
             if let photo = photo {
@@ -96,8 +103,8 @@ final class CameraModel: ObservableObject {
     }
 
     func capturePhoto() {
-        if SHUTTER_DELAY {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+        if isDelayOn {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                 self.service.capturePhoto(saveCollection: self.photoCollection)
             }
         } else {
@@ -118,6 +125,10 @@ final class CameraModel: ObservableObject {
 
     func switchFlash() {
         service.flashMode = service.flashMode == .on ? .off : .on
+    }
+    
+    func switchDelay() {
+        isDelayOn = !isDelayOn
     }
     
     func loadPhotos() async {
@@ -141,7 +152,7 @@ final class CameraModel: ObservableObject {
             self.isPhotosLoaded = true
         }
     }
-    
+
     func loadThumbnail() async {
         guard let asset = photoCollection.photoAssets.first  else { return }
         await photoCollection.cache.requestImage(for: asset, targetSize: CGSize(width: 256, height: 256))  { result in
@@ -202,8 +213,34 @@ struct CameraView: View {
             model.switchCamera(model.deviceConfiguration(newValue))
         }
     }
+    
+    var controlBar: some View {
+        HStack {
+            Spacer()
+            
+            Button(action: {
+                model.switchFlash()
+            }, label: {
+                Image(systemName: model.isFlashOn ? "bolt.fill" : "bolt.slash.fill")
+                    .font(.system(size: 20, weight: .medium, design: .default))
+            })
+            .accentColor(model.isFlashOn ? .yellow : .white)
+            
+            Spacer()
+            
+            Button(action: {
+                model.switchDelay()
+            }, label: {
+                Image(systemName: "timer").font(.system(size: 20, weight: .medium, design: .default))
+            })
+            .accentColor(model.isDelayOn ? .yellow : .white)
+            
+            Spacer()
+        }
+    }
 
     var body: some View {
+        HideVolumeIndicator // Required to hide volume indicator when triggering capture with volume rocker
         NavigationStack {
             
             GeometryReader { reader in
@@ -211,13 +248,7 @@ struct CameraView: View {
                     Color.black.edgesIgnoringSafeArea(.all)
                     
                     VStack {
-                        Button(action: {
-                            model.switchFlash()
-                        }, label: {
-                            Image(systemName: model.isFlashOn ? "bolt.fill" : "bolt.slash.fill")
-                                .font(.system(size: 20, weight: .medium, design: .default))
-                        })
-                        .accentColor(model.isFlashOn ? .yellow : .white)
+                        controlBar
                         
                         ZStack {
                             CameraPreview(session: model.session)
