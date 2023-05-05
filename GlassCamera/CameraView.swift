@@ -16,7 +16,6 @@
 import SwiftUI
 import Combine
 import AVFoundation
-import MediaPlayer
 
 final class CameraModel: ObservableObject {
     let photoCollection = PhotoCollection(albumNamed: "Glass Photos", createIfNotFound: true)
