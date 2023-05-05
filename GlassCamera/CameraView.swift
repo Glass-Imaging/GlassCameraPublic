@@ -89,7 +89,7 @@ final class CameraModel: ObservableObject {
         }
         .store(in: &self.subscriptions)
     }
-    
+
     func deviceConfiguration(_ configuration : BackCameraConfiguration) -> DeviceConfiguration {
         return service.backDeviceConfigurations[configuration] ??
                 DeviceConfiguration(position: .back, deviceType: .builtInWideAngleCamera)
