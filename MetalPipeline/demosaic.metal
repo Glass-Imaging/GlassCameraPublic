@@ -84,12 +84,16 @@ int2 get_image_dim(texture2d<T, a> image) {
     return int2(image.get_width(), image.get_height());
 }
 
+half gaussian(half x) {
+    return exp(- 2 * x * x);
+}
+
 half lensShading(half lensShadingCorrection, half distance_from_center) {
     // New iPhones
-    // return 0.8 + lensShadingCorrection * distance_from_center * distance_from_center;
+    return 0.8 + lensShadingCorrection * distance_from_center * distance_from_center;
     // Old iPhones
     // return 1 + distance_from_center * distance_from_center;
-    return 1;
+    // return 1;
 }
 
 // Work on one Quad (2x2) at a time
@@ -137,6 +141,40 @@ kernel void rawImageSobel(texture2d<half> inputImage                    [[textur
     half2 gradient = sobel(inputImage, imageCoordinates.x, imageCoordinates.y);
 
     write_imageh(gradientImage, imageCoordinates, half4(gradient, abs(gradient)));
+}
+
+float sampledConvolutionLuma(texture2d<float> inputImage,
+                             int2 imageCoordinates, float2 inputNorm,
+                             int samples, constant float *weights) {
+    const float2 inputPos = (float2(imageCoordinates)) * inputNorm;
+
+    constexpr sampler linear_sampler(filter::linear);
+
+    float sum = 0;
+    float norm = 0;
+    for (int i = 0; i < samples; i++) {
+        float w = weights[3 * i];
+        float2 off = float2(weights[3 * i + 1], weights[3 * i + 2]);
+        sum += w * read_imagef(inputImage, linear_sampler, inputPos + (off + 0.5) * inputNorm).x;
+        norm += w;
+    }
+    return sum / norm;
+}
+
+kernel void hfNoiseTransferImage(texture2d<float> inputImage                    [[texture(0)]],
+                                 texture2d<float> noisyImage                    [[texture(1)]],
+                                 texture2d<float, access::write> outputImage    [[texture(2)]],
+                                 constant int& samples                          [[buffer(3)]],
+                                 constant float* weights                        [[buffer(4)]],
+                                 uint2 index                                    [[thread_position_in_grid]]) {
+    const int2 imageCoordinates = (int2) index;
+    const float2 inputNorm = 1.0 / float2(get_image_dim(outputImage));
+
+    float filtered_luma = sampledConvolutionLuma(noisyImage, imageCoordinates, inputNorm, samples, weights);
+    float hf_luma_noise = read_imagef(noisyImage, imageCoordinates).x - filtered_luma;
+    float3 input = read_imagef(inputImage, imageCoordinates).xyz;
+
+    write_imagef(outputImage, imageCoordinates, float4(input.x + hf_luma_noise, input.yz, 0));
 }
 
 float4 sampledConvolution(texture2d<float> inputImage,
@@ -686,8 +724,13 @@ kernel void denoiseImage(texture2d<half> inputImage                     [[textur
 }
 
 struct _half8 {
-    half4 hi;
-    half4 lo;
+    union {
+        struct {
+            half4 hi;
+            half4 lo;
+        };
+        array<half, 8> v;
+    };
 
     _half8(half val) : hi(val), lo(val) { }
 
@@ -706,10 +749,12 @@ half length(_half8 x) {
     return sqrt(dot(x.hi, x.hi) + dot(x.lo, x.lo));
 }
 
-half length(_half8 x, int pca_components) {
-    return sqrt(dot(x.hi, x.hi) + (pca_components == 7 ? dot(x.lo.xyz, x.lo.xyz) :
-                                   pca_components == 6 ? dot(x.lo.xy, x.lo.xy) :
-                                   /* pca_components == 5 */ x.lo.x * x.lo.x));
+half length(_half8 x, int components) {
+    float sum = 0;
+    for (int i = 0; i < components; i++) {
+        sum += x.v[i] * x.v[i];
+    }
+    return sqrt(sum);
 }
 
 kernel void collectPatches(texture2d<half> inputImage         [[texture(0)]],
@@ -755,10 +800,6 @@ kernel void pcaProjection(texture2d<half> inputImage                        [[te
     write_imageui(projectedImage, imageCoordinates, uint4(v_result));
 }
 
-half gaussian(half x) {
-    return exp(- 2 * x * x);
-}
-
 kernel void blockMatchingDenoiseImage(texture2d<half> inputImage                     [[texture(0)]],
                                       texture2d<half> gradientImage                  [[texture(1)]],
                                       texture2d<uint> pcaImage                       [[texture(2)]],
@@ -795,7 +836,8 @@ kernel void blockMatchingDenoiseImage(texture2d<half> inputImage                
             half3 inputSampleYCC = read_imageh(inputImage, imageCoordinates + int2(x, y)).xyz;
             _half8 samplePCA = _half8(read_imageui(pcaImage, imageCoordinates + int2(x, y)));
 
-            half pcaDiff = length(samplePCA - inputPCA);
+            // TODO: is 6 better than 8?
+            half pcaDiff = length(samplePCA - inputPCA, 8);
 
             half2 inputChromaDiff = (inputSampleYCC.yz - inputYCC.yz) * diffMultiplier.yz;
 
@@ -934,7 +976,33 @@ kernel void rawRGBAToBayer(texture2d<float> rgbaImage                   [[textur
     write_imagef(rawImage, 2 * imageCoordinates + g2, rgba.w);
 }
 
-half4 despeckle_3x3x4(texture2d<half> inputImage, float4 rawVariance, int2 imageCoordinates) {
+kernel void crossDenoiseRawRGBAImage(texture2d<half> inputImage                    [[texture(0)]],
+                                     constant half4& rawVariance                   [[buffer(1)]],
+                                     constant half& strength                       [[buffer(2)]],
+                                     texture2d<half, access::write> denoisedImage  [[texture(3)]],
+                                     uint2 index                                   [[thread_position_in_grid]]) {
+    const int2 imageCoordinates = (int2) index;
+
+    half4 inputPixel = read_imageh(inputImage, imageCoordinates);
+    half4 inv_sigma = 1 / (strength * sqrt(rawVariance * (inputPixel + 0.0001)));
+
+    float4 sum = 0;
+    float4 sumW = 0;
+    for (int y = -2; y <= 2; y++) {
+        for (int x = -2; x <= 2; x++) {
+            half4 samplePixel = read_imageh(inputImage, imageCoordinates + int2(x, y));
+
+            half4 w = gaussian(length((inputPixel - samplePixel) * inv_sigma));
+
+            sum += float4(w * samplePixel);
+            sumW += float4(w);
+        }
+    }
+
+    write_imageh(denoisedImage, imageCoordinates, half4(sum / sumW));
+}
+
+half4 despeckle_3x3x4(texture2d<half> inputImage, half4 rawVariance, half gradient, int2 imageCoordinates) {
     half4 sample = 0, firstMax = 0, secondMax = 0;
     half4 firstMin = (half) HALF_MAX, secondMin = (half) HALF_MAX;
 
@@ -954,13 +1022,14 @@ half4 despeckle_3x3x4(texture2d<half> inputImage, float4 rawVariance, int2 image
         }
     }
 
-    half4 sigma = sqrt(half4(rawVariance) * sample);
-    half4 minVal = mix(secondMin, firstMin, smoothstep(2 * sigma, 8 * sigma, secondMin - firstMin));
-    half4 maxVal = mix(secondMax, firstMax, smoothstep(sigma, 4 * sigma, firstMax - secondMax));
+    half4 sigma = sqrt(rawVariance * sample);
+    half4 texture = 1 - 0.5 * smoothstep(1, 2, gradient / sigma);
+    half4 minVal = mix(firstMin, secondMin, texture * (1 - smoothstep(2 * sigma, 8 * sigma, secondMin - firstMin)));
+    half4 maxVal = mix(firstMax, secondMax, texture * (1 - smoothstep(sigma, 4 * sigma, firstMax - secondMax)));
     return clamp(sample, minVal, maxVal);
 }
 
-half4 despeckle_3x3x4_strong(texture2d<half> inputImage, float4 rawVariance, int2 imageCoordinates) {
+half4 despeckle_3x3x4_strong(texture2d<half> inputImage, half4 rawVariance, half gradient, int2 imageCoordinates) {
     half4 sample = 0, firstMax = 0, secondMax = 0, thirdMax = 0;
     half4 firstMin = (half) HALF_MAX, secondMin = (half) HALF_MAX, thirdMin = (half) HALF_MAX;
 
@@ -982,19 +1051,22 @@ half4 despeckle_3x3x4_strong(texture2d<half> inputImage, float4 rawVariance, int
         }
     }
 
-    half4 sigma = sqrt(half4(rawVariance) * sample);
-    half4 minVal = mix(thirdMin, firstMin, smoothstep(2 * sigma, 8 * sigma, secondMin - firstMin));
-    half4 maxVal = mix(thirdMax, firstMax, smoothstep(sigma, 4 * sigma, firstMax - secondMax));
+    half4 sigma = sqrt(rawVariance * sample);
+    half4 texture = smoothstep(1, 4, gradient / sigma);
+    half4 minVal = mix(thirdMin, firstMin, texture * smoothstep(2 * sigma, 8 * sigma, secondMin - firstMin));
+    half4 maxVal = mix(thirdMax, firstMax, texture * smoothstep(sigma, 4 * sigma, firstMax - secondMax));
     return clamp(sample, minVal, maxVal);
 }
 
 kernel void despeckleRawRGBAImage(texture2d<half> inputImage                    [[texture(0)]],
-                                  constant float4& rawVariance                  [[buffer(1)]],
-                                  texture2d<half, access::write> denoisedImage  [[texture(2)]],
+                                  texture2d<half> gradientImage                 [[texture(1)]],
+                                  constant float4& rawVariance                  [[buffer(2)]],
+                                  texture2d<half, access::write> denoisedImage  [[texture(3)]],
                                   uint2 index                                   [[thread_position_in_grid]]) {
     const int2 imageCoordinates = (int2) index;
 
-    half4 despeckledPixel = despeckle_3x3x4(inputImage, rawVariance, imageCoordinates);
+    const half gradient = length(read_imageh(gradientImage, 2 * imageCoordinates).xy);
+    half4 despeckledPixel = despeckle_3x3x4(inputImage, half4(rawVariance), gradient, imageCoordinates);
 
     write_imageh(denoisedImage, imageCoordinates, despeckledPixel);
 }

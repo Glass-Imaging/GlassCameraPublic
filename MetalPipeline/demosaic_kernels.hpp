@@ -94,6 +94,31 @@ struct gaussianBlurSobelImageKernel {
     }
 };
 
+struct hfNoiseTransferImageKernel {
+    Kernel<MTL::Texture*,   // inputImage,
+           MTL::Texture*,   // noisyImage,
+           MTL::Texture*,   // outputImage
+           int,             // samples
+           MTL::Buffer*     // weights
+    > kernel;
+
+    gls::Buffer<std::array<float, 3>> weightsBuffer;
+
+    hfNoiseTransferImageKernel(MetalContext* context, float radius) :
+    kernel(context, "hfNoiseTransferImage"),
+    weightsBuffer(context->device(), gaussianKernelBilinearWeights(radius))
+    { }
+
+    void operator() (MetalContext* context,
+                     const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
+                     const gls::mtl_image_2d<gls::rgba_pixel_float>& noisyImage,
+                     gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage) {
+        kernel(context, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
+               inputImage.texture(), noisyImage.texture(), outputImage->texture(),
+               (int) weightsBuffer.size(), weightsBuffer.buffer());
+    }
+};
+
 struct demosaicImageKernel {
     Kernel<MTL::Texture*,  // rawImage
            MTL::Texture*,  // gradientImage
@@ -187,8 +212,28 @@ struct rawRGBAToBayerKernel {
     }
 };
 
+struct crossDenoiseRawRGBAImageKernel {
+    Kernel<MTL::Texture*,  // inputImage
+           simd::half4,    // rawVariance
+           half,          // strength
+           MTL::Texture*   // outputImage
+    > kernel;
+
+    crossDenoiseRawRGBAImageKernel(MetalContext* context) : kernel(context, "crossDenoiseRawRGBAImage") { }
+
+    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
+                     const gls::Vector<4> rawVariance, float strength, gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage) {
+        std::cout << "Denoising RAW image with strength: " << strength << std::endl;
+        kernel(context, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
+               inputImage.texture(),
+               simd::half4 { (half) rawVariance[0], (half) rawVariance[1], (half) rawVariance[2], (half) rawVariance[3] },
+               (half) strength, outputImage->texture());
+    }
+};
+
 struct despeckleRawRGBAImageKernel {
     Kernel<MTL::Texture*,  // inputImage
+           MTL::Texture*,  // gradientImage
            simd::float4,   // rawVariance
            MTL::Texture*   // outputImage
     > kernel;
@@ -196,9 +241,12 @@ struct despeckleRawRGBAImageKernel {
     despeckleRawRGBAImageKernel(MetalContext* context) : kernel(context, "despeckleRawRGBAImage") { }
 
     void operator() (MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
+                     const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& gradientImage,
                      const gls::Vector<4> rawVariance, gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage) {
-        kernel(context, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1), inputImage.texture(),
-               simd::float4 { rawVariance[0], rawVariance[1], rawVariance[2], rawVariance[3] }, outputImage->texture());
+        kernel(context, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
+               inputImage.texture(), gradientImage.texture(),
+               simd::float4 { rawVariance[0], rawVariance[1], rawVariance[2], rawVariance[3] },
+               outputImage->texture());
     }
 };
 
@@ -333,8 +381,9 @@ struct blockMatchingDenoiseImageKernel {
     void operator() (MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
                      const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& gradientImage,
                      const gls::mtl_image_2d<gls::pixel<uint32_t, 4>>& patchImage, const gls::Vector<3>& var_a,
-                     const gls::Vector<3>& var_b, const gls::Vector<3> thresholdMultipliers, float chromaBoost,
-                     float gradientBoost, gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage) {
+                     const gls::Vector<3>& var_b, const gls::Vector<3> thresholdMultipliers,
+                     float chromaBoost, float gradientBoost,
+                     gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage) {
 
         kernel(context, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
                inputImage.texture(), gradientImage.texture(), patchImage.texture(),

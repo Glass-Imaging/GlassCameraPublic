@@ -36,6 +36,7 @@ struct PyramidProcessor {
     resampleImageKernel _resampleImage;
     resampleImageKernel _resampleGradientImage;
     basicNoiseStatisticsKernel _basicNoiseStatistics;
+    hfNoiseTransferImageKernel _hfNoiseTransferImage;
 
     typedef gls::mtl_image_2d<gls::rgba_pixel_float> imageType;
     std::array<imageType::unique_ptr, levels - 1> imagePyramid;
@@ -45,6 +46,7 @@ struct PyramidProcessor {
     std::array<gls::mtl_image_2d<gls::pixel<uint32_t, 4>>::unique_ptr, levels> pcaImagePyramid;
     std::unique_ptr<gls::Buffer<std::array<float, pcaPatchSize>>> pcaPatches;
     std::array<std::array<float16_t, pcaSpaceSize>, pcaPatchSize> pcaSpace;
+    gls::mtl_image_2d<gls::luma_pixel_float>::unique_ptr filteredLuma;
 
 //    std::array<imageType::unique_ptr, levels> fusionImagePyramidA;
 //    std::array<imageType::unique_ptr, levels> fusionImagePyramidB;

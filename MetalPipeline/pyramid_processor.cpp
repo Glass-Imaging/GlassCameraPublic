@@ -31,7 +31,8 @@ PyramidProcessor<levels>::PyramidProcessor(MetalContext* context, int _width, in
     _subtractNoiseImage(context),
     _resampleImage(context, "downsampleImageXYZ"),
     _resampleGradientImage(context, "downsampleImageXY"),
-    _basicNoiseStatistics(context)
+    _basicNoiseStatistics(context),
+    _hfNoiseTransferImage(context, 0.4)
 {
     auto mtlDevice = context->device();
     for (int i = 0, scale = 2; i < levels - 1; i++, scale *= 2) {
@@ -188,7 +189,7 @@ YCbCrNLF PyramidProcessor<levels>::MeasureYCbCrNLF(MetalContext* context,
     noiseStatsCpu->apply([&](const gls::rgba_pixel_float& ns, int x, int y) {
         double3 v = {ns[1], ns[2], ns[3]};
 
-        bool validStats = !any(isnan(v));
+        bool validStats = !any(isnan(v)) && all(v > double3(0.0));
 
         if (validStats) {
             const auto scale = gls::apply(std::log10, v);

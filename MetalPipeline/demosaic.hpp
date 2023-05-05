@@ -26,6 +26,11 @@ enum BayerPattern { grbg = 0, gbrg = 1, rggb = 2, bggr = 3 };
 
 static const char* BayerPatternName[4] = {"GRBG", "GBRG", "RGGB", "BGGR"};
 
+typedef struct RAWDenoiseParameters {
+    bool highNoiseImage = false;
+    float strength = 1.0;
+} RAWDenoiseParameters;
+
 typedef struct DenoiseParameters {
     float luma = 1.0;
     float chroma = 1.0;
@@ -106,10 +111,9 @@ typedef struct DemosaicParameters {
     gls::Matrix<3, 3> rgb_cam;
 
     // Noise Estimation and Reduction parameters
+    RAWDenoiseParameters rawDenoiseParameters;
     NoiseModel<5> noiseModel;
     std::array<DenoiseParameters, 5> denoiseParameters;
-    // In the [0..1] range, used to scale various denoising coefficients
-    float noiseLevel;
     int iso;
 
     // Camera Color Space to RGB Parameters
