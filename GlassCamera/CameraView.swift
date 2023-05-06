@@ -259,18 +259,31 @@ struct CameraView: View {
         }
     }
 
-    struct CaptureSetting: View {
-        var setting: String
+    class CaptureSettingModel<T>: ObservableObject {
+        @Published var displayValue: String = "--"
+        private var subscriptions = Set<AnyCancellable>()
+
+        init(observe: Published<T>.Publisher,  _ formatter: @escaping ((T) -> String)) {
+            observe.sink { newVal in
+                DispatchQueue.main.async {
+                    self.displayValue = formatter(newVal)
+                }
+            }.store(in: &self.subscriptions)
+        }
+    }
+
+    struct CaptureSetting<T>: View {
+        @ObservedObject var model: CaptureSettingModel<T>
         var name: String
 
-        init(setting: String, name: String) {
-            self.setting = setting
+        init(observe: Published<T>.Publisher, name: String, _ formatter: @escaping ((T) -> String)) {
+            self.model = CaptureSettingModel(observe: observe, formatter)
             self.name = name
         }
 
         var body: some View {
             VStack {
-                Text(setting)
+                Text(self.model.displayValue)
                     .font(.system(size:16, weight: .heavy, design: .monospaced))
                 Text(name)
                     .italic()
@@ -283,19 +296,29 @@ struct CameraView: View {
         HStack {
             Spacer()
 
-            CaptureSetting(setting: "f/1.8", name: "F Stop")
+            CaptureSetting(observe: self.model.service.$aperture, name: "F STOP") { aperture in aperture != nil ? "f/\(aperture!)" : "--" }
 
             Spacer()
 
-            CaptureSetting(setting: "1/100s", name: "SS")
+            CaptureSetting(observe: self.model.service.$exposureDuration, name: "SS") { duration in
+                guard let duration = duration else {
+                    return "--"
+                }
+                return "1/\(Int(round(1 / duration.seconds)))"
+            }
 
             Spacer()
 
-            CaptureSetting(setting: "55", name: "ISO")
+            CaptureSetting(observe: self.model.service.$iso, name: "ISO") { iso in
+                guard let iso = iso else {
+                    return "--"
+                }
+                return String(Int(round(iso)))
+            }
 
             Spacer()
 
-            CaptureSetting(setting: "-0.5", name: "EV")
+            CaptureSetting(observe: self.model.service.$exposureBias, name: "EV") { bias in bias != nil ? "\(bias!)" : "--" }
 
             Spacer()
         }

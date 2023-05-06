@@ -67,6 +67,18 @@ public class CameraService: NSObject, Identifiable {
     @Published public var isNNProcessingOn = true
     @Published public var thumbnail: UIImage?
 
+    private var exposureDurationObserver: NSKeyValueObservation? = nil
+    @Published public var exposureDuration: CMTime?
+
+    private var isoObserver: NSKeyValueObservation? = nil
+    @Published public var iso: Float?
+
+    private var exposureBiasObserver: NSKeyValueObservation? = nil
+    @Published public var exposureBias: Float?
+
+    private var apertureObserver: NSKeyValueObservation? = nil
+    @Published public var aperture: Float?
+
     @Published public var availableBackDevices: [BackCameraConfiguration] = []
 
     @Published public var currentDevice: DeviceConfiguration? = nil
@@ -241,6 +253,7 @@ public class CameraService: NSObject, Identifiable {
             if session.canAddInput(videoDeviceInput) {
                 session.addInput(videoDeviceInput)
                 self.videoDeviceInput = videoDeviceInput
+                self.observeExposureParams()
 
                 DispatchQueue.main.async {
                     self.currentDevice = DeviceConfiguration(position: videoDeviceInput.device.position,
@@ -308,6 +321,29 @@ public class CameraService: NSObject, Identifiable {
         }
     }
 
+    private func observeExposureParams() {
+        self.exposureDuration = self.videoDeviceInput.device.exposureDuration
+        exposureDurationObserver = self.videoDeviceInput.device.observe(\.exposureDuration) { captureDevice, error in
+            self.exposureDuration = captureDevice.exposureDuration
+        }
+
+
+        self.exposureBias = self.videoDeviceInput.device.exposureTargetBias
+        exposureBiasObserver = self.videoDeviceInput.device.observe(\.exposureTargetOffset) { captureDevice, error in
+            self.exposureBias = captureDevice.exposureTargetBias
+        }
+
+        self.iso = self.videoDeviceInput.device.iso
+        isoObserver = self.videoDeviceInput.device.observe(\.iso) { captureDevice, error in
+            self.iso = captureDevice.iso
+        }
+
+        self.aperture = self.videoDeviceInput.device.lensAperture
+        apertureObserver = self.videoDeviceInput.device.observe(\.lensAperture) { captureDevice, error in
+            self.aperture = captureDevice.lensAperture
+        }
+    }
+
     //  MARK: Device Configuration
 
     public func changeCamera(_ configuration: DeviceConfiguration) {
@@ -350,6 +386,7 @@ public class CameraService: NSObject, Identifiable {
 
                         self.session.addInput(videoDeviceInput)
                         self.videoDeviceInput = videoDeviceInput
+                        self.observeExposureParams()
                     } else {
                         self.session.addInput(self.videoDeviceInput)
                     }
