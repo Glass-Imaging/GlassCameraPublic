@@ -29,7 +29,9 @@ final class CameraModel: ObservableObject {
     @Published var isFlashOn = false
     
     @Published var isDelayOn = false
-    
+
+    @Published var isNNProcessingOn = true
+
     @Published var willCapturePhoto = false
 
     @Published var showSpinner = false
@@ -68,6 +70,11 @@ final class CameraModel: ObservableObject {
 
         service.$flashMode.sink { [weak self] (mode) in
             self?.isFlashOn = mode == .on
+        }
+        .store(in: &self.subscriptions)
+
+        service.$isNNProcessingOn.sink { [weak self] (mode) in
+            self?.isNNProcessingOn = mode
         }
         .store(in: &self.subscriptions)
 
@@ -130,7 +137,11 @@ final class CameraModel: ObservableObject {
     func switchDelay() {
         isDelayOn = !isDelayOn
     }
-    
+
+    func switchNNProcessing() {
+        service.isNNProcessingOn = !service.isNNProcessingOn
+    }
+
     func loadPhotos() async {
         guard !isPhotosLoaded else { return }
         
@@ -213,11 +224,11 @@ struct CameraView: View {
             model.switchCamera(model.deviceConfiguration(newValue))
         }
     }
-    
-    var controlBar: some View {
+
+    var topControlBar: some View {
         HStack {
             Spacer()
-            
+
             Button(action: {
                 model.switchFlash()
             }, label: {
@@ -225,16 +236,67 @@ struct CameraView: View {
                     .font(.system(size: 20, weight: .medium, design: .default))
             })
             .accentColor(model.isFlashOn ? .yellow : .white)
-            
+
             Spacer()
-            
+
             Button(action: {
                 model.switchDelay()
             }, label: {
                 Image(systemName: "timer").font(.system(size: 20, weight: .medium, design: .default))
             })
             .accentColor(model.isDelayOn ? .yellow : .white)
-            
+
+            Spacer()
+
+            Button(action: {
+                model.switchNNProcessing()
+            }, label: {
+                Image(systemName: "sparkles").font(.system(size: 20, weight: .medium, design: .default))
+            })
+            .accentColor(model.isNNProcessingOn ? .yellow : .white)
+
+            Spacer()
+        }
+    }
+
+    struct CaptureSetting: View {
+        var setting: String
+        var name: String
+
+        init(setting: String, name: String) {
+            self.setting = setting
+            self.name = name
+        }
+
+        var body: some View {
+            VStack {
+                Text(setting)
+                    .font(.system(size:16, weight: .heavy, design: .monospaced))
+                Text(name)
+                    .italic()
+                    .font(.system(size:12, weight: .light, design: .rounded))
+            }
+        }
+    }
+
+    var captureSettingsBar: some View {
+        HStack {
+            Spacer()
+
+            CaptureSetting(setting: "f/1.8", name: "F Stop")
+
+            Spacer()
+
+            CaptureSetting(setting: "1/100s", name: "SS")
+
+            Spacer()
+
+            CaptureSetting(setting: "55", name: "ISO")
+
+            Spacer()
+
+            CaptureSetting(setting: "-0.5", name: "EV")
+
             Spacer()
         }
     }
@@ -248,51 +310,47 @@ struct CameraView: View {
                     Color.black.edgesIgnoringSafeArea(.all)
                     
                     VStack {
-                        controlBar
-                        
-                        ZStack {
-                            CameraPreview(session: model.session)
-                                .onAppear {
-                                    // TODO: Fetch this from stored preferences
-                                    model.configure(DeviceConfiguration(position: .back, deviceType: .builtInWideAngleCamera))
+                        topControlBar
+
+                        CameraPreview(session: model.session)
+                            .onAppear {
+                                // TODO: Fetch this from stored preferences
+                                model.configure(DeviceConfiguration(position: .back, deviceType: .builtInWideAngleCamera))
+                            }
+                            .alert(isPresented: $model.showAlertError, content: {
+                                Alert(title: Text(model.alertError.title),
+                                      message: Text(model.alertError.message),
+                                      dismissButton: .default(Text(model.alertError.primaryButtonTitle), action: {
+                                    model.alertError.primaryAction?()
+                                }))
+                            })
+                            .overlay(Group {
+                                if model.showSpinner {
+                                    Color.black.opacity(0.2)
+
+                                    ProgressView()
+                                        .scaleEffect(2, anchor: .center)
+                                        .progressViewStyle(CircularProgressViewStyle(tint: Color.white))
                                 }
-                                .alert(isPresented: $model.showAlertError, content: {
-                                    Alert(title: Text(model.alertError.title),
-                                          message: Text(model.alertError.message),
-                                          dismissButton: .default(Text(model.alertError.primaryButtonTitle), action: {
-                                        model.alertError.primaryAction?()
-                                    }))
-                                })
-                                .overlay(Group {
-                                    if model.showSpinner {
-                                        Color.black.opacity(0.2)
-                                        
-                                        ProgressView()
-                                            .scaleEffect(2, anchor: .center)
-                                            .progressViewStyle(CircularProgressViewStyle(tint: Color.white))
-                                    }
-                                    
-                                    if model.willCapturePhoto {
-                                        Group {
-                                            Color.black
-                                        }.onAppear {
-                                            withAnimation {
-                                                model.willCapturePhoto = false
-                                            }
+
+                                if model.willCapturePhoto {
+                                    Group {
+                                        Color.black
+                                    }.onAppear {
+                                        withAnimation {
+                                            model.willCapturePhoto = false
                                         }
                                     }
-                                })
-                            
-                            if (model.currentDevice?.position == .back) {
-                                VStack {
-                                    Spacer()
-                                    
-                                    zoomLevelPicker
-                                        .padding(.all, 20)
                                 }
-                            }
+                            })
+
+                        captureSettingsBar
+
+                        if (model.currentDevice?.position == .back) {
+                            zoomLevelPicker
+                                .padding(.all, 20)
                         }
-                        
+
                         HStack {
                             NavigationLink {
                                 PhotoCollectionView(photoCollection: model.photoCollection)

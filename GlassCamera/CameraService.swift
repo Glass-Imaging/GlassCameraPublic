@@ -64,6 +64,7 @@ public class CameraService: NSObject, Identifiable {
     @Published public var willCapturePhoto = false
     @Published public var isCameraButtonDisabled = false
     @Published public var isCameraUnavailable = false
+    @Published public var isNNProcessingOn = true
     @Published public var thumbnail: UIImage?
 
     @Published public var availableBackDevices: [BackCameraConfiguration] = []
@@ -561,7 +562,7 @@ public class CameraService: NSObject, Identifiable {
                     photoSettings.photoQualityPrioritization = .quality
                 }
 
-                let photoCaptureProcessor = PhotoCaptureProcessor(saveCollection: saveCollection, with: photoSettings, willCapturePhotoAnimation: {
+                let photoCaptureProcessor = PhotoCaptureProcessor(saveCollection: saveCollection, with: photoSettings, isNNProcessingOn: self.isNNProcessingOn, willCapturePhotoAnimation: {
                     // Flash the screen to signal that AVCam took a photo.
                     self.willCapturePhoto = true
                 }, completionHandler: { (photoCaptureProcessor) in
