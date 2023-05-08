@@ -15,7 +15,7 @@
 
 #include "raw_converter.hpp"
 
-#include "PerlinNoise.hpp"
+#include "SimplexNoise.hpp"
 
 void RawConverter::allocateTextures(const gls::size& imageSize) {
     assert(imageSize.width > 0 && imageSize.height > 0);
@@ -114,31 +114,31 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::denoise(const gls::mtl_i
     // High ISO noise texture replacement
     bool add_perlin_noise = true;
     if (add_perlin_noise) {
-        const gls::Vector<2> lumaVariance = { np.first[0], np.second[0] };
+        const float sigma = 0.35 * sqrt(np.second[0]);
 
-        std::cout << "Adding Blue Noise for variance: " << std::scientific << lumaVariance << std::endl;
+        // TODO: add a seed to the noise pattern
+        bool use_gpu_noise = true;
+        if (use_gpu_noise) {
+            _simplexNoise(&_mtlContext, *denoisedImage, /*seed=*/ 123456u, sigma, denoisedImage);
+        } else {
+            Noise2D simplexNoise;
 
-        const siv::PerlinNoise::seed_type seed = 123456u;
-        const siv::PerlinNoise perlin{ seed };
+            _mtlContext.waitForCompletion();
+            auto denoisedImageCPU = denoisedImage->mapImage();
 
-        _mtlContext.waitForCompletion();
-        auto denoisedImageCPU = denoisedImage->mapImage();
+            denoisedImageCPU->apply([&] (gls::rgba_pixel_float* p, int x, int y) {
+                float noise = simplexNoise.octaveNoise(0.5 * (x + M_PI), 0.5 * (y + M_PI), 4, 0.5, 0.5);
+                const float16_t luma = (*p)[0] + 4 * sigma * noise;
+                float desaturate = std::lerp(1 - std::min(4 * abs(noise), 1.0f), 1, std::min(6 * (*p)[0], 1.0f));
 
-        denoisedImageCPU->apply([&] (gls::rgba_pixel_float* p, int x, int y) {
-            float sigma = std::sqrt(p->red * lumaVariance[1] + lumaVariance[0]);
-
-            float noise = perlin.normalizedOctave2D(0.5 * x, 0.5 * y, 4);
-            const float16_t luma = p->red + 3 * sigma * noise;
-
-            float16_t desaturate = std::lerp(1 - std::min(4 * abs(noise), 1.0f), 1, std::min(6 * p->red, 1.0f));
-
-            *p = {
-                luma,
-                (float16_t) (desaturate * p->green),
-                (float16_t) (desaturate * p->blue),
-                p->alpha
-            };
-        });
+                *p = {
+                    luma,
+                    (float16_t) (desaturate * (*p)[1]),
+                    (float16_t) (desaturate * (*p)[2]),
+                    1
+                };
+            });
+        }
     }
 
     return denoisedImage;

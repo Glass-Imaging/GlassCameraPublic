@@ -1563,3 +1563,75 @@ kernel void convertTosRGB(texture2d<float> linearImage                  [[textur
 
     write_imagef(rgbImage, imageCoordinates, float4(clamp(rgb, 0.0, 1.0), 1.0));
 }
+
+static inline float2 s_curve(float2 t) {
+    return t * t * (3. - 2. * t);
+}
+
+static constant int B = 0x100;
+
+float noise(float2 pos, constant array<int, B + B + 2>& p, constant array<float2, B + B + 2>& g2) {
+    // setup
+    const int BM = 0xff;
+    const int N = 0x1000;
+
+    float2 t = pos + N;
+    int2 b0 = int2(t) & BM;
+    int2 b1 = (b0 + 1) & BM;
+    float2 r0 = fract(t);
+    float2 r1 = r0 - 1;
+
+    int i = p[b0.x];
+    int j = p[b1.x];
+
+    int b00 = p[i + b0.y];
+    int b10 = p[j + b0.y];
+    int b01 = p[i + b1.y];
+    int b11 = p[j + b1.y];
+
+    float2 s = s_curve(r0);
+
+    float u = dot(g2[b00], r0);
+    float v = dot(g2[b10], float2(r1.x, r0.y));
+    float a = mix(u, v, s.x);
+
+    u = dot(g2[b01], float2(r0.x, r1.y));
+    v = dot(g2[b11], r1);
+    float b = mix(u, v, s.x);
+
+    return mix(a, b, s.y);
+}
+
+float octaveNoise(float2 pos, int octaves, float persistence, float lacunarity,
+                  constant array<int, B + B + 2>& p, constant array<float2, B + B + 2>& g2) {
+    float freq = 1.0f;
+    float amp = 1.0f;
+    float norm = 1.0f;
+    float sum = noise(pos, p, g2);
+    int i;
+
+    for (i = 1; i < octaves; ++i) {
+        freq *= lacunarity;
+        amp *= persistence;
+        norm += amp;
+        sum += noise(pos * freq, p, g2) * amp;
+    }
+    return sum / norm;
+}
+
+kernel void simplex_noise(texture2d<float> inputImage                   [[texture(0)]],
+                          constant array<int, B + B + 2>& p             [[buffer(1)]],
+                          constant array<float2, B + B + 2>& g2         [[buffer(2)]],
+                          constant uint& seed                           [[buffer(3)]],
+                          constant float& sigma                         [[buffer(4)]],
+                          texture2d<float, access::write> outputImage   [[texture(5)]],
+                          uint2 index                                   [[thread_position_in_grid]])
+{
+    const int2 imageCoordinates = (int2) index;
+
+    float noise = octaveNoise(0.5 * (float2(imageCoordinates) + M_PI_F), 4, 0.5, 0.5, p, g2);
+
+    float4 pixel = read_imagef(inputImage, imageCoordinates);
+    pixel.x += 4 * sigma * noise;
+    write_imagef(outputImage, imageCoordinates, pixel);
+}

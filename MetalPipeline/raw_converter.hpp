@@ -124,6 +124,7 @@ class RawConverter {
     histogramImageKernel _histogramImage;
     histogramStatisticsKernel _histogramStatistics;
     basicRawNoiseStatisticsKernel _rawNoiseStatistics;
+    simplexNoiseKernel _simplexNoise;
 
 public:
     struct histogram_data {
@@ -155,7 +156,8 @@ public:
         _despeckleImage(&_mtlContext),
         _histogramImage(&_mtlContext),
         _histogramStatistics(&_mtlContext),
-        _rawNoiseStatistics(&_mtlContext)
+        _rawNoiseStatistics(&_mtlContext),
+        _simplexNoise(&_mtlContext)
     {
         _localToneMapping = std::make_unique<LocalToneMapping>(&_mtlContext);
 
@@ -168,6 +170,8 @@ public:
             _icc_profile_data = std::make_unique<std::vector<uint8_t>>(*icc_profile_data);
 
             _xyz_rgb = icc_profile_xyz_matrix(*_icc_profile_data);
+        } else {
+            _xyz_rgb = xyz_sRGB;
         }
     }
 

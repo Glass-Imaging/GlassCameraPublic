@@ -260,7 +260,8 @@ int main(int argc, const char * argv[]) {
     auto allMetalDevices = NS::TransferPtr(MTL::CopyAllDevices());
     auto metalDevice = NS::RetainPtr(allMetalDevices->object<MTL::Device>(0));
 
-    RawConverter rawConverter(metalDevice, &icc_profile_data, /*calibrateFromImage=*/ false);
+    // FIXME: the address sanitizer doesn't like the profile data.
+    RawConverter rawConverter(metalDevice, nullptr /*&icc_profile_data*/, /*calibrateFromImage=*/ false);
 
     if (argc > 1) {
         auto input_path = std::filesystem::path(argv[1]);

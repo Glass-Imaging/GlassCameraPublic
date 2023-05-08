@@ -134,7 +134,7 @@
 		E518E6D429F9D1D10056E6BF /* iPhone14WideCalibration.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = iPhone14WideCalibration.cpp; sourceTree = "<group>"; };
 		E518E6DA29FC50D60056E6BF /* iPhone14TeleFMENCalibration.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = iPhone14TeleFMENCalibration.cpp; sourceTree = "<group>"; };
 		E518E6E62A00A4AB0056E6BF /* CanonR6IICalibration.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = CanonR6IICalibration.cpp; sourceTree = "<group>"; };
-		E518E6F22A0595FA0056E6BF /* PerlinNoise.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = PerlinNoise.hpp; sourceTree = "<group>"; };
+		E518E6F42A0712B50056E6BF /* SimplexNoise.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = SimplexNoise.hpp; sourceTree = "<group>"; };
 		E522296629CD646600D13A4F /* pyramid_processor.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = pyramid_processor.cpp; sourceTree = "<group>"; };
 		E522296729CD646600D13A4F /* pyramid_processor.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = pyramid_processor.hpp; sourceTree = "<group>"; };
 		E522296B29CE421000D13A4F /* tinyicc.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = tinyicc.hpp; sourceTree = "<group>"; };
@@ -374,7 +374,7 @@
 				E5C6986829C926CD00F7062C /* ThreadPool.hpp */,
 				E522296B29CE421000D13A4F /* tinyicc.hpp */,
 				E57CA85929D04DFD006F5D3F /* float16.hpp */,
-				E518E6F22A0595FA0056E6BF /* PerlinNoise.hpp */,
+				E518E6F42A0712B50056E6BF /* SimplexNoise.hpp */,
 			);
 			path = MetalPipeline;
 			sourceTree = "<group>";
