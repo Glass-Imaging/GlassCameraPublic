@@ -335,6 +335,8 @@ struct CameraView: View {
                     VStack {
                         topControlBar
 
+                        Spacer()
+
                         CameraPreview(session: model.session)
                             .onAppear {
                                 // TODO: Fetch this from stored preferences
@@ -367,12 +369,18 @@ struct CameraView: View {
                                 }
                             })
 
+                        Spacer()
+
                         captureSettingsBar
+
+                        Spacer()
 
                         if (model.currentDevice?.position == .back) {
                             zoomLevelPicker
                                 .padding(.all, 20)
                         }
+
+                        Spacer()
 
                         HStack {
                             NavigationLink {

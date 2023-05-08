@@ -344,6 +344,56 @@ public class CameraService: NSObject, Identifiable {
         }
     }
 
+    private func applyCustomExposureParams(_ onSetCB: @escaping () -> Void) {
+        let MAX_EXPOSURE_DURATION = Double(1.0) / 100
+
+        try! self.videoDeviceInput.device.lockForConfiguration()
+
+        let currentExposureDuration = self.videoDeviceInput.device.exposureDuration
+        let currentExposureOffset = self.videoDeviceInput.device.exposureTargetOffset // how many stops away from a proper exposure the current params are
+        let currentISO = self.videoDeviceInput.device.iso
+        NSLog("Current Settings :: (\(currentExposureDuration), \(currentISO), \(currentExposureOffset)")
+
+        let exposureCompensationMultiplier = 1 // currentExposureOffset > 0 ? 1 / (1 + currentExposureOffset) : -1 * currentExposureOffset
+
+        var targetExposureDuration = currentExposureDuration.seconds * Double(exposureCompensationMultiplier)
+        var targetISO = currentISO
+
+        NSLog("Pre Correction Target Settings :: (\(targetExposureDuration), \(targetISO)")
+
+        if(targetExposureDuration > MAX_EXPOSURE_DURATION) {
+            NSLog("Max duration exceeded! Manually correcting")
+            targetISO *= Float(targetExposureDuration / MAX_EXPOSURE_DURATION)
+            targetExposureDuration = MAX_EXPOSURE_DURATION
+        }
+
+
+        NSLog("NEW Settings :: (\(targetExposureDuration), \(targetISO))")
+        let timescale = 1_000_000_000
+        // targetExposureDuration *= Double(timescale)
+        NSLog("NEW CMTime :: (\(targetExposureDuration), \(timescale))")
+        let finalDuration = CMTime(seconds: targetExposureDuration, preferredTimescale: currentExposureDuration.timescale)
+
+        targetISO = min(max(targetISO, self.videoDeviceInput.device.activeFormat.minISO), self.videoDeviceInput.device.activeFormat.maxISO)
+
+        self.videoDeviceInput.device.setExposureModeCustom(duration: finalDuration, iso: targetISO) {_ in
+            NSLog("(AS) Requested Settings :: (\(targetExposureDuration), \(targetISO))")
+            NSLog("(AS) Actual Settings :: (\(self.videoDeviceInput.device.exposureDuration), \(self.videoDeviceInput.device.iso))")
+            NSLog("(AS) Original Settings :: (\(currentExposureDuration), \(currentISO), \(currentExposureOffset)")
+            self.videoDeviceInput.device.unlockForConfiguration()
+
+            onSetCB()
+        }
+    }
+
+
+    private func enableAutoExposure() {
+        try! self.videoDeviceInput.device.lockForConfiguration()
+        self.videoDeviceInput.device.exposureMode = AVCaptureDevice.ExposureMode.continuousAutoExposure
+        self.videoDeviceInput.device.unlockForConfiguration()
+    }
+
+
     //  MARK: Device Configuration
 
     public func changeCamera(_ configuration: DeviceConfiguration) {
@@ -603,6 +653,10 @@ public class CameraService: NSObject, Identifiable {
                     // Flash the screen to signal that AVCam took a photo.
                     self.willCapturePhoto = true
                 }, completionHandler: { (photoCaptureProcessor) in
+                    //RE Enable AE after capture
+
+                    self.enableAutoExposure()
+
                     // When the capture is complete, remove a reference to the photo capture delegate so it can be deallocated.
                     if let data = photoCaptureProcessor.capturedImage {
                         UIImage(data: data)!.prepareThumbnail(of: CGSize(width: 100, height: 100)) { thumbnail in
@@ -632,7 +686,10 @@ public class CameraService: NSObject, Identifiable {
 
                 // The photo output holds a weak reference to the photo capture delegate and stores it in an array to maintain a strong reference.
                 self.inProgressPhotoCaptureDelegates[photoCaptureProcessor.requestedPhotoSettings.uniqueID] = photoCaptureProcessor
-                self.photoOutput.capturePhoto(with: photoSettings, delegate: photoCaptureProcessor)
+                // self.photoOutput.capturePhoto(with: photoSettings, delegate: photoCaptureProcessor)
+                self.applyCustomExposureParams {
+                    self.photoOutput.capturePhoto(with: photoSettings, delegate: photoCaptureProcessor)
+                }
             }
         }
     }
