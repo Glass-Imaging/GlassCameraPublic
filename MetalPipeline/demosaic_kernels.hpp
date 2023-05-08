@@ -585,7 +585,6 @@ struct simplexNoiseKernel {
     Kernel<MTL::Texture*,   // inputImage
            MTL::Buffer*,    // p
            MTL::Buffer*,    // g2
-           uint,            // seed
            simd::float2,    // lumaVariance
            MTL::Texture*    // outputImage
     > kernel;
@@ -596,44 +595,54 @@ struct simplexNoiseKernel {
     gls::Buffer<std::array<float[2], B + B + 2>> g2Buffer;
 
     static inline void normalize2(float v[2]) {
-        float s;
-        s = sqrt(v[0] * v[0] + v[1] * v[1]);
-        v[0] = v[0] / s;
-        v[1] = v[1] / s;
+        float s = sqrt(v[0] * v[0] + v[1] * v[1]);
+        v[0] /= s;
+        v[1] /= s;
+    }
+
+    void initialize() {
+        auto& p = *pBuffer.data();
+        auto& g2 = *g2Buffer.data();
+
+        static bool reseed = true;
+        if (reseed) {
+            srandom((unsigned) time(NULL));
+            reseed = false;
+        }
+
+        for (int i = 0; i < B; i++) {
+            p[i] = i;
+            for (int j = 0; j < 2; j++) {
+                g2[i][j] = (float)((random() % (B + B)) - B) / B;
+            }
+            normalize2(g2[i]);
+        }
+        for (int i = B - 1; i > 0; i--) {
+            int k = p[i];
+            int j = random() % B;
+            p[i] = p[j];
+            p[j] = k;
+        }
+        for (int i = 0; i < B + 2; i++) {
+            p[B + i] = p[i];
+            for (int j = 0; j < 2; j++) {
+                g2[B + i][j] = g2[i][j];
+            }
+        }
     }
 
     simplexNoiseKernel(MetalContext* context) :
         kernel(context, "simplex_noise"),
         pBuffer(context->device(), 1),
-        g2Buffer(context->device(), 1) {
-            auto& p = *pBuffer.data();
-            auto& g2 = *g2Buffer.data();
-
-            for (int i = 0; i < B; i++) {
-                p[i] = i;
-                for (int j = 0; j < 2; j++) {
-                    g2[i][j] = (float)((random() % (B + B)) - B) / B;
-                }
-                normalize2(g2[i]);
-            }
-            for (int i = B - 1; i > 0; i--) {
-                int k = p[i];
-                int j = random() % B;
-                p[i] = p[j];
-                p[j] = k;
-            }
-            for (int i = 0; i < B + 2; i++) {
-                p[B + i] = p[i];
-                for (int j = 0; j < 2; j++) {
-                    g2[B + i][j] = g2[i][j];
-                }
-            }
-        }
+        g2Buffer(context->device(), 1)
+    {
+        initialize();
+    }
 
     void operator() (MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
-                     uint seed, float sigma, gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage) {
+                     float sigma, gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage) {
         kernel(context, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
-               inputImage.texture(), pBuffer.buffer(), g2Buffer.buffer(), seed, sigma, outputImage->texture());
+               inputImage.texture(), pBuffer.buffer(), g2Buffer.buffer(), sigma, outputImage->texture());
     }
 };
 

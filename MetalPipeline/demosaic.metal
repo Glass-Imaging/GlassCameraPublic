@@ -1622,14 +1622,13 @@ float octaveNoise(float2 pos, int octaves, float persistence, float lacunarity,
 kernel void simplex_noise(texture2d<float> inputImage                   [[texture(0)]],
                           constant array<int, B + B + 2>& p             [[buffer(1)]],
                           constant array<float2, B + B + 2>& g2         [[buffer(2)]],
-                          constant uint& seed                           [[buffer(3)]],
-                          constant float& sigma                         [[buffer(4)]],
-                          texture2d<float, access::write> outputImage   [[texture(5)]],
+                          constant float& sigma                         [[buffer(3)]],
+                          texture2d<float, access::write> outputImage   [[texture(4)]],
                           uint2 index                                   [[thread_position_in_grid]])
 {
     const int2 imageCoordinates = (int2) index;
 
-    float noise = octaveNoise(0.5 * (float2(imageCoordinates) + M_PI_F), 4, 0.5, 0.5, p, g2);
+    float noise = octaveNoise(0.5 * (float2(imageCoordinates) + M_1_PI_F), 4, 0.5, 0.5, p, g2);
 
     float4 pixel = read_imagef(inputImage, imageCoordinates);
     pixel.x += 4 * sigma * noise;

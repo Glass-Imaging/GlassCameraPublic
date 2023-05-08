@@ -114,12 +114,15 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::denoise(const gls::mtl_i
     // High ISO noise texture replacement
     bool add_perlin_noise = true;
     if (add_perlin_noise) {
-        const float sigma = 0.35 * sqrt(np.second[0]);
+        const float sigma = 0.35 * sqrt(noiseModel->rawNlf.second[1] /* raw green */);
 
-        // TODO: add a seed to the noise pattern
+        std::cout << "Adding perlin noise with sigma " << sigma << std::endl;
+
         bool use_gpu_noise = true;
         if (use_gpu_noise) {
-            _simplexNoise(&_mtlContext, *denoisedImage, /*seed=*/ 123456u, sigma, denoisedImage);
+            // Calling initialize() will generate a new noise pattern
+            _simplexNoise.initialize();
+            _simplexNoise(&_mtlContext, *denoisedImage, sigma, denoisedImage);
         } else {
             Noise2D simplexNoise;
 
