@@ -114,7 +114,7 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::denoise(const gls::mtl_i
     // High ISO noise texture replacement
     bool add_perlin_noise = true;
     if (add_perlin_noise) {
-        const float sigma = 0.35 * sqrt(noiseModel->rawNlf.second[1] /* raw green */);
+        const float sigma = 0.1 * sqrt(noiseModel->rawNlf.second[1] /* raw green */);
 
         std::cout << "Adding perlin noise with sigma " << sigma << std::endl;
 
@@ -146,8 +146,6 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::denoise(const gls::mtl_i
 
     return denoisedImage;
 }
-
-//#define RUN_ON_SINGLE_COMMAND_BUFFER true
 
 void saveLumaImage(const gls::mtl_image_2d<gls::luma_pixel_float>& denoisedImage) {
     gls::image<gls::luma_pixel_16> out(denoisedImage.width, denoisedImage.height);
