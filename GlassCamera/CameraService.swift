@@ -59,27 +59,13 @@ public class CameraService: NSObject, Identifiable {
 
     private var cameraState: CameraState
 
-    @Published public var flashMode: AVCaptureDevice.FlashMode = .off
     @Published public var shouldShowAlertView = false
     @Published public var shouldShowSpinner = false
 
     @Published public var willCapturePhoto = false
     @Published public var isCameraButtonDisabled = false
     @Published public var isCameraUnavailable = false
-    @Published public var isNNProcessingOn = true
     @Published public var thumbnail: UIImage?
-
-    private var exposureDurationObserver: NSKeyValueObservation? = nil
-    @Published public var exposureDuration: CMTime?
-
-    private var isoObserver: NSKeyValueObservation? = nil
-    @Published public var iso: Float?
-
-    private var exposureBiasObserver: NSKeyValueObservation? = nil
-    @Published public var exposureBias: Float?
-
-    private var apertureObserver: NSKeyValueObservation? = nil
-    @Published public var aperture: Float?
 
     @Published public var availableBackDevices: [BackCameraConfiguration] = []
 
@@ -124,7 +110,9 @@ public class CameraService: NSObject, Identifiable {
     var keyValueObservations = [NSKeyValueObservation]()
 
     let locationManager = CLLocationManager()
-    
+
+    private var subscriptions = Set<AnyCancellable>()
+
     init(cameraState: CameraState) {
         self.cameraState = cameraState
         super.init()
@@ -148,6 +136,16 @@ public class CameraService: NSObject, Identifiable {
         if locationManager.authorizationStatus == .notDetermined {
             locationManager.requestWhenInUseAuthorization()
         }
+
+        cameraState.$calculatedExposureBias.sink { newBias in
+            if(self.videoDeviceInput != nil) {
+                try? self.videoDeviceInput.device.lockForConfiguration()
+                self.videoDeviceInput.device.setExposureTargetBias(newBias) { _ in
+                    self.videoDeviceInput.device.unlockForConfiguration()
+                    NSLog("Done setting new bias!")
+                }
+            }
+        }.store(in: &self.subscriptions)
     }
 
     public func configure(_ configuration: DeviceConfiguration) {
@@ -324,72 +322,6 @@ public class CameraService: NSObject, Identifiable {
         }
     }
 
-    /*
-    private func observeExposureParams() {
-        self.exposureDuration = self.videoDeviceInput.device.exposureDuration
-        exposureDurationObserver = self.videoDeviceInput.device.observe(\.exposureDuration) { captureDevice, error in
-            self.exposureDuration = captureDevice.exposureDuration
-        }
-
-
-        self.exposureBias = self.videoDeviceInput.device.exposureTargetBias
-        exposureBiasObserver = self.videoDeviceInput.device.observe(\.exposureTargetOffset) { captureDevice, error in
-            self.exposureBias = captureDevice.exposureTargetBias
-        }
-
-        self.iso = self.videoDeviceInput.device.iso
-        isoObserver = self.videoDeviceInput.device.observe(\.iso) { captureDevice, error in
-            self.iso = captureDevice.iso
-        }
-
-        self.aperture = self.videoDeviceInput.device.lensAperture
-        apertureObserver = self.videoDeviceInput.device.observe(\.lensAperture) { captureDevice, error in
-            self.aperture = captureDevice.lensAperture
-        }
-    }
-
-    private func applyCustomExposureParams(_ onSetCB: @escaping () -> Void) {
-        let MAX_EXPOSURE_DURATION = Double(1.0) / 100
-
-        try! self.videoDeviceInput.device.lockForConfiguration()
-
-        let currentExposureDuration = self.videoDeviceInput.device.exposureDuration
-        let currentExposureOffset = self.videoDeviceInput.device.exposureTargetOffset // how many stops away from a proper exposure the current params are
-        let currentISO = self.videoDeviceInput.device.iso
-        NSLog("Current Settings :: (\(currentExposureDuration), \(currentISO), \(currentExposureOffset)")
-
-        let exposureCompensationMultiplier = 1 // currentExposureOffset > 0 ? 1 / (1 + currentExposureOffset) : -1 * currentExposureOffset
-
-        var targetExposureDuration = currentExposureDuration.seconds * Double(exposureCompensationMultiplier)
-        var targetISO = currentISO
-
-        NSLog("Pre Correction Target Settings :: (\(targetExposureDuration), \(targetISO)")
-
-        if(targetExposureDuration > MAX_EXPOSURE_DURATION) {
-            NSLog("Max duration exceeded! Manually correcting")
-            targetISO *= Float(targetExposureDuration / MAX_EXPOSURE_DURATION)
-            targetExposureDuration = MAX_EXPOSURE_DURATION
-        }
-
-
-        NSLog("NEW Settings :: (\(targetExposureDuration), \(targetISO))")
-        let timescale = 1_000_000_000
-        // targetExposureDuration *= Double(timescale)
-        NSLog("NEW CMTime :: (\(targetExposureDuration), \(timescale))")
-        let finalDuration = CMTime(seconds: targetExposureDuration, preferredTimescale: currentExposureDuration.timescale)
-
-        targetISO = min(max(targetISO, self.videoDeviceInput.device.activeFormat.minISO), self.videoDeviceInput.device.activeFormat.maxISO)
-
-        self.videoDeviceInput.device.setExposureModeCustom(duration: finalDuration, iso: targetISO) {_ in
-            NSLog("(AS) Requested Settings :: (\(targetExposureDuration), \(targetISO))")
-            NSLog("(AS) Actual Settings :: (\(self.videoDeviceInput.device.exposureDuration), \(self.videoDeviceInput.device.iso))")
-            NSLog("(AS) Original Settings :: (\(currentExposureDuration), \(currentISO), \(currentExposureOffset)")
-            self.videoDeviceInput.device.unlockForConfiguration()
-
-            onSetCB()
-        }
-    }
-     */
     private func applyCustomExposureParams(_ onSetCB: @escaping () -> Void) {
         try! self.videoDeviceInput.device.lockForConfiguration()
         self.videoDeviceInput.device.setExposureModeCustom(duration: self.cameraState.calculatedExposureDuration, iso: self.cameraState.calculatedISO) {_ in
@@ -628,7 +560,7 @@ public class CameraService: NSObject, Identifiable {
                     }
 
                     if self.videoDeviceInput.device.isFlashAvailable {
-                        photoSettings.flashMode = self.flashMode
+                        photoSettings.flashMode = self.cameraState.isFlashOn ? .on : .off
                     }
 
                     // Select the maximum photo dimensions as thumbnail dimensions if a full-size thumbnail is desired.
@@ -650,7 +582,7 @@ public class CameraService: NSObject, Identifiable {
                     }
 
                     if self.videoDeviceInput.device.isFlashAvailable {
-                        photoSettings.flashMode = self.flashMode
+                        photoSettings.flashMode = self.cameraState.isFlashOn ? .on : .off
                     }
 
                     photoSettings.isHighResolutionPhotoEnabled = true
@@ -661,7 +593,7 @@ public class CameraService: NSObject, Identifiable {
                     photoSettings.photoQualityPrioritization = .quality
                 }
 
-                let photoCaptureProcessor = PhotoCaptureProcessor(saveCollection: saveCollection, with: photoSettings, isNNProcessingOn: self.isNNProcessingOn, willCapturePhotoAnimation: {
+                let photoCaptureProcessor = PhotoCaptureProcessor(saveCollection: saveCollection, with: photoSettings, isNNProcessingOn: self.cameraState.isNNProcessingOn, willCapturePhotoAnimation: {
                     // Flash the screen to signal that AVCam took a photo.
                     self.willCapturePhoto = true
                 }, completionHandler: { (photoCaptureProcessor) in

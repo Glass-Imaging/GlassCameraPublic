@@ -25,24 +25,7 @@ final class CameraModel: ObservableObject {
     var isPhotosLoaded = false
     
     @Published var thumbnailImage: Image?
-
     @Published var showAlertError = false
-
-    @Published var isFlashOn = false
-    
-    @Published var isDelayOn = false
-
-    @Published var isNNProcessingOn = true
-
-    @Published var willCapturePhoto = false
-
-    @Published var showSpinner = false
-
-    @Published var currentDevice: DeviceConfiguration? = nil
-
-    @Published var availableBackDevices: [BackCameraConfiguration] = []
-
-    var alertError: AlertError!
 
     var session: AVCaptureSession
 
@@ -67,38 +50,8 @@ final class CameraModel: ObservableObject {
         .store(in: &self.subscriptions)
 
         service.$shouldShowAlertView.sink { [weak self] (val) in
-            self?.alertError = self?.service.alertError
+            // self?.alertError = self?.service.alertError
             self?.showAlertError = val
-        }
-        .store(in: &self.subscriptions)
-
-        service.$flashMode.sink { [weak self] (mode) in
-            self?.isFlashOn = mode == .on
-        }
-        .store(in: &self.subscriptions)
-
-        service.$isNNProcessingOn.sink { [weak self] (mode) in
-            self?.isNNProcessingOn = mode
-        }
-        .store(in: &self.subscriptions)
-
-        service.$willCapturePhoto.sink { [weak self] (val) in
-            self?.willCapturePhoto = val
-        }
-        .store(in: &self.subscriptions)
-
-        service.$shouldShowSpinner.sink { [weak self] (val) in
-            self?.showSpinner = val
-        }
-        .store(in: &self.subscriptions)
-
-        service.$currentDevice.sink { [weak self] (val) in
-            self?.currentDevice = val
-        }
-        .store(in: &self.subscriptions)
-
-        service.$availableBackDevices.sink { [weak self] (val) in
-            self?.availableBackDevices = val
         }
         .store(in: &self.subscriptions)
     }
@@ -114,7 +67,7 @@ final class CameraModel: ObservableObject {
     }
 
     func capturePhoto() {
-        if isDelayOn {
+        if self.cameraState.isShutterDelayOn {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                 self.service.capturePhoto(saveCollection: self.photoCollection)
             }
@@ -134,18 +87,6 @@ final class CameraModel: ObservableObject {
 
     func switchCamera(_ configuration: DeviceConfiguration) {
         service.changeCamera(configuration)
-    }
-
-    func switchFlash() {
-        service.flashMode = service.flashMode == .on ? .off : .on
-    }
-    
-    func switchDelay() {
-        isDelayOn = !isDelayOn
-    }
-
-    func switchNNProcessing() {
-        service.isNNProcessingOn = !service.isNNProcessingOn
     }
 
     func loadPhotos() async {
@@ -225,7 +166,7 @@ struct CameraView: View {
             Picker("Camera Configuration", selection: $zoomLevel) {
                 // Preserve the order in the BackCameraConfiguration definition
                 ForEach(BackCameraConfiguration.allCases) { configuration in
-                    if model.availableBackDevices.contains(configuration) {
+                    if model.service.availableBackDevices.contains(configuration) {
                         Text(configuration.rawValue.capitalized)
                     }
                 }
@@ -241,45 +182,62 @@ struct CameraView: View {
             Spacer()
 
             Button(action: {
-                model.switchFlash()
+                self.cameraState.isFlashOn.toggle()
             }, label: {
-                Image(systemName: model.isFlashOn ? "bolt.fill" : "bolt.slash.fill")
+                Image(systemName: self.cameraState.isFlashOn ? "bolt.fill" : "bolt.slash.fill")
                     .font(.system(size: 20, weight: .medium, design: .default))
             })
-            .accentColor(model.isFlashOn ? .yellow : .white)
+            .accentColor(self.cameraState.isFlashOn ? .yellow : .white)
 
             Spacer()
 
             Button(action: {
-                model.switchDelay()
+                self.cameraState.isShutterDelayOn.toggle()
             }, label: {
                 Image(systemName: "timer").font(.system(size: 20, weight: .medium, design: .default))
             })
-            .accentColor(model.isDelayOn ? .yellow : .white)
+            .accentColor(model.cameraState.isShutterDelayOn ? .yellow : .white)
 
             Spacer()
 
             Button(action: {
-                model.switchNNProcessing()
+                self.cameraState.isNNProcessingOn.toggle()
             }, label: {
-                Image(systemName: "sparkles").font(.system(size: 20, weight: .medium, design: .default))
+                Image(systemName: "brain").font(.system(size: 20, weight: .medium, design: .default))
             })
-            .accentColor(model.isNNProcessingOn ? .yellow : .white)
+            .accentColor(self.cameraState.isNNProcessingOn ? .yellow : .white)
 
             Spacer()
         }
     }
 
     struct CaptureSetting<T>: View {
-        var displayValue: String
-        var name: String
+        @GestureState var gestureOffset: Float = .zero
 
-        init(_ displayValue: T, name: String, _ formatter: @escaping ((T) -> String)) {
+        var displayValue: String = "--"
+        var name: String = "--"
+        var isSelected: Bool = false
+        var onDragCB: (Float) -> Void
+
+        init(_ displayValue: T, name: String, isSelected: Bool, formatter: @escaping ((T) -> String), onDrag: @escaping (Float) -> Void) {
             self.displayValue = formatter(displayValue)
             self.name = name
+            self.isSelected = isSelected
+            self.onDragCB = onDrag
         }
 
         var body: some View {
+            let dragGesture = DragGesture()
+                .updating($gestureOffset) { (value, state, _) in
+                    let new_state = Float(value.translation.height)
+                    let diff  = (state - new_state)
+                    state = new_state
+
+                    DispatchQueue.main.async {
+                        onDragCB(diff)
+                    }
+                }
+
             VStack {
                 Text(self.displayValue)
                     .font(.system(size:16, weight: .heavy, design: .monospaced))
@@ -287,28 +245,56 @@ struct CameraView: View {
                     .italic()
                     .font(.system(size:12, weight: .light, design: .rounded))
             }
+            .gesture(dragGesture)
+            .padding(5)
+            .overlay(RoundedRectangle(cornerRadius: 5).stroke(isSelected ? Color.yellow : Color.clear, lineWidth: 2))
         }
     }
+
 
     var captureSettingsBar: some View {
         HStack {
             Spacer()
 
-            CaptureSetting(self.cameraState.deviceAperture, name: "F STOP") { aperture in  "f/\(aperture)" }
+            CaptureSetting(self.cameraState.deviceAperture, name: "F STOP", isSelected: false, formatter: { aperture in  "f/\(aperture)" }, onDrag: {_ in })
 
             Spacer()
 
-            CaptureSetting(self.cameraState.calculatedExposureDuration, name: "SS") { duration in
-                duration.seconds == 0 ? "0" : "1/\(Int(round(1 / duration.seconds)))"
-            }
+            CaptureSetting(self.cameraState.calculatedExposureDuration,
+                           name: "SS",
+                           isSelected: cameraState.isManualExposureDuration,
+                           formatter: { duration in
+                                duration.seconds == 0 ? "0" : "1/\(Int(round(1 / duration.seconds)))"
+                            },
+                           onDrag: { _ in })
+                .onTapGesture { cameraState.isManualExposureDuration.toggle() }
 
             Spacer()
 
-            CaptureSetting(self.cameraState.calculatedISO, name: "ISO") { iso in String(Int(round(iso))) }
+            CaptureSetting(self.cameraState.calculatedISO,
+                           name: "ISO",
+                           isSelected: cameraState.isManualISO,
+                           formatter: { iso in String(Int(round(iso))) },
+                           onDrag: { _ in })
+                .onTapGesture { cameraState.isManualISO.toggle() }
 
             Spacer()
 
-            CaptureSetting(self.cameraState.calculatedExposureBias, name: "EV") { bias in "\(bias)"}
+
+            CaptureSetting(cameraState.isManualEVBias ? cameraState.userExposureBias : cameraState.calculatedExposureBias,
+                           name: "EV",
+                           isSelected: cameraState.isManualEVBias,
+                           formatter: { bias in String(format: "%.1f", bias)},
+                           onDrag: { diff in
+                                if(!cameraState.isManualEVBias) { return }
+                                cameraState.userExposureBias = min(max(cameraState.userExposureBias + (diff / 100), cameraState.deviceMinExposureBias), cameraState.deviceMaxExposureBias)
+                            })
+                .onTapGesture { cameraState.isManualEVBias.toggle() }
+            /*
+                .onLongPressGesture {
+                    print("LONG PRESS BIAS!")
+                }
+             */
 
             Spacer()
         }
@@ -333,14 +319,14 @@ struct CameraView: View {
                                 model.configure(DeviceConfiguration(position: .back, deviceType: .builtInWideAngleCamera))
                             }
                             .alert(isPresented: $model.showAlertError, content: {
-                                Alert(title: Text(model.alertError.title),
-                                      message: Text(model.alertError.message),
-                                      dismissButton: .default(Text(model.alertError.primaryButtonTitle), action: {
-                                    model.alertError.primaryAction?()
+                                Alert(title: Text(model.service.alertError.title),
+                                      message: Text(model.service.alertError.message),
+                                      dismissButton: .default(Text(model.service.alertError.primaryButtonTitle), action: {
+                                    model.service.alertError.primaryAction?()
                                 }))
                             })
                             .overlay(Group {
-                                if model.showSpinner {
+                                if model.service.shouldShowSpinner {
                                     Color.black.opacity(0.2)
 
                                     ProgressView()
@@ -348,12 +334,12 @@ struct CameraView: View {
                                         .progressViewStyle(CircularProgressViewStyle(tint: Color.white))
                                 }
 
-                                if model.willCapturePhoto {
+                                if model.service.willCapturePhoto {
                                     Group {
                                         Color.black
                                     }.onAppear {
                                         withAnimation {
-                                            model.willCapturePhoto = false
+                                            model.service.willCapturePhoto = false
                                         }
                                     }
                                 }
@@ -365,7 +351,7 @@ struct CameraView: View {
 
                         Spacer()
 
-                        if (model.currentDevice?.position == .back) {
+                        if (model.service.currentDevice?.position == .back) {
                             zoomLevelPicker
                                 .padding(.all, 20)
                         }
