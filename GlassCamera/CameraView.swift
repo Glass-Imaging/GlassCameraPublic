@@ -19,7 +19,9 @@ import AVFoundation
 
 final class CameraModel: ObservableObject {
     let photoCollection = PhotoCollection(albumNamed: "Glass Photos", createIfNotFound: true)
-    let service = CameraService()
+    let cameraState: CameraState
+    let service: CameraService
+
     var isPhotosLoaded = false
     
     @Published var thumbnailImage: Image?
@@ -48,7 +50,9 @@ final class CameraModel: ObservableObject {
 
     private var subscriptions = Set<AnyCancellable>()
 
-    init() {
+    init(cameraState: CameraState) {
+        self.cameraState = cameraState
+        self.service = CameraService(cameraState: cameraState)
         self.session = service.session
 
         volumeButtonListener.onClickCallback {
@@ -115,7 +119,9 @@ final class CameraModel: ObservableObject {
                 self.service.capturePhoto(saveCollection: self.photoCollection)
             }
         } else {
-            service.capturePhoto(saveCollection: self.photoCollection)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                self.service.capturePhoto(saveCollection: self.photoCollection)
+            }
         }
     }
 
@@ -177,9 +183,14 @@ final class CameraModel: ObservableObject {
 }
 
 struct CameraView: View {
-    @StateObject var model = CameraModel()
+    @EnvironmentObject var cameraState: CameraState
+    @ObservedObject var model: CameraModel // = CameraModel(cameraState)
 
     @State private var zoomLevel:BackCameraConfiguration = .Wide
+
+    init(model: CameraModel) {
+        self.model = model
+    }
 
     var captureButton: some View {
         Button(action: {
@@ -259,31 +270,18 @@ struct CameraView: View {
         }
     }
 
-    class CaptureSettingModel<T>: ObservableObject {
-        @Published var displayValue: String = "--"
-        private var subscriptions = Set<AnyCancellable>()
-
-        init(observe: Published<T>.Publisher,  _ formatter: @escaping ((T) -> String)) {
-            observe.sink { newVal in
-                DispatchQueue.main.async {
-                    self.displayValue = formatter(newVal)
-                }
-            }.store(in: &self.subscriptions)
-        }
-    }
-
     struct CaptureSetting<T>: View {
-        @ObservedObject var model: CaptureSettingModel<T>
+        var displayValue: String
         var name: String
 
-        init(observe: Published<T>.Publisher, name: String, _ formatter: @escaping ((T) -> String)) {
-            self.model = CaptureSettingModel(observe: observe, formatter)
+        init(_ displayValue: T, name: String, _ formatter: @escaping ((T) -> String)) {
+            self.displayValue = formatter(displayValue)
             self.name = name
         }
 
         var body: some View {
             VStack {
-                Text(self.model.displayValue)
+                Text(self.displayValue)
                     .font(.system(size:16, weight: .heavy, design: .monospaced))
                 Text(name)
                     .italic()
@@ -296,29 +294,21 @@ struct CameraView: View {
         HStack {
             Spacer()
 
-            CaptureSetting(observe: self.model.service.$aperture, name: "F STOP") { aperture in aperture != nil ? "f/\(aperture!)" : "--" }
+            CaptureSetting(self.cameraState.deviceAperture, name: "F STOP") { aperture in  "f/\(aperture)" }
 
             Spacer()
 
-            CaptureSetting(observe: self.model.service.$exposureDuration, name: "SS") { duration in
-                guard let duration = duration else {
-                    return "--"
-                }
-                return "1/\(Int(round(1 / duration.seconds)))"
+            CaptureSetting(self.cameraState.calculatedExposureDuration, name: "SS") { duration in
+                duration.seconds == 0 ? "0" : "1/\(Int(round(1 / duration.seconds)))"
             }
 
             Spacer()
 
-            CaptureSetting(observe: self.model.service.$iso, name: "ISO") { iso in
-                guard let iso = iso else {
-                    return "--"
-                }
-                return String(Int(round(iso)))
-            }
+            CaptureSetting(self.cameraState.calculatedISO, name: "ISO") { iso in String(Int(round(iso))) }
 
             Spacer()
 
-            CaptureSetting(observe: self.model.service.$exposureBias, name: "EV") { bias in bias != nil ? "\(bias!)" : "--" }
+            CaptureSetting(self.cameraState.calculatedExposureBias, name: "EV") { bias in "\(bias)"}
 
             Spacer()
         }

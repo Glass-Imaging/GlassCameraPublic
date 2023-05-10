@@ -57,6 +57,8 @@ public class CameraService: NSObject, Identifiable {
 
     // MARK: Observed Properties UI must react to
 
+    private var cameraState: CameraState
+
     @Published public var flashMode: AVCaptureDevice.FlashMode = .off
     @Published public var shouldShowAlertView = false
     @Published public var shouldShowSpinner = false
@@ -123,7 +125,8 @@ public class CameraService: NSObject, Identifiable {
 
     let locationManager = CLLocationManager()
     
-    override public init() {
+    init(cameraState: CameraState) {
+        self.cameraState = cameraState
         super.init()
 
         // Disable the UI. Enable the UI later, if and only if the session starts running.
@@ -253,7 +256,7 @@ public class CameraService: NSObject, Identifiable {
             if session.canAddInput(videoDeviceInput) {
                 session.addInput(videoDeviceInput)
                 self.videoDeviceInput = videoDeviceInput
-                self.observeExposureParams()
+                self.cameraState.updateCameraDevice(device: self.videoDeviceInput.device)
 
                 DispatchQueue.main.async {
                     self.currentDevice = DeviceConfiguration(position: videoDeviceInput.device.position,
@@ -321,6 +324,7 @@ public class CameraService: NSObject, Identifiable {
         }
     }
 
+    /*
     private func observeExposureParams() {
         self.exposureDuration = self.videoDeviceInput.device.exposureDuration
         exposureDurationObserver = self.videoDeviceInput.device.observe(\.exposureDuration) { captureDevice, error in
@@ -385,6 +389,14 @@ public class CameraService: NSObject, Identifiable {
             onSetCB()
         }
     }
+     */
+    private func applyCustomExposureParams(_ onSetCB: @escaping () -> Void) {
+        try! self.videoDeviceInput.device.lockForConfiguration()
+        self.videoDeviceInput.device.setExposureModeCustom(duration: self.cameraState.calculatedExposureDuration, iso: self.cameraState.calculatedISO) {_ in
+            self.videoDeviceInput.device.unlockForConfiguration()
+            onSetCB()
+        }
+    }
 
 
     private func enableAutoExposure() {
@@ -436,7 +448,7 @@ public class CameraService: NSObject, Identifiable {
 
                         self.session.addInput(videoDeviceInput)
                         self.videoDeviceInput = videoDeviceInput
-                        self.observeExposureParams()
+                        self.cameraState.updateCameraDevice(device: self.videoDeviceInput.device)
                     } else {
                         self.session.addInput(self.videoDeviceInput)
                     }
