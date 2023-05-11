@@ -266,7 +266,16 @@ struct CameraView: View {
                            formatter: { duration in
                                 duration.seconds == 0 ? "0" : "1/\(Int(round(1 / duration.seconds)))"
                             },
-                           onDrag: { _ in })
+                           onDrag: { diff in
+                                if(!cameraState.isManualExposureDuration) { return }
+
+                let targetExposureDuration = Float(cameraState.userExposureDuration.seconds) + Float(cameraState.userExposureDuration.seconds) * (1/50) * diff
+                print("Target Exposure Duration :: \(targetExposureDuration)")
+
+                let newExposureDuration = min(max(targetExposureDuration, Float(cameraState.deviceMinExposureDuration.seconds)), Float(cameraState.deviceMaxExposureDuration.seconds))
+                print("NEW Target Exposure Duration :: \(targetExposureDuration)")
+                cameraState.userExposureDuration = CMTime(seconds: Double(newExposureDuration), preferredTimescale: 1_000_000_000)
+                            })
                 .onTapGesture { cameraState.isManualExposureDuration.toggle() }
 
             Spacer()
@@ -275,7 +284,10 @@ struct CameraView: View {
                            name: "ISO",
                            isSelected: cameraState.isManualISO,
                            formatter: { iso in String(Int(round(iso))) },
-                           onDrag: { _ in })
+                           onDrag: { diff in
+                                if(!cameraState.isManualISO) { return }
+                                cameraState.userISO = min(max(cameraState.userISO + (diff / 5), cameraState.deviceMinISO), cameraState.deviceMaxISO)
+                            })
                 .onTapGesture { cameraState.isManualISO.toggle() }
 
             Spacer()
