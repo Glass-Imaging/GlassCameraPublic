@@ -264,31 +264,39 @@ struct CameraView: View {
                            name: "SS",
                            isSelected: cameraState.isManualExposureDuration,
                            formatter: { duration in
-                                duration.seconds == 0 ? "0" : "1/\(Int(round(1 / duration.seconds)))"
+                duration.seconds == 0 ? "0" : "1/\(Int((1 / duration.seconds).rounded()))"
                             },
                            onDrag: { diff in
                                 if(!cameraState.isManualExposureDuration) { return }
 
-                let targetExposureDuration = Float(cameraState.userExposureDuration.seconds) + Float(cameraState.userExposureDuration.seconds) * (1/50) * diff
-                print("Target Exposure Duration :: \(targetExposureDuration)")
+                                let targetExposureDuration = Float(cameraState.userExposureDuration.seconds)
+                                                                + Float(cameraState.userExposureDuration.seconds) * (1/50) * diff
 
-                let newExposureDuration = min(max(targetExposureDuration, Float(cameraState.deviceMinExposureDuration.seconds)), Float(cameraState.deviceMaxExposureDuration.seconds))
-                print("NEW Target Exposure Duration :: \(targetExposureDuration)")
-                cameraState.userExposureDuration = CMTime(seconds: Double(newExposureDuration), preferredTimescale: 1_000_000_000)
+                                let newExposureDuration = min(
+                                                            max(targetExposureDuration, Float(cameraState.deviceMinExposureDuration.seconds)),
+                                                            Float(cameraState.deviceMaxExposureDuration.seconds))
+
+                                cameraState.userExposureDuration = CMTime(seconds: Double(newExposureDuration), preferredTimescale: 1_000_000_000)
                             })
-                .onTapGesture { cameraState.isManualExposureDuration.toggle() }
+                .onTapGesture {
+                    cameraState.isManualExposureDuration.toggle()
+                    cameraState.userExposureDuration = cameraState.calculatedExposureDuration
+                }
 
             Spacer()
 
             CaptureSetting(self.cameraState.calculatedISO,
                            name: "ISO",
                            isSelected: cameraState.isManualISO,
-                           formatter: { iso in String(Int(round(iso))) },
+                           formatter: { iso in String(Int(iso.rounded())) },
                            onDrag: { diff in
                                 if(!cameraState.isManualISO) { return }
-                                cameraState.userISO = min(max(cameraState.userISO + (diff / 5), cameraState.deviceMinISO), cameraState.deviceMaxISO)
+                                cameraState.userISO = min(max(cameraState.userISO + cameraState.userISO * (1/125) * diff, cameraState.deviceMinISO), cameraState.deviceMaxISO)
                             })
-                .onTapGesture { cameraState.isManualISO.toggle() }
+                .onTapGesture {
+                    cameraState.isManualISO.toggle()
+                    cameraState.userISO = cameraState.calculatedISO
+                }
 
             Spacer()
 
@@ -325,37 +333,65 @@ struct CameraView: View {
 
                         Spacer()
 
-                        CameraPreview(session: model.session)
-                            .onAppear {
-                                // TODO: Fetch this from stored preferences
-                                model.configure(DeviceConfiguration(position: .back, deviceType: .builtInWideAngleCamera))
-                            }
-                            .alert(isPresented: $model.showAlertError, content: {
-                                Alert(title: Text(model.service.alertError.title),
-                                      message: Text(model.service.alertError.message),
-                                      dismissButton: .default(Text(model.service.alertError.primaryButtonTitle), action: {
-                                    model.service.alertError.primaryAction?()
-                                }))
-                            })
-                            .overlay(Group {
-                                if model.service.shouldShowSpinner {
-                                    Color.black.opacity(0.2)
-
-                                    ProgressView()
-                                        .scaleEffect(2, anchor: .center)
-                                        .progressViewStyle(CircularProgressViewStyle(tint: Color.white))
+                        ZStack {
+                            CameraPreview(session: model.session)
+                                .onAppear {
+                                    // TODO: Fetch this from stored preferences
+                                    model.configure(DeviceConfiguration(position: .back, deviceType: .builtInWideAngleCamera))
                                 }
+                                .alert(isPresented: $model.showAlertError, content: {
+                                    Alert(title: Text(model.service.alertError.title),
+                                          message: Text(model.service.alertError.message),
+                                          dismissButton: .default(Text(model.service.alertError.primaryButtonTitle), action: {
+                                        model.service.alertError.primaryAction?()
+                                    }))
+                                })
+                                .overlay(Group {
+                                    if model.service.shouldShowSpinner {
+                                        Color.black.opacity(0.2)
 
-                                if model.service.willCapturePhoto {
-                                    Group {
-                                        Color.black
-                                    }.onAppear {
-                                        withAnimation {
-                                            model.service.willCapturePhoto = false
+                                        ProgressView()
+                                            .scaleEffect(2, anchor: .center)
+                                            .progressViewStyle(CircularProgressViewStyle(tint: Color.white))
+                                    }
+
+                                    if model.service.willCapturePhoto {
+                                        Group {
+                                            Color.black
+                                        }.onAppear {
+                                            withAnimation {
+                                                model.service.willCapturePhoto = false
+                                            }
                                         }
                                     }
+                                })
+                            if(cameraState.debugOverlay) {
+                                HStack {
+                                    VStack {
+                                        VStack {
+                                            Text(verbatim: "Duration :: 1/\((1 / cameraState.meteredExposureDuration.seconds).rounded())").frame(maxWidth: .infinity, alignment: .leading)
+                                            Text(verbatim: "ISO      :: \(Int(cameraState.meteredISO.rounded()))").frame(maxWidth: .infinity, alignment: .leading)
+                                            Text(verbatim: "Bias     :: \(cameraState.meteredExposureBias)").frame(maxWidth: .infinity, alignment: .leading)
+                                            Text(verbatim: "Offset   :: \(cameraState.meteredExposureOffset)").frame(maxWidth: .infinity, alignment: .leading)
+                                        }.foregroundColor(.red)
+                                        VStack {
+                                            Text(verbatim: "Duration :: 1/\((1 / cameraState.calculatedExposureDuration.seconds).rounded())").frame(maxWidth: .infinity, alignment: .leading)
+                                            Text(verbatim: "ISO      :: \(Int(cameraState.calculatedISO.rounded()))").frame(maxWidth: .infinity, alignment: .leading)
+                                            Text(verbatim: "Bias     :: \(cameraState.calculatedExposureBias)").frame(maxWidth: .infinity, alignment: .leading)
+                                            Text(verbatim: "Offset   :: \(cameraState.calculatedExposureOffset)").frame(maxWidth: .infinity, alignment: .leading)
+                                        }.foregroundColor(.yellow)
+                                        VStack {
+                                            Text(verbatim: "Duration :: 1/\((1 / cameraState.userExposureDuration.seconds).rounded())").frame(maxWidth: .infinity, alignment: .leading)
+                                            Text(verbatim: "ISO      :: \(Int(cameraState.userISO.rounded()))").frame(maxWidth: .infinity, alignment: .leading)
+                                            Text(verbatim: "Bias     :: \(cameraState.userExposureBias)").frame(maxWidth: .infinity, alignment: .leading)
+                                        }.foregroundColor(.green)
+                                        Spacer()
+                                    }.bold(true)
+                                    Spacer()
                                 }
-                            })
+
+                            }
+                        }
 
                         Spacer()
 

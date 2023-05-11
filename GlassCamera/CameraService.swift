@@ -230,6 +230,7 @@ public class CameraService: NSObject, Identifiable {
          */
         session.sessionPreset = .photo
 
+
         // Add video input.
         do {
             var videoDevice: AVCaptureDevice?
@@ -248,6 +249,35 @@ public class CameraService: NSObject, Identifiable {
                 session.commitConfiguration()
                 return
             }
+
+            /*
+            videoDevice.formats.forEach { format in
+                print("Format Option :: \(format.description)")
+            }
+             */
+
+            // try! videoDevice.lockForConfiguration()
+            /*
+            videoDevice.formats
+                .filter { format in format.isHighestPhotoQualitySupported }
+                .forEach { format in
+                    print("Format Option :: \(format.description)")
+                    print("    Min Exposure :: \(format.minExposureDuration)")
+                    print("    Max Exposure :: \(format.maxExposureDuration)")
+                    print("    Min ISO :: \(format.minISO)")
+                    print("    Max ISO :: \(format.maxISO)")
+                }
+             */
+
+            // videoDevice.activeFormat = videoDevice.formats.filter { format in format.isHighestPhotoQualitySupported }.last!
+            // videoDevice.activeVideoMinFrameDuration = videoDevice.activeFormat.minExposureDuration
+            // videoDevice.activeVideoMaxFrameDuration = videoDevice.activeFormat.maxExposureDuration
+            // videoDevice.unlockForConfiguration()
+            print("Is Global Tone mapping supported :: \(videoDevice.activeFormat.isGlobalToneMappingSupported)")
+            try! videoDevice.lockForConfiguration()
+            videoDevice.isGlobalToneMappingEnabled = true
+            videoDevice.unlockForConfiguration()
+
 
             let videoDeviceInput = try AVCaptureDeviceInput(device: videoDevice)
 
@@ -361,6 +391,11 @@ public class CameraService: NSObject, Identifiable {
 
             if let videoDevice = newVideoDevice {
                 do {
+                    print("Is Global Tone mapping supported :: \(videoDevice.activeFormat.isGlobalToneMappingSupported)")
+                    try! videoDevice.lockForConfiguration()
+                    videoDevice.isGlobalToneMappingEnabled = true
+                    videoDevice.unlockForConfiguration()
+
                     let videoDeviceInput = try AVCaptureDeviceInput(device: videoDevice)
 
                     self.session.beginConfiguration()
