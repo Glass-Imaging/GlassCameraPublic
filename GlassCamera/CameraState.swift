@@ -203,7 +203,8 @@ final class CameraState: ObservableObject {
             self.targetMinISO = device.activeFormat.minISO
             self.targetMaxISO = device.activeFormat.maxISO
 
-            self.deviceMinExposureDuration = device.activeFormat.minExposureDuration
+            // Need to exclude lowest value
+            self.deviceMinExposureDuration = CMTime(seconds: 1/((1 / device.activeFormat.minExposureDuration.seconds) - 5), preferredTimescale: 1_000_000_000)
             self.deviceMaxExposureDuration = device.activeFormat.maxExposureDuration
 
             self.deviceMinExposureBias = device.minExposureTargetBias
@@ -214,6 +215,9 @@ final class CameraState: ObservableObject {
             self.meteredExposureOffset = device.exposureTargetOffset
             self.meteredISO = device.iso
             self.deviceAperture = device.lensAperture
+
+            self.isManualISO = false
+            self.isManualExposureDuration = false
         }
 
         exposureDurationObserver = device.observe(\.exposureDuration) { captureDevice, error in
