@@ -139,13 +139,43 @@ public class CameraService: NSObject, Identifiable {
 
         cameraState.$calculatedExposureBias.sink { newBias in
             if(self.videoDeviceInput != nil) {
+                let clampedNewBias = min(max(newBias, cameraState.deviceMinExposureBias), cameraState.deviceMaxExposureBias)
                 try? self.videoDeviceInput.device.lockForConfiguration()
-                self.videoDeviceInput.device.setExposureTargetBias(newBias) { _ in
-                    self.videoDeviceInput.device.unlockForConfiguration()
-                    NSLog("Done setting new bias!")
-                }
+                self.videoDeviceInput.device.setExposureTargetBias(clampedNewBias) { _ in }
+                self.videoDeviceInput.device.unlockForConfiguration()
             }
         }.store(in: &self.subscriptions)
+
+        cameraState.$calculatedExposureDuration.combineLatest(cameraState.$calculatedISO)
+            .filter { newExposureDuration, newISO in
+                return self.cameraState.isCustomExposure
+                && (newExposureDuration.seconds <= cameraState.deviceMaxExposureDuration.seconds)
+                && (newExposureDuration.seconds > cameraState.deviceMinExposureDuration.seconds)
+                && (newISO <= cameraState.deviceMaxISO)
+                && (newISO >= cameraState.deviceMinISO)
+            }
+            .sink { newExposureDuration, newISO in
+                if self.videoDeviceInput != nil {
+                    try! self.videoDeviceInput.device.lockForConfiguration()
+                    // print("Updating Exposure Params! ::  1/\(1 / newExposureDuration.seconds) \(newISO)")
+                    self.videoDeviceInput.device.setExposureModeCustom(duration: newExposureDuration, iso: newISO) {_ in }
+                    self.videoDeviceInput.device.unlockForConfiguration()
+                }
+
+            }.store(in: &self.subscriptions)
+
+
+        cameraState.$isCustomExposure
+            .removeDuplicates()
+            .filter { isCustomExposure in return !isCustomExposure }
+            .sink { _ in
+                print("ENABLING FULL AUTO EXPOSURE!")
+                if self.videoDeviceInput != nil {
+                    try! self.videoDeviceInput.device.lockForConfiguration()
+                    self.videoDeviceInput.device.exposureMode = AVCaptureDevice.ExposureMode.continuousAutoExposure
+                    self.videoDeviceInput.device.unlockForConfiguration()
+                }
+            }.store(in: &self.subscriptions)
     }
 
     public func configure(_ configuration: DeviceConfiguration) {
@@ -250,33 +280,12 @@ public class CameraService: NSObject, Identifiable {
                 return
             }
 
-            /*
-            videoDevice.formats.forEach { format in
-                print("Format Option :: \(format.description)")
-            }
-             */
-
-            // try! videoDevice.lockForConfiguration()
-            /*
-            videoDevice.formats
-                .filter { format in format.isHighestPhotoQualitySupported }
-                .forEach { format in
-                    print("Format Option :: \(format.description)")
-                    print("    Min Exposure :: \(format.minExposureDuration)")
-                    print("    Max Exposure :: \(format.maxExposureDuration)")
-                    print("    Min ISO :: \(format.minISO)")
-                    print("    Max ISO :: \(format.maxISO)")
-                }
-             */
-
-            // videoDevice.activeFormat = videoDevice.formats.filter { format in format.isHighestPhotoQualitySupported }.last!
-            // videoDevice.activeVideoMinFrameDuration = videoDevice.activeFormat.minExposureDuration
-            // videoDevice.activeVideoMaxFrameDuration = videoDevice.activeFormat.maxExposureDuration
-            // videoDevice.unlockForConfiguration()
             print("Is Global Tone mapping supported :: \(videoDevice.activeFormat.isGlobalToneMappingSupported)")
-            try! videoDevice.lockForConfiguration()
-            videoDevice.isGlobalToneMappingEnabled = true
-            videoDevice.unlockForConfiguration()
+            if videoDevice.activeFormat.isGlobalToneMappingSupported {
+                try! videoDevice.lockForConfiguration()
+                videoDevice.isGlobalToneMappingEnabled = true
+                videoDevice.unlockForConfiguration()
+            }
 
 
             let videoDeviceInput = try AVCaptureDeviceInput(device: videoDevice)
@@ -352,6 +361,7 @@ public class CameraService: NSObject, Identifiable {
         }
     }
 
+    /*
     private func applyCustomExposureParams(_ onSetCB: @escaping () -> Void) {
         try! self.videoDeviceInput.device.lockForConfiguration()
         self.videoDeviceInput.device.setExposureModeCustom(duration: self.cameraState.calculatedExposureDuration, iso: self.cameraState.calculatedISO) {_ in
@@ -366,6 +376,7 @@ public class CameraService: NSObject, Identifiable {
         self.videoDeviceInput.device.exposureMode = AVCaptureDevice.ExposureMode.continuousAutoExposure
         self.videoDeviceInput.device.unlockForConfiguration()
     }
+     */
 
 
     //  MARK: Device Configuration
@@ -634,7 +645,7 @@ public class CameraService: NSObject, Identifiable {
                 }, completionHandler: { (photoCaptureProcessor) in
                     //RE Enable AE after capture
 
-                    self.enableAutoExposure()
+                    // self.enableAutoExposure()
 
                     // When the capture is complete, remove a reference to the photo capture delegate so it can be deallocated.
                     if let data = photoCaptureProcessor.capturedImage {
@@ -665,10 +676,20 @@ public class CameraService: NSObject, Identifiable {
 
                 // The photo output holds a weak reference to the photo capture delegate and stores it in an array to maintain a strong reference.
                 self.inProgressPhotoCaptureDelegates[photoCaptureProcessor.requestedPhotoSettings.uniqueID] = photoCaptureProcessor
-                // self.photoOutput.capturePhoto(with: photoSettings, delegate: photoCaptureProcessor)
-                self.applyCustomExposureParams {
+
+                print("Capturing WITHOUT custom exposure!")
+                self.photoOutput.capturePhoto(with: photoSettings, delegate: photoCaptureProcessor)
+                /*
+                if self.cameraState.isCustomMeteredExposure {
+                    print("Capturing with custom exposure!")
+                    self.applyCustomExposureParams {
+                        self.photoOutput.capturePhoto(with: photoSettings, delegate: photoCaptureProcessor)
+                    }
+                } else {
+                    print("Capturing WITHOUT custom exposure!")
                     self.photoOutput.capturePhoto(with: photoSettings, delegate: photoCaptureProcessor)
                 }
+                 */
             }
         }
     }
