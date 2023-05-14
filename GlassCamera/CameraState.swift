@@ -70,15 +70,15 @@ final class CameraState: ObservableObject {
     private var subscriptions = Set<AnyCancellable>()
 
     public init() {
-        $meteredExposureDuration/*.throttle(for: .milliseconds(100), scheduler: RunLoop.current, latest: false)*/.sink { metered in
+        $meteredExposureDuration.sink { metered in
             self.calculateExposureParams()
         }.store(in: &self.subscriptions)
 
-        $meteredISO/*.throttle(for: .milliseconds(100), scheduler: RunLoop.current, latest: false)*/.sink { metered in
+        $meteredISO.sink { metered in
             self.calculateExposureParams()
         }.store(in: &self.subscriptions)
 
-        $meteredExposureBias/*.throttle(for: .milliseconds(100), scheduler: RunLoop.current, latest: false)*/.sink { metered in
+        $meteredExposureBias.sink { metered in
             // self.calculateExposureParams()
         }.store(in: &self.subscriptions)
 
@@ -96,16 +96,6 @@ final class CameraState: ObservableObject {
 
         $userExposureBias.sink { user in
             self.calculatedExposureBias = self.isManualEVBias ? user : 0
-            // self.calculateFinalEVOffset(Float(self.meteredExposureDuration.seconds), self.meteredISO)
-
-            /*
-            self.calculateFinalEVOffset(meteredDuration: Float(self.meteredExposureDuration.seconds),
-                                        meteredIso: self.meteredISO,
-                                        calculatedDuration: Float(self.calculatedExposureDuration.seconds),
-                                        calculatedIso: self.calculatedISO,
-                                        calculatedExposureBias: self.calculatedExposureBias)
-             */
-
         }.store(in: &self.subscriptions)
 
         $isManualExposureDuration.sink { isManual in
@@ -122,16 +112,6 @@ final class CameraState: ObservableObject {
             self.calculateExposureParams()
         }.store(in: &self.subscriptions)
     }
-
-    /*
-    private func calculateFinalEVOffset(meteredDuration: Float, meteredIso: Float, calculatedDuration: Float, calculatedIso: Float, calculatedExposureBias: Float) {
-        let meteredEVZero = meteredIso * meteredDuration// * /*pow(2, -1 * self.meteredExposureBias) pow(2, -1 * self.meteredExposureOffset)*/
-        let finalEV = calculatedIso * calculatedDuration * pow(2, calculatedExposureBias)// * pow(2, offset)
-        let offset = Float(log2(finalEV / meteredEVZero))
-        // print("FINAL OFFSET :: \(offset)")
-        self.finalEVOffset = offset.isNaN ? 0 : offset
-    }
-     */
 
     private func calculateExposureParams() {
         DispatchQueue.main.async {
@@ -157,7 +137,7 @@ final class CameraState: ObservableObject {
 
         let customExposure = (duration < Float(targetMinExposureDuration.seconds)) || (duration > Float(targetMaxExposureDuration.seconds))
         let targetExposureDuration = min(max(duration, Float(targetMinExposureDuration.seconds)), Float(targetMaxExposureDuration.seconds))
-        var targetISO = meteredEVZero / (targetExposureDuration * pow(2, -1 * bias))
+        var targetISO = meteredEVZero / (targetExposureDuration * pow(2, bias))
 
         self.isCustomExposure = customExposure || (targetISO < targetMinISO) || (targetISO > targetMaxISO)
         targetISO = min(max(targetISO, self.targetMinISO), self.targetMaxISO)
@@ -175,7 +155,7 @@ final class CameraState: ObservableObject {
 
         let bias = isManualEVBias ? userExposureBias : 0
         // Should be able calculate required exposure duration. Any remaining EV will be set to calculated exposure bias
-        var targetExposureDuration = meteredEVZero / (userISO * pow(2, /*-1 * */bias))
+        var targetExposureDuration = meteredEVZero / (userISO * pow(2, bias))
         targetExposureDuration = min(max(targetExposureDuration, Float(targetMinExposureDuration.seconds)), Float(targetMaxExposureDuration.seconds))
 
         self.calculatedExposureDuration = CMTime(seconds: Double(targetExposureDuration), preferredTimescale: self.targetMaxExposureDuration.timescale)
@@ -190,7 +170,7 @@ final class CameraState: ObservableObject {
 
         let bias = isManualEVBias ? userExposureBias : 0
         // Should be able calculate required exposure duration. Any remaining EV will be set to calculated exposure bias
-        var targetISO = meteredEVZero / (Float(userExposureDuration.seconds) * pow(2, /*-1 * */bias))
+        var targetISO = meteredEVZero / (Float(userExposureDuration.seconds) * pow(2, bias))
         targetISO = min(max(targetISO, targetMinISO), targetMaxISO)
 
         self.calculatedExposureDuration = self.userExposureDuration
