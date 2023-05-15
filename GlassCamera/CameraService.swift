@@ -62,7 +62,7 @@ public class CameraService: NSObject, Identifiable {
     @Published public var shouldShowAlertView = false
     @Published public var shouldShowSpinner = false
 
-    @Published public var willCapturePhoto = false
+    @Published public var isPhotoCapturing = false
     @Published public var isCameraButtonDisabled = false
     @Published public var isCameraUnavailable = false
     @Published public var thumbnail: UIImage?
@@ -127,7 +127,7 @@ public class CameraService: NSObject, Identifiable {
         let devices = self.videoDeviceDiscoverySession.devices
         for configuration in backDeviceConfigurations {
             if let _ = devices.first(where: { $0.position == configuration.value.position &&
-                                              $0.deviceType == configuration.value.deviceType }) {
+                $0.deviceType == configuration.value.deviceType }) {
                 availableBackDevices.append(configuration.key)
             }
         }
@@ -230,8 +230,8 @@ public class CameraService: NSObject, Identifiable {
                 self.alertError = AlertError(title: "Camera Access",
                                              message: "No Camera Access Permission, please update configuration.",
                                              primaryButtonTitle: "Configuration", secondaryButtonTitle: nil, primaryAction: {
-                        UIApplication.shared.open(URL(string: UIApplication.openSettingsURLString)!,
-                                                  options: [:], completionHandler: nil)
+                    UIApplication.shared.open(URL(string: UIApplication.openSettingsURLString)!,
+                                              options: [:], completionHandler: nil)
 
                 }, secondaryAction: nil)
                 self.shouldShowAlertView = true
@@ -565,8 +565,8 @@ public class CameraService: NSObject, Identifiable {
                 }
 
                 let query = self.photoOutput.isAppleProRAWEnabled ?
-                    { !AVCapturePhotoOutput.isAppleProRAWPixelFormat($0) } :
-                    { AVCapturePhotoOutput.isBayerRAWPixelFormat($0) }
+                { !AVCapturePhotoOutput.isAppleProRAWPixelFormat($0) } :
+                { AVCapturePhotoOutput.isBayerRAWPixelFormat($0) }
 
                 var photoSettings: AVCapturePhotoSettings
 
@@ -579,7 +579,7 @@ public class CameraService: NSObject, Identifiable {
 
                     // Select the first available codec type, which is JPEG.
                     guard let thumbnailPhotoCodecType =
-                        photoSettings.availableRawEmbeddedThumbnailPhotoCodecTypes.first else {
+                            photoSettings.availableRawEmbeddedThumbnailPhotoCodecTypes.first else {
                         // Handle the failure to find an available thumbnail photo codec type.
                         fatalError("Failed configuring RAW tumbnail.")
                     }
@@ -618,14 +618,10 @@ public class CameraService: NSObject, Identifiable {
                     photoSettings.photoQualityPrioritization = .quality
                 }
 
-                let photoCaptureProcessor = PhotoCaptureProcessor(saveCollection: saveCollection, with: photoSettings, isNNProcessingOn: self.cameraState.isNNProcessingOn, willCapturePhotoAnimation: {
-                    // Flash the screen to signal that AVCam took a photo.
-                    self.willCapturePhoto = true
-                }, completionHandler: { (photoCaptureProcessor) in
-                    //RE Enable AE after capture
-
-                    // self.enableAutoExposure()
-
+                let photoCaptureProcessor = PhotoCaptureProcessor(saveCollection: saveCollection,
+                                                                  with: photoSettings,
+                                                                  isNNProcessingOn: self.cameraState.isNNProcessingOn,
+                                                                  completionHandler: { (photoCaptureProcessor) in
                     // When the capture is complete, remove a reference to the photo capture delegate so it can be deallocated.
                     if let data = photoCaptureProcessor.capturedImage {
                         UIImage(data: data)!.prepareThumbnail(of: CGSize(width: 100, height: 100)) { thumbnail in
@@ -640,14 +636,17 @@ public class CameraService: NSObject, Identifiable {
                     self.isCameraButtonDisabled = false
 
                     // This should go off by itself, but it might stay set when there is too much pressure
-                    self.willCapturePhoto = false
+                    // self.willCapturePhoto = false
 
                     self.sessionQueue.async {
                         self.inProgressPhotoCaptureDelegates[photoCaptureProcessor.requestedPhotoSettings.uniqueID] = nil
                     }
-                }, photoProcessingHandler: { animate in
-                    // Animates a spinner while photo is processing
-                    self.shouldShowSpinner = animate
+                }, photoCapturingHandler: { isCapturing in
+                    print("CAPTURING PHOTO \(isCapturing)!")
+                    self.isPhotoCapturing = isCapturing
+                },photoProcessingHandler: { isProcessing in
+                    print("PROCESSING PHOTO \(isProcessing)!")
+                    self.shouldShowSpinner = isProcessing
                 })
 
                 // Specify the location the photo was taken
@@ -656,7 +655,6 @@ public class CameraService: NSObject, Identifiable {
                 // The photo output holds a weak reference to the photo capture delegate and stores it in an array to maintain a strong reference.
                 self.inProgressPhotoCaptureDelegates[photoCaptureProcessor.requestedPhotoSettings.uniqueID] = photoCaptureProcessor
 
-                print("Capturing WITHOUT custom exposure!")
                 self.photoOutput.capturePhoto(with: photoSettings, delegate: photoCaptureProcessor)
             }
         }
@@ -783,8 +781,8 @@ public class CameraService: NSObject, Identifiable {
 
         // TODO: Fixme
         if let userInfoValue = notification.userInfo?[AVCaptureSessionInterruptionReasonKey] as AnyObject?,
-            let reasonIntegerValue = userInfoValue.integerValue,
-            let reason = AVCaptureSession.InterruptionReason(rawValue: reasonIntegerValue) {
+           let reasonIntegerValue = userInfoValue.integerValue,
+           let reason = AVCaptureSession.InterruptionReason(rawValue: reasonIntegerValue) {
             print("Capture session was interrupted with reason \(reason)")
 
             if reason == .audioDeviceInUseByAnotherClient || reason == .videoDeviceInUseByAnotherClient {

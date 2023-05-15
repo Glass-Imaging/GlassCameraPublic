@@ -59,6 +59,16 @@ final class CameraState: ObservableObject {
     @Published public var isManualISO = false
     @Published public var isManualEVBias = false
 
+    @Published public var isAtLowerTargetExposureDurationLimit = false
+    @Published public var isAtUpperTargetExposureDurationLimit = false
+    @Published public var isAtLowerTargetISOLimit = false
+    @Published public var isAtUpperTargetISOLimit = false
+
+    @Published public var isAtLowerDeviceExposureDurationLimit = false
+    @Published public var isAtUpperDeviceExposureDurationLimit = false
+    @Published public var isAtLowerDeviceISOLimit = false
+    @Published public var isAtUpperDeviceISOLimit = false
+
     // Observers to monitor device state
     private var exposureDurationObserver: NSKeyValueObservation? = nil
     private var isoObserver: NSKeyValueObservation? = nil
@@ -131,6 +141,19 @@ final class CameraState: ObservableObject {
                 //self.calculateExposureParamsAuto(exposureDuration, iso, exposureBias, offset)
                 self.calculateExposureParamsMinimizeISO(exposureDuration, iso, exposureBias, offset)
             }
+
+            let currentRoundedExposure = (1000*self.calculatedExposureDuration.seconds).rounded()
+            self.isAtLowerTargetExposureDurationLimit = currentRoundedExposure == (1000*self.targetMinExposureDuration.seconds).rounded()
+            self.isAtLowerDeviceExposureDurationLimit = currentRoundedExposure == (1000*self.deviceMinExposureDuration.seconds).rounded()
+
+            self.isAtLowerTargetISOLimit = self.calculatedISO == self.targetMinISO
+            self.isAtLowerDeviceISOLimit = self.calculatedISO == self.deviceMinISO
+
+            self.isAtUpperTargetExposureDurationLimit = currentRoundedExposure == (1000*self.targetMaxExposureDuration.seconds).rounded()
+            self.isAtUpperDeviceExposureDurationLimit = currentRoundedExposure == (1000*self.deviceMaxExposureDuration.seconds).rounded()
+
+            self.isAtUpperTargetISOLimit = self.calculatedISO == self.targetMaxISO
+            self.isAtUpperDeviceISOLimit = self.calculatedISO == self.deviceMaxISO
         }
     }
 

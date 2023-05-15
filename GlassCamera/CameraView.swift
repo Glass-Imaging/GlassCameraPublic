@@ -320,6 +320,38 @@ struct CameraView: View {
         }
     }
 
+    var debugOverlay: some View {
+        HStack {
+            VStack {
+                VStack {
+                    // Text(verbatim: "Final Offset   :: \(cameraState.finalEVOffset)").frame(maxWidth: .infinity, alignment: .leading)
+                    Text(verbatim: "Is Custom Exposure  :: \(cameraState.isCustomExposure)").frame(maxWidth: .infinity, alignment: .leading)
+                }.foregroundColor(.cyan).font(.headline)
+                VStack {
+                    Text(verbatim: "METERED").frame(maxWidth: .infinity, alignment: .leading)
+                    Text(verbatim: "Duration :: 1/\((1 / cameraState.meteredExposureDuration.seconds).rounded())").frame(maxWidth: .infinity, alignment: .leading)
+                    Text(verbatim: "ISO      :: \(Int(cameraState.meteredISO.rounded()))").frame(maxWidth: .infinity, alignment: .leading)
+                    Text(verbatim: "Bias     :: \(cameraState.meteredExposureBias)").frame(maxWidth: .infinity, alignment: .leading)
+                    Text(verbatim: "Offset   :: \(cameraState.meteredExposureOffset)").frame(maxWidth: .infinity, alignment: .leading)
+                }.foregroundColor(.red)
+                VStack {
+                    Text(verbatim: "CALCULATED").frame(maxWidth: .infinity, alignment: .leading)
+                    Text(verbatim: "Duration :: 1/\((1 / cameraState.calculatedExposureDuration.seconds).rounded())").frame(maxWidth: .infinity, alignment: .leading)
+                    Text(verbatim: "ISO      :: \(Int(cameraState.calculatedISO.rounded()))").frame(maxWidth: .infinity, alignment: .leading)
+                    Text(verbatim: "Bias     :: \(cameraState.calculatedExposureBias)").frame(maxWidth: .infinity, alignment: .leading)
+                }.foregroundColor(.yellow)
+                VStack {
+                    Text(verbatim: "USER").frame(maxWidth: .infinity, alignment: .leading)
+                    Text(verbatim: "Duration :: 1/\((1 / cameraState.userExposureDuration.seconds).rounded())").frame(maxWidth: .infinity, alignment: .leading)
+                    Text(verbatim: "ISO      :: \(Int(cameraState.userISO.rounded()))").frame(maxWidth: .infinity, alignment: .leading)
+                    Text(verbatim: "Bias     :: \(cameraState.userExposureBias)").frame(maxWidth: .infinity, alignment: .leading)
+                }.foregroundColor(.green)
+                Spacer()
+            }.bold(true)
+            Spacer()
+        }
+    }
+
     var body: some View {
         HideVolumeIndicator // Required to hide volume indicator when triggering capture with volume rocker
         NavigationStack {
@@ -347,6 +379,7 @@ struct CameraView: View {
                                     }))
                                 })
                                 .overlay(Group {
+                                    /*
                                     if model.service.shouldShowSpinner {
                                         Color.black.opacity(0.2)
 
@@ -354,49 +387,14 @@ struct CameraView: View {
                                             .scaleEffect(2, anchor: .center)
                                             .progressViewStyle(CircularProgressViewStyle(tint: Color.white))
                                     }
-
-                                    if model.service.willCapturePhoto {
+                                     */
+                                    if model.service.isPhotoCapturing {
                                         Group {
                                             Color.black
-                                        }.onAppear {
-                                            withAnimation {
-                                                model.service.willCapturePhoto = false
-                                            }
                                         }
                                     }
                                 })
-                            if(cameraState.debugOverlay) {
-                                HStack {
-                                    VStack {
-                                        VStack {
-                                            // Text(verbatim: "Final Offset   :: \(cameraState.finalEVOffset)").frame(maxWidth: .infinity, alignment: .leading)
-                                            Text(verbatim: "Is Custom Exposure  :: \(cameraState.isCustomExposure)").frame(maxWidth: .infinity, alignment: .leading)
-                                        }.foregroundColor(.cyan).font(.headline)
-                                        VStack {
-                                            Text(verbatim: "METERED").frame(maxWidth: .infinity, alignment: .leading)
-                                            Text(verbatim: "Duration :: 1/\((1 / cameraState.meteredExposureDuration.seconds).rounded())").frame(maxWidth: .infinity, alignment: .leading)
-                                            Text(verbatim: "ISO      :: \(Int(cameraState.meteredISO.rounded()))").frame(maxWidth: .infinity, alignment: .leading)
-                                            Text(verbatim: "Bias     :: \(cameraState.meteredExposureBias)").frame(maxWidth: .infinity, alignment: .leading)
-                                            Text(verbatim: "Offset   :: \(cameraState.meteredExposureOffset)").frame(maxWidth: .infinity, alignment: .leading)
-                                        }.foregroundColor(.red)
-                                        VStack {
-                                            Text(verbatim: "CALCULATED").frame(maxWidth: .infinity, alignment: .leading)
-                                            Text(verbatim: "Duration :: 1/\((1 / cameraState.calculatedExposureDuration.seconds).rounded())").frame(maxWidth: .infinity, alignment: .leading)
-                                            Text(verbatim: "ISO      :: \(Int(cameraState.calculatedISO.rounded()))").frame(maxWidth: .infinity, alignment: .leading)
-                                            Text(verbatim: "Bias     :: \(cameraState.calculatedExposureBias)").frame(maxWidth: .infinity, alignment: .leading)
-                                        }.foregroundColor(.yellow)
-                                        VStack {
-                                            Text(verbatim: "USER").frame(maxWidth: .infinity, alignment: .leading)
-                                            Text(verbatim: "Duration :: 1/\((1 / cameraState.userExposureDuration.seconds).rounded())").frame(maxWidth: .infinity, alignment: .leading)
-                                            Text(verbatim: "ISO      :: \(Int(cameraState.userISO.rounded()))").frame(maxWidth: .infinity, alignment: .leading)
-                                            Text(verbatim: "Bias     :: \(cameraState.userExposureBias)").frame(maxWidth: .infinity, alignment: .leading)
-                                        }.foregroundColor(.green)
-                                        Spacer()
-                                    }.bold(true)
-                                    Spacer()
-                                }
-
-                            }
+                            if(cameraState.debugOverlay) { debugOverlay }
                         }
 
                         Spacer()
