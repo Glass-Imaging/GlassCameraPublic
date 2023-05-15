@@ -148,20 +148,17 @@ public class CameraService: NSObject, Identifiable {
 
         cameraState.$calculatedExposureDuration.combineLatest(cameraState.$calculatedISO)
             .filter { newExposureDuration, newISO in
-                return self.cameraState.isCustomExposure
-                && (newExposureDuration.seconds <= cameraState.deviceMaxExposureDuration.seconds)
-                && (newExposureDuration.seconds > cameraState.deviceMinExposureDuration.seconds)
-                && (newISO <= cameraState.deviceMaxISO)
-                && (newISO >= cameraState.deviceMinISO)
+                return self.videoDeviceInput != nil
+                && self.cameraState.isCustomExposure
+                && (newExposureDuration.seconds <= self.videoDeviceInput.device.activeFormat.maxExposureDuration.seconds)
+                && (newExposureDuration.seconds > self.videoDeviceInput.device.activeFormat.minExposureDuration.seconds)
+                && (newISO <= self.videoDeviceInput.device.activeFormat.maxISO)
+                && (newISO >= self.videoDeviceInput.device.activeFormat.minISO)
             }
             .sink { newExposureDuration, newISO in
-                if self.videoDeviceInput != nil {
-                    try! self.videoDeviceInput.device.lockForConfiguration()
-                    // print("Updating Exposure Params! ::  1/\(1 / newExposureDuration.seconds) \(newISO)")
-                    self.videoDeviceInput.device.setExposureModeCustom(duration: newExposureDuration, iso: newISO) {_ in }
-                    self.videoDeviceInput.device.unlockForConfiguration()
-                }
-
+                try! self.videoDeviceInput.device.lockForConfiguration()
+                self.videoDeviceInput.device.setExposureModeCustom(duration: newExposureDuration, iso: newISO) {_ in }
+                self.videoDeviceInput.device.unlockForConfiguration()
             }.store(in: &self.subscriptions)
 
 
@@ -360,24 +357,6 @@ public class CameraService: NSObject, Identifiable {
             }
         }
     }
-
-    /*
-    private func applyCustomExposureParams(_ onSetCB: @escaping () -> Void) {
-        try! self.videoDeviceInput.device.lockForConfiguration()
-        self.videoDeviceInput.device.setExposureModeCustom(duration: self.cameraState.calculatedExposureDuration, iso: self.cameraState.calculatedISO) {_ in
-            self.videoDeviceInput.device.unlockForConfiguration()
-            onSetCB()
-        }
-    }
-
-
-    private func enableAutoExposure() {
-        try! self.videoDeviceInput.device.lockForConfiguration()
-        self.videoDeviceInput.device.exposureMode = AVCaptureDevice.ExposureMode.continuousAutoExposure
-        self.videoDeviceInput.device.unlockForConfiguration()
-    }
-     */
-
 
     //  MARK: Device Configuration
 
@@ -679,17 +658,6 @@ public class CameraService: NSObject, Identifiable {
 
                 print("Capturing WITHOUT custom exposure!")
                 self.photoOutput.capturePhoto(with: photoSettings, delegate: photoCaptureProcessor)
-                /*
-                if self.cameraState.isCustomMeteredExposure {
-                    print("Capturing with custom exposure!")
-                    self.applyCustomExposureParams {
-                        self.photoOutput.capturePhoto(with: photoSettings, delegate: photoCaptureProcessor)
-                    }
-                } else {
-                    print("Capturing WITHOUT custom exposure!")
-                    self.photoOutput.capturePhoto(with: photoSettings, delegate: photoCaptureProcessor)
-                }
-                 */
             }
         }
     }
