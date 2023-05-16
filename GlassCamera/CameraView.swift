@@ -217,10 +217,14 @@ struct CameraView: View {
         var displayValue: String = "--"
         var name: String = "--"
         var isSelected: Bool = false
+        var isAtMin: Bool = false
+        var isAtMax: Bool = false
         var onDragCB: (Float) -> Void
 
-        init(_ displayValue: T, name: String, isSelected: Bool, formatter: @escaping ((T) -> String), onDrag: @escaping (Float) -> Void) {
+        init(_ displayValue: T, name: String, isSelected: Bool, isAtMin: Bool, isAtMax: Bool, formatter: @escaping ((T) -> String), onDrag: @escaping (Float) -> Void) {
             self.displayValue = formatter(displayValue)
+            self.isAtMin = isAtMin
+            self.isAtMax = isAtMax
             self.name = name
             self.isSelected = isSelected
             self.onDragCB = onDrag
@@ -242,8 +246,9 @@ struct CameraView: View {
                 Text(self.displayValue)
                     .font(.system(size:16, weight: .heavy, design: .monospaced))
                 Text(name)
-                    .italic()
                     .font(.system(size:12, weight: .light, design: .rounded))
+                Text(verbatim: isAtMax ? "MAX" : isAtMin ? "MIN" : isSelected ? "MANUAL":  " ")
+                    .font(.system(size: 8, weight: .ultraLight, design: .monospaced))
             }
             .gesture(dragGesture)
             .padding(5)
@@ -256,13 +261,15 @@ struct CameraView: View {
         HStack {
             Spacer()
 
-            CaptureSetting(self.cameraState.deviceAperture, name: "F STOP", isSelected: false, formatter: { aperture in  "f/\(aperture)" }, onDrag: {_ in })
+            CaptureSetting(self.cameraState.deviceAperture, name: "F STOP", isSelected: false, isAtMin: false, isAtMax: false, formatter: { aperture in  "f/\(aperture)" }, onDrag: {_ in })
 
             Spacer()
 
             CaptureSetting(self.cameraState.calculatedExposureDuration,
                            name: "SS",
                            isSelected: cameraState.isManualExposureDuration,
+                           isAtMin: cameraState.isAtLowerTargetExposureDurationLimit || cameraState.isAtLowerDeviceExposureDurationLimit,
+                           isAtMax: cameraState.isAtUpperTargetExposureDurationLimit || cameraState.isAtUpperDeviceExposureDurationLimit,
                            formatter: { duration in
                 duration.seconds == 0 ? "0" : "1/\(Int((1 / duration.seconds).rounded()))"
                             },
@@ -288,6 +295,8 @@ struct CameraView: View {
             CaptureSetting(self.cameraState.calculatedISO,
                            name: "ISO",
                            isSelected: cameraState.isManualISO,
+                           isAtMin: cameraState.isAtLowerTargetISOLimit || cameraState.isAtLowerDeviceISOLimit,
+                           isAtMax: cameraState.isAtUpperTargetISOLimit || cameraState.isAtUpperDeviceISOLimit,
                            formatter: { iso in String(Int(iso.rounded())) },
                            onDrag: { diff in
                                 if(!cameraState.isManualISO) { return }
@@ -304,9 +313,13 @@ struct CameraView: View {
             CaptureSetting(cameraState.isManualEVBias ? cameraState.userExposureBias : cameraState.calculatedExposureBias,
                            name: "EV",
                            isSelected: cameraState.isManualEVBias,
+                           isAtMin: false,
+                           isAtMax: false,
                            formatter: { bias in String(format: "%.1f", bias)},
                            onDrag: { diff in
                                 if(!cameraState.isManualEVBias) { return }
+                                // if((diff < 0) && cameraState.isAtLowerTargetExposureDurationLimit && cameraState.isAtLowerTargetISOLimit) { return }
+                                // if((diff > 0) && cameraState.isAtUpperTargetExposureDurationLimit && cameraState.isAtUpperTargetISOLimit) { return }
                                 cameraState.userExposureBias = min(max(cameraState.userExposureBias + (diff / 100), cameraState.deviceMinExposureBias), cameraState.deviceMaxExposureBias)
                             })
                 .onTapGesture { cameraState.isManualEVBias.toggle() }
@@ -324,7 +337,6 @@ struct CameraView: View {
         HStack {
             VStack {
                 VStack {
-                    // Text(verbatim: "Final Offset   :: \(cameraState.finalEVOffset)").frame(maxWidth: .infinity, alignment: .leading)
                     Text(verbatim: "Is Custom Exposure  :: \(cameraState.isCustomExposure)").frame(maxWidth: .infinity, alignment: .leading)
                 }.foregroundColor(.cyan).font(.headline)
                 VStack {
