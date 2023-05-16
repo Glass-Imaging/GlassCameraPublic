@@ -143,14 +143,14 @@ final class CameraState: ObservableObject {
             let currentRoundedExposure = (scale*self.calculatedExposureDuration.seconds).rounded(.down)
             let currentRoundedISO = self.calculatedISO.rounded(.down)
 
-            self.isAtLowerTargetExposureDurationLimit = currentRoundedExposure == (scale*self.targetMinExposureDuration.seconds).rounded()
-            self.isAtLowerDeviceExposureDurationLimit = currentRoundedExposure == (scale*self.deviceMinExposureDuration.seconds).rounded()
+            self.isAtLowerTargetExposureDurationLimit = currentRoundedExposure == (scale*self.targetMinExposureDuration.seconds).rounded(.down)
+            self.isAtLowerDeviceExposureDurationLimit = currentRoundedExposure == (scale*self.deviceMinExposureDuration.seconds).rounded(.down)
 
             self.isAtLowerTargetISOLimit = currentRoundedISO == self.targetMinISO
             self.isAtLowerDeviceISOLimit = currentRoundedISO == self.deviceMinISO
 
-            self.isAtUpperTargetExposureDurationLimit = currentRoundedExposure == (scale*self.targetMaxExposureDuration.seconds).rounded()
-            self.isAtUpperDeviceExposureDurationLimit = currentRoundedExposure == (scale*self.deviceMaxExposureDuration.seconds).rounded()
+            self.isAtUpperTargetExposureDurationLimit = currentRoundedExposure == (scale*self.targetMaxExposureDuration.seconds).rounded(.down)
+            self.isAtUpperDeviceExposureDurationLimit = currentRoundedExposure == (scale*self.deviceMaxExposureDuration.seconds).rounded(.down)
 
             self.isAtUpperTargetISOLimit = currentRoundedISO == self.targetMaxISO
             self.isAtUpperDeviceISOLimit = currentRoundedISO == self.deviceMaxISO

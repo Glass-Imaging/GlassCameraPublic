@@ -50,12 +50,19 @@ struct ExposureParams: View {
                 }
             }
 
+        func getHint() -> String {
+            return cameraState.isAtUpperDeviceExposureDurationLimit ? "MAX"
+            : cameraState.isAtLowerDeviceExposureDurationLimit ? "MIN"
+            : (cameraState.isAtUpperTargetExposureDurationLimit || cameraState.isAtLowerTargetExposureDurationLimit) ? "LIMIT"
+            : cameraState.isManualExposureDuration ? "MANUAL":  " "
+        }
+
         return VStack {
             Text(cameraState.calculatedExposureDuration.seconds == Double(0) ? "0" : "1/\(Int((1 / cameraState.calculatedExposureDuration.seconds).rounded()))")
                 .font(.system(size:16, weight: .heavy, design: .monospaced))
             Text("SS")
                 .font(.system(size:12, weight: .light, design: .rounded))
-            Text(verbatim: cameraState.isAtUpperTargetExposureDurationLimit ? "MAX" : cameraState.isAtLowerDeviceExposureDurationLimit ? "MIN" : cameraState.isManualExposureDuration ? "MANUAL":  " ")
+            Text(getHint())
                 .font(.system(size: 8, weight: .ultraLight, design: .monospaced))
         }
         .gesture(dragGesture)
@@ -80,12 +87,19 @@ struct ExposureParams: View {
                 }
             }
 
+        func getHint() -> String {
+            return cameraState.isAtUpperDeviceISOLimit ? "MAX"
+            : cameraState.isAtLowerDeviceISOLimit ? "MIN"
+            : (cameraState.isAtLowerTargetISOLimit || cameraState.isAtUpperTargetISOLimit) ? "LIMIT"
+            : cameraState.isManualISO ? "MANUAL":  " "
+        }
+
         return VStack {
             Text(String(Int(cameraState.calculatedISO.rounded())))
                 .font(.system(size:16, weight: .heavy, design: .monospaced))
             Text("ISO")
                 .font(.system(size:12, weight: .light, design: .rounded))
-            Text(verbatim: cameraState.isAtUpperTargetISOLimit ? "MAX" : cameraState.isAtLowerDeviceISOLimit ? "MIN" : cameraState.isManualISO ? "MANUAL":  " ")
+            Text(getHint())
                 .font(.system(size: 8, weight: .ultraLight, design: .monospaced))
         }
         .gesture(dragGesture)
