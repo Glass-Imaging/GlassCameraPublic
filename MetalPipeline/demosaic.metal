@@ -90,10 +90,10 @@ half gaussian(half x) {
 
 half lensShading(half lensShadingCorrection, half distance_from_center) {
     // New iPhones
-    return 0.8 + lensShadingCorrection * distance_from_center * distance_from_center;
+    // return 0.8 + lensShadingCorrection * distance_from_center * distance_from_center;
     // Old iPhones
     // return 1 + distance_from_center * distance_from_center;
-    // return 1;
+    return 1;
 }
 
 // Work on one Quad (2x2) at a time
@@ -815,16 +815,27 @@ kernel void blockMatchingDenoiseImage(texture2d<half> inputImage                
     const half3 inputYCC = read_imageh(inputImage, imageCoordinates).xyz;
     const _half8 inputPCA = _half8(read_imageui(pcaImage, imageCoordinates));
 
-//    float2 imageCenter = float2(get_image_dim(inputImage) / 2);
-//    float distance_from_center = length(float2(imageCoordinates) - imageCenter) / length(imageCenter);
-
-    /* FIXME: add lensShadingCorrection */
+    // FIXME: add lensShadingCorrection
     half3 sigma = half3(sqrt(var_a + var_b * inputYCC.x));
+
     half3 diffMultiplier = 1 / (half3(thresholdMultipliers) * sigma);
 
     half2 gradient = read_imageh(gradientImage, imageCoordinates).xy;
     half magnitude = length(gradient);
-    half edge = smoothstep(2, 8, magnitude / sigma.x);
+    half edge = smoothstep(2, 16, magnitude / sigma.x);
+
+    // Dynamic PCA components
+    int pcaComponents = 1;
+    half pca02 = inputPCA.v[0] * inputPCA.v[0];
+    half pca_sum = pca02;
+    half sigma2_pca = 4 * sigma.x * sigma.x * pca02;
+    for (int i = 1; i < 8; i++) {
+        half previous = pca_sum;
+        pca_sum += inputPCA.v[i] * inputPCA.v[i];
+        if (pca_sum - previous > sigma2_pca) {
+            pcaComponents = i;
+        }
+    }
 
     const int size = 10;
 
@@ -836,8 +847,7 @@ kernel void blockMatchingDenoiseImage(texture2d<half> inputImage                
             half3 inputSampleYCC = read_imageh(inputImage, imageCoordinates + int2(x, y)).xyz;
             _half8 samplePCA = _half8(read_imageui(pcaImage, imageCoordinates + int2(x, y)));
 
-            // TODO: is 6 better than 8?
-            half pcaDiff = length(samplePCA - inputPCA, 8);
+            half pcaDiff = length(samplePCA - inputPCA, pcaComponents);
 
             half2 inputChromaDiff = (inputSampleYCC.yz - inputYCC.yz) * diffMultiplier.yz;
 
@@ -860,7 +870,7 @@ kernel void blockMatchingDenoiseImage(texture2d<half> inputImage                
     }
     half3 denoisedPixel = half3(filtered_pixel / kernel_norm);
 
-    write_imageh(denoisedImage, imageCoordinates, half4(denoisedPixel, (half) kernel_norm.x));
+    write_imageh(denoisedImage, imageCoordinates, half4(denoisedPixel, (half) (255 * pcaComponents) / 8 ));
 }
 
 kernel void downsampleImageXYZ(texture2d<float> inputImage                  [[texture(0)]],
@@ -1394,29 +1404,25 @@ kernel void localToneMappingMaskImage(texture2d<float> inputImage               
                                                histogram_data.shadows, histogram_data.highlights,
                                                ltmParameters.detail[0]);
 
-    if (ltmParameters.detail[1] != 1) {
-        float2 mfAbSample = read_imagef(mfAbImage, linear_sampler, pos + 0.5f * inputNorm).xy;
-        ltmMultiplier *= computeLtmMultiplier(input, mfAbSample, ltmParameters.eps,
-                                              histogram_data.shadows, 1, ltmParameters.detail[1]);
+    float2 mfAbSample = read_imagef(mfAbImage, linear_sampler, pos + 0.5f * inputNorm).xy;
+    ltmMultiplier *= computeLtmMultiplier(input, mfAbSample, ltmParameters.eps,
+                                          histogram_data.shadows, 1, ltmParameters.detail[1]);
+
+    float hfDetail = ltmParameters.detail[2];
+
+    if (hfDetail > 1.0) {
+        float dx = (read_imagef(inputImage, imageCoordinates + int2(1, 0)).x -
+                    read_imagef(inputImage, imageCoordinates - int2(1, 0)).x) / 2;
+        float dy = (read_imagef(inputImage, imageCoordinates + int2(0, 1)).x -
+                    read_imagef(inputImage, imageCoordinates - int2(0, 1)).x) / 2;
+
+        float noiseThreshold = sqrt(nlf.x + nlf.y * input.x);
+        hfDetail = 1 + (hfDetail - 1) * smoothstep(0.5 * noiseThreshold, 2 * noiseThreshold, length(float2(dx, dy)));
     }
 
-    if (ltmParameters.detail[2] != 1) {
-        float detail = ltmParameters.detail[2];
-
-        if (detail > 1.0) {
-            float dx = (read_imagef(inputImage, imageCoordinates + int2(1, 0)).x -
-                        read_imagef(inputImage, imageCoordinates - int2(1, 0)).x) / 2;
-            float dy = (read_imagef(inputImage, imageCoordinates + int2(0, 1)).x -
-                        read_imagef(inputImage, imageCoordinates - int2(0, 1)).x) / 2;
-
-            float noiseThreshold = sqrt(nlf.x + nlf.y * input.x);
-            detail = 1 + (detail - 1) * smoothstep(0.5 * noiseThreshold, 2 * noiseThreshold, length(float2(dx, dy)));
-        }
-
-        float2 hfAbSample = read_imagef(hfAbImage, linear_sampler, pos + 0.5f * inputNorm).xy;
-        ltmMultiplier *= computeLtmMultiplier(input, hfAbSample, ltmParameters.eps,
-                                              histogram_data.shadows, 1, detail);
-    }
+    float2 hfAbSample = read_imagef(hfAbImage, linear_sampler, pos + 0.5f * inputNorm).xy;
+    ltmMultiplier *= computeLtmMultiplier(input, hfAbSample, ltmParameters.eps,
+                                          histogram_data.shadows, 1, hfDetail);
 
     write_imagef(ltmMaskImage, imageCoordinates, float4(ltmMultiplier, 0, 0, 0));
 }
@@ -1622,15 +1628,16 @@ float octaveNoise(float2 pos, int octaves, float persistence, float lacunarity,
 kernel void simplex_noise(texture2d<float> inputImage                   [[texture(0)]],
                           constant array<int, B + B + 2>& p             [[buffer(1)]],
                           constant array<float2, B + B + 2>& g2         [[buffer(2)]],
-                          constant float& sigma                         [[buffer(3)]],
+                          constant float2& variance                     [[buffer(3)]],
                           texture2d<float, access::write> outputImage   [[texture(4)]],
                           uint2 index                                   [[thread_position_in_grid]])
 {
     const int2 imageCoordinates = (int2) index;
 
-    float noise = octaveNoise(0.5 * (float2(imageCoordinates) + M_1_PI_F), 4, 0.5, 0.5, p, g2);
+    float noise = octaveNoise(0.5 * float2(imageCoordinates), 4, 0.5, 0.5, p, g2);
 
     float4 pixel = read_imagef(inputImage, imageCoordinates);
-    pixel.x += 4 * sigma * noise;
+    float sigma = sqrt(variance.x + variance.y * pixel.x);
+    pixel.x += sigma * noise;
     write_imagef(outputImage, imageCoordinates, pixel);
 }

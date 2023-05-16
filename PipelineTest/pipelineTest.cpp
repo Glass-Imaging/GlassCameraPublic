@@ -73,6 +73,7 @@ void dumpGradientImage(const gls::mtl_image_2d<T>& image, const std::string& pat
 
 template <typename pixel_type>
 void saveImage(const gls::image<gls::rgba_pixel_float>& image, const std::string& path,
+               gls::tiff_metadata* metadata,
                const std::vector<uint8_t>* icc_profile_data, float exposure_multiplier = 1.0) {
     gls::image<pixel_type> saveImage(image.width, image.height);
     saveImage.apply([&](pixel_type* p, int x, int y) {
@@ -85,7 +86,8 @@ void saveImage(const gls::image<gls::rgba_pixel_float>& image, const std::string
             (uint8_t) std::clamp(scale * exposure_multiplier * pi.blue, 0.0f, scale)
         };
     });
-    saveImage.write_png_file(path, /*skip_alpha=*/true, icc_profile_data);
+    // saveImage.write_png_file(path, /*skip_alpha=*/true, icc_profile_data);
+    saveImage.write_tiff_file(path, gls::tiff_compression::NONE, metadata, icc_profile_data);
 }
 
 static std::vector<unsigned char> read_binary_file(const std::string filename) {
@@ -111,7 +113,7 @@ void demosaicFile(RawConverter* rawConverter, std::filesystem::path input_path) 
     gls::tiff_metadata dng_metadata, exif_metadata;
     const auto rawImage =
     gls::image<gls::luma_pixel_16>::read_dng_file(input_path.string(), &dng_metadata, &exif_metadata);
-    auto demosaicParameters = unpackiPhone14WideRawImage(*rawImage, rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
+    auto demosaicParameters = unpackiPhone14TeleRawImage(*rawImage, rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
 
     rawConverter->allocateTextures(rawImage->size());
 
@@ -125,10 +127,12 @@ void demosaicFile(RawConverter* rawConverter, std::filesystem::path input_path) 
     std::cout << "Metal Pipeline Execution Time: " << (int)elapsed_time_ms
     << "ms for image of size: " << rawImage->width << " x " << rawImage->height << std::endl;
 
-    const auto output_path = input_path.replace_extension("_s_ltm_raw_denoise_perlin.png");
+    const auto output_dir = input_path.parent_path().parent_path() / "Classic";
+    const auto filename = input_path.filename().replace_extension("_t_d_edges2.tif");
+    const auto output_path = output_dir / filename;
 
     const auto srgbImageCpu = srgbImage->mapImage();
-    saveImage<gls::rgb_pixel_16>(*srgbImageCpu, output_path.string(), rawConverter->icc_profile_data());
+    saveImage<gls::rgb_pixel_16>(*srgbImageCpu, output_path.string(), &dng_metadata, rawConverter->icc_profile_data());
 
     auto histogramData = rawConverter->histogramData();
 //    plotHistogram(histogramData->histogram, input_path.filename().string());
@@ -206,11 +210,15 @@ void fmenApplyToFile(RawConverter* rawConverter, std::filesystem::path input_pat
     // Apply model to image
     fmenApplyToImage(*rawImage, /*whiteLevel*/ demosaicParameters->white_level, &processedImage);
 
-    const auto output_path = input_path.replace_extension("_fmen_1072_ltm_sharp.png");
+    // const auto output_path = input_path.replace_extension("_fmen_1072_ltm_sharp.png");
+
+    const auto output_dir = input_path.parent_path().parent_path() / "Neuro";
+    const auto filename = input_path.filename().replace_extension(".tiff");
+    const auto output_path = output_dir / filename;
 
     auto srgbImage = rawConverter->postprocess(processedImage, demosaicParameters.get());
     const auto srgbImageCpu = srgbImage->mapImage();
-    saveImage<gls::rgb_pixel_16>(*srgbImageCpu, output_path.string(), rawConverter->icc_profile_data());
+    saveImage<gls::rgb_pixel_16>(*srgbImageCpu, output_path.string(), &dng_metadata, rawConverter->icc_profile_data());
 
     auto histogramData = rawConverter->histogramData();
     int imageSize = rawImage->width * rawImage->height / 64;
@@ -261,7 +269,7 @@ int main(int argc, const char * argv[]) {
     auto metalDevice = NS::RetainPtr(allMetalDevices->object<MTL::Device>(0));
 
     // FIXME: the address sanitizer doesn't like the profile data.
-    RawConverter rawConverter(metalDevice, nullptr /*&icc_profile_data*/, /*calibrateFromImage=*/ false);
+    RawConverter rawConverter(metalDevice, &icc_profile_data, /*calibrateFromImage=*/ false);
 
     if (argc > 1) {
         auto input_path = std::filesystem::path(argv[1]);

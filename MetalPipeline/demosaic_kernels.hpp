@@ -566,13 +566,11 @@ struct localToneMappingMaskKernel {
         }
 
         for (int i = 0; i < 3; i++) {
-            if (i == 0 || ltmParameters.detail[i] != 1) {
-                GuidedFilterABImage(context, /*gridSize=*/ MTL::Size(guideImage[i]->width, guideImage[i]->height, 1),
-                         guideImage[i]->texture(), abImage[i]->texture(), ltmParameters.eps);
+            GuidedFilterABImage(context, /*gridSize=*/ MTL::Size(guideImage[i]->width, guideImage[i]->height, 1),
+                     guideImage[i]->texture(), abImage[i]->texture(), ltmParameters.eps);
 
-                BoxFilterGFImage(context, /*gridSize=*/ MTL::Size(abImage[i]->width, abImage[i]->height, 1),
-                             abImage[i]->texture(), abMeanImage[i]->texture());
-            }
+            BoxFilterGFImage(context, /*gridSize=*/ MTL::Size(abImage[i]->width, abImage[i]->height, 1),
+                         abImage[i]->texture(), abMeanImage[i]->texture());
         }
 
         localToneMappingMaskImage(context, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1), inputImage.texture(),
@@ -600,15 +598,13 @@ struct simplexNoiseKernel {
         v[1] /= s;
     }
 
+    void randomSeed(unsigned seed) {
+        srandom(seed);
+    }
+
     void initialize() {
         auto& p = *pBuffer.data();
         auto& g2 = *g2Buffer.data();
-
-        static bool reseed = true;
-        if (reseed) {
-            srandom((unsigned) time(NULL));
-            reseed = false;
-        }
 
         for (int i = 0; i < B; i++) {
             p[i] = i;
@@ -640,9 +636,9 @@ struct simplexNoiseKernel {
     }
 
     void operator() (MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
-                     float sigma, gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage) {
+                     const gls::Vector<2>& luma_nlf, gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage) {
         kernel(context, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
-               inputImage.texture(), pBuffer.buffer(), g2Buffer.buffer(), sigma, outputImage->texture());
+               inputImage.texture(), pBuffer.buffer(), g2Buffer.buffer(), simd::float2 { luma_nlf[0], luma_nlf[1] }, outputImage->texture());
     }
 };
 

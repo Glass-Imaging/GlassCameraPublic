@@ -114,15 +114,15 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::denoise(const gls::mtl_i
     // High ISO noise texture replacement
     bool add_perlin_noise = true;
     if (add_perlin_noise) {
-        const float sigma = 0.1 * sqrt(noiseModel->rawNlf.second[1] /* raw green */);
+        gls::Vector<2> nlf = { noiseModel->rawNlf.first[1], noiseModel->rawNlf.second[1] };
 
-        std::cout << "Adding perlin noise with sigma " << sigma << std::endl;
+        std::cout << "Adding perlin noise with NLF " << nlf << std::endl;
 
         bool use_gpu_noise = true;
         if (use_gpu_noise) {
             // Calling initialize() will generate a new noise pattern
             _simplexNoise.initialize();
-            _simplexNoise(&_mtlContext, *denoisedImage, sigma, denoisedImage);
+            _simplexNoise(&_mtlContext, *denoisedImage, /*luma_nlf=*/ nlf * 4.0f, denoisedImage);
         } else {
             Noise2D simplexNoise;
 
@@ -130,16 +130,10 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::denoise(const gls::mtl_i
             auto denoisedImageCPU = denoisedImage->mapImage();
 
             denoisedImageCPU->apply([&] (gls::rgba_pixel_float* p, int x, int y) {
-                float noise = simplexNoise.octaveNoise(0.5 * (x + M_PI), 0.5 * (y + M_PI), 4, 0.5, 0.5);
-                const float16_t luma = (*p)[0] + 4 * sigma * noise;
-                float desaturate = std::lerp(1 - std::min(4 * abs(noise), 1.0f), 1, std::min(6 * (*p)[0], 1.0f));
-
-                *p = {
-                    luma,
-                    (float16_t) (desaturate * (*p)[1]),
-                    (float16_t) (desaturate * (*p)[2]),
-                    1
-                };
+                float noise = simplexNoise.octaveNoise(0.5 * x, 0.5 * y, 4, 0.5, 0.5);
+                float sigma = std::sqrt(nlf[0] + nlf[1] * (*p)[0]);
+                const float16_t luma = (*p)[0] + sigma * noise;
+                *p = { luma, (*p)[1], (*p)[2], 1 };
             });
         }
     }
@@ -198,6 +192,9 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
 
     // Convert result back to camera RGB
     const auto ycbcr_to_cam = inverse(cam_to_ycbcr);
+
+    // Use the first pixel value of the image as a seed for the noise to have a stable noise pattern for every given image
+    _simplexNoise.randomSeed(rawImage[0][0]);
 
     _rawImage->copyPixelsFrom(rawImage);
 
