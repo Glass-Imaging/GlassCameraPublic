@@ -12,9 +12,6 @@ import AVFoundation
 final class CameraState: ObservableObject {
     @Published var debugOverlay = false
 
-    // Indicates how many stops different the current params exposure offset is from a neutral exposure
-    // @Published var finalEVOffset: Float = 0.0
-
     // Indicates whether we are using device AE params to calculate custom AE params
     @Published var isCustomExposure: Bool = false
 
@@ -143,18 +140,20 @@ final class CameraState: ObservableObject {
             }
 
             let scale: Double = 1_000_000
-            let currentRoundedExposure = (scale*self.calculatedExposureDuration.seconds).rounded()
+            let currentRoundedExposure = (scale*self.calculatedExposureDuration.seconds).rounded(.down)
+            let currentRoundedISO = self.calculatedISO.rounded(.down)
+
             self.isAtLowerTargetExposureDurationLimit = currentRoundedExposure == (scale*self.targetMinExposureDuration.seconds).rounded()
             self.isAtLowerDeviceExposureDurationLimit = currentRoundedExposure == (scale*self.deviceMinExposureDuration.seconds).rounded()
 
-            self.isAtLowerTargetISOLimit = self.calculatedISO == self.targetMinISO
-            self.isAtLowerDeviceISOLimit = self.calculatedISO == self.deviceMinISO
+            self.isAtLowerTargetISOLimit = currentRoundedISO == self.targetMinISO
+            self.isAtLowerDeviceISOLimit = currentRoundedISO == self.deviceMinISO
 
             self.isAtUpperTargetExposureDurationLimit = currentRoundedExposure == (scale*self.targetMaxExposureDuration.seconds).rounded()
             self.isAtUpperDeviceExposureDurationLimit = currentRoundedExposure == (scale*self.deviceMaxExposureDuration.seconds).rounded()
 
-            self.isAtUpperTargetISOLimit = self.calculatedISO == self.targetMaxISO
-            self.isAtUpperDeviceISOLimit = self.calculatedISO == self.deviceMaxISO
+            self.isAtUpperTargetISOLimit = currentRoundedISO == self.targetMaxISO
+            self.isAtUpperDeviceISOLimit = currentRoundedISO == self.deviceMaxISO
         }
     }
 

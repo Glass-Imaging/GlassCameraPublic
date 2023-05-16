@@ -23,6 +23,7 @@
 		8648F6612A05B99A00E76BA9 /* FMEN.mlmodel in Sources */ = {isa = PBXBuildFile; fileRef = 8648F6602A05B99A00E76BA9 /* FMEN.mlmodel */; };
 		8648F6622A05B99A00E76BA9 /* FMEN.mlmodel in Sources */ = {isa = PBXBuildFile; fileRef = 8648F6602A05B99A00E76BA9 /* FMEN.mlmodel */; };
 		869FA7A12A0B14B20097C2D2 /* CameraState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 869FA7A02A0B14B20097C2D2 /* CameraState.swift */; };
+		86FD00DF2A13062000111B5F /* ExposureParamsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86FD00DE2A13062000111B5F /* ExposureParamsView.swift */; };
 		E518E69129F7367A0056E6BF /* CoreMLSupport.mm in Sources */ = {isa = PBXBuildFile; fileRef = E518E69029F7367A0056E6BF /* CoreMLSupport.mm */; };
 		E518E69229F7367A0056E6BF /* CoreMLSupport.mm in Sources */ = {isa = PBXBuildFile; fileRef = E518E69029F7367A0056E6BF /* CoreMLSupport.mm */; };
 		E518E69529F7397C0056E6BF /* CoreImage.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E518E69429F7397C0056E6BF /* CoreImage.framework */; };
@@ -129,6 +130,7 @@
 		8648F65D2A05B68300E76BA9 /* VolumeButtonUtils.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VolumeButtonUtils.swift; sourceTree = "<group>"; };
 		8648F6602A05B99A00E76BA9 /* FMEN.mlmodel */ = {isa = PBXFileReference; lastKnownFileType = file.mlmodel; name = FMEN.mlmodel; path = "../../../../Downloads/2023-05-05_iPhoneNetwork/FMEN.mlmodel"; sourceTree = "<group>"; };
 		869FA7A02A0B14B20097C2D2 /* CameraState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraState.swift; sourceTree = "<group>"; };
+		86FD00DE2A13062000111B5F /* ExposureParamsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExposureParamsView.swift; sourceTree = "<group>"; };
 		E518E69029F7367A0056E6BF /* CoreMLSupport.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = CoreMLSupport.mm; sourceTree = "<group>"; };
 		E518E69329F7369B0056E6BF /* CoreMLSupport.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CoreMLSupport.h; sourceTree = "<group>"; };
 		E518E69429F7397C0056E6BF /* CoreImage.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreImage.framework; path = System/Library/Frameworks/CoreImage.framework; sourceTree = SDKROOT; };
@@ -426,6 +428,7 @@
 				E5D4D89027D1798E00F1D944 /* Assets.xcassets */,
 				E5D4D89227D1798E00F1D944 /* Preview Content */,
 				869FA7A02A0B14B20097C2D2 /* CameraState.swift */,
+				86FD00DE2A13062000111B5F /* ExposureParamsView.swift */,
 			);
 			path = GlassCamera;
 			sourceTree = "<group>";
@@ -558,6 +561,7 @@
 				8648F6612A05B99A00E76BA9 /* FMEN.mlmodel in Sources */,
 				E5D4D88F27D1798D00F1D944 /* CameraView.swift in Sources */,
 				86276B3029EF4DA900EFF0C3 /* PhotoItemView.swift in Sources */,
+				86FD00DF2A13062000111B5F /* ExposureParamsView.swift in Sources */,
 				86276B3229EF4DA900EFF0C3 /* PhotoCollectionView.swift in Sources */,
 				E5C5BFFA29BD36B600AAB593 /* gls_image_png.cpp in Sources */,
 				E5E7CBA929DF593200067C0B /* PCA.cpp in Sources */,
@@ -877,7 +881,7 @@
 				COREML_CODEGEN_LANGUAGE = "Objective-C";
 				COREML_CODEGEN_SWIFT_GLOBAL_MODULE = YES;
 				DEAD_CODE_STRIPPING = YES;
-				DEVELOPMENT_TEAM = 4A4DGXV9V7;
+				DEVELOPMENT_TEAM = WM2UUQMK8D;
 				ENABLE_HARDENED_RUNTIME = YES;
 				HEADER_SEARCH_PATHS = (
 					"\"$(SRCROOT)/metal-cpp\"",
@@ -906,7 +910,7 @@
 				COREML_CODEGEN_LANGUAGE = "Objective-C";
 				COREML_CODEGEN_SWIFT_GLOBAL_MODULE = YES;
 				DEAD_CODE_STRIPPING = YES;
-				DEVELOPMENT_TEAM = 4A4DGXV9V7;
+				DEVELOPMENT_TEAM = WM2UUQMK8D;
 				ENABLE_HARDENED_RUNTIME = YES;
 				HEADER_SEARCH_PATHS = (
 					"\"$(SRCROOT)/metal-cpp\"",

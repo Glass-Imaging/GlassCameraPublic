@@ -211,128 +211,6 @@ struct CameraView: View {
         }
     }
 
-    struct CaptureSetting<T>: View {
-        @GestureState var gestureOffset: Float = .zero
-
-        var displayValue: String = "--"
-        var name: String = "--"
-        var isSelected: Bool = false
-        var isAtMin: Bool = false
-        var isAtMax: Bool = false
-        var onDragCB: (Float) -> Void
-
-        init(_ displayValue: T, name: String, isSelected: Bool, isAtMin: Bool, isAtMax: Bool, formatter: @escaping ((T) -> String), onDrag: @escaping (Float) -> Void) {
-            self.displayValue = formatter(displayValue)
-            self.isAtMin = isAtMin
-            self.isAtMax = isAtMax
-            self.name = name
-            self.isSelected = isSelected
-            self.onDragCB = onDrag
-        }
-
-        var body: some View {
-            let dragGesture = DragGesture()
-                .updating($gestureOffset) { (value, state, _) in
-                    let new_state = Float(value.translation.height)
-                    let diff  = (state - new_state)
-                    state = new_state
-
-                    DispatchQueue.main.async {
-                        onDragCB(diff)
-                    }
-                }
-
-            VStack {
-                Text(self.displayValue)
-                    .font(.system(size:16, weight: .heavy, design: .monospaced))
-                Text(name)
-                    .font(.system(size:12, weight: .light, design: .rounded))
-                Text(verbatim: isAtMax ? "MAX" : isAtMin ? "MIN" : isSelected ? "MANUAL":  " ")
-                    .font(.system(size: 8, weight: .ultraLight, design: .monospaced))
-            }
-            .gesture(dragGesture)
-            .padding(5)
-            .overlay(RoundedRectangle(cornerRadius: 5).stroke(isSelected ? Color.yellow : Color.clear, lineWidth: 2))
-        }
-    }
-
-
-    var captureSettingsBar: some View {
-        HStack {
-            Spacer()
-
-            CaptureSetting(self.cameraState.deviceAperture, name: "F STOP", isSelected: false, isAtMin: false, isAtMax: false, formatter: { aperture in  "f/\(aperture)" }, onDrag: {_ in })
-
-            Spacer()
-
-            CaptureSetting(self.cameraState.calculatedExposureDuration,
-                           name: "SS",
-                           isSelected: cameraState.isManualExposureDuration,
-                           isAtMin: cameraState.isAtLowerTargetExposureDurationLimit || cameraState.isAtLowerDeviceExposureDurationLimit,
-                           isAtMax: cameraState.isAtUpperTargetExposureDurationLimit || cameraState.isAtUpperDeviceExposureDurationLimit,
-                           formatter: { duration in
-                duration.seconds == 0 ? "0" : "1/\(Int((1 / duration.seconds).rounded()))"
-                            },
-                           onDrag: { diff in
-                                if(!cameraState.isManualExposureDuration) { return }
-
-                                let targetExposureDuration = Float(cameraState.userExposureDuration.seconds)
-                                                                + Float(cameraState.userExposureDuration.seconds) * (1/50) * diff
-
-                                let newExposureDuration = min(
-                                                            max(targetExposureDuration, Float(cameraState.deviceMinExposureDuration.seconds)),
-                                                            Float(cameraState.deviceMaxExposureDuration.seconds))
-
-                                cameraState.userExposureDuration = CMTime(seconds: Double(newExposureDuration), preferredTimescale: 1_000_000_000)
-                            })
-                .onTapGesture {
-                    cameraState.isManualExposureDuration.toggle()
-                    cameraState.userExposureDuration = cameraState.calculatedExposureDuration
-                }
-
-            Spacer()
-
-            CaptureSetting(self.cameraState.calculatedISO,
-                           name: "ISO",
-                           isSelected: cameraState.isManualISO,
-                           isAtMin: cameraState.isAtLowerTargetISOLimit || cameraState.isAtLowerDeviceISOLimit,
-                           isAtMax: cameraState.isAtUpperTargetISOLimit || cameraState.isAtUpperDeviceISOLimit,
-                           formatter: { iso in String(Int(iso.rounded())) },
-                           onDrag: { diff in
-                                if(!cameraState.isManualISO) { return }
-                                cameraState.userISO = min(max(cameraState.userISO + cameraState.userISO * (1/125) * diff, cameraState.deviceMinISO), cameraState.deviceMaxISO)
-                            })
-                .onTapGesture {
-                    cameraState.isManualISO.toggle()
-                    cameraState.userISO = cameraState.calculatedISO
-                }
-
-            Spacer()
-
-
-            CaptureSetting(cameraState.isManualEVBias ? cameraState.userExposureBias : cameraState.calculatedExposureBias,
-                           name: "EV",
-                           isSelected: cameraState.isManualEVBias,
-                           isAtMin: false,
-                           isAtMax: false,
-                           formatter: { bias in String(format: "%.1f", bias)},
-                           onDrag: { diff in
-                                if(!cameraState.isManualEVBias) { return }
-                                // if((diff < 0) && cameraState.isAtLowerTargetExposureDurationLimit && cameraState.isAtLowerTargetISOLimit) { return }
-                                // if((diff > 0) && cameraState.isAtUpperTargetExposureDurationLimit && cameraState.isAtUpperTargetISOLimit) { return }
-                                cameraState.userExposureBias = min(max(cameraState.userExposureBias + (diff / 100), cameraState.deviceMinExposureBias), cameraState.deviceMaxExposureBias)
-                            })
-                .onTapGesture { cameraState.isManualEVBias.toggle() }
-            /*
-                .onLongPressGesture {
-                    print("LONG PRESS BIAS!")
-                }
-             */
-
-            Spacer()
-        }
-    }
-
     var debugOverlay: some View {
         HStack {
             VStack {
@@ -411,7 +289,7 @@ struct CameraView: View {
 
                         Spacer()
 
-                        captureSettingsBar
+                        ExposureParams()
 
                         Spacer()
 
