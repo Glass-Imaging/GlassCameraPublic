@@ -1639,11 +1639,11 @@ kernel void convertTosRGB(texture2d<float> linearImage                  [[textur
         }
 
         if (any(lumaVariance != 0)) {
-            lumaSigma = sqrt(lumaVariance.x + lumaVariance.y * ltmBoost * inputPixel.x);
+            lumaSigma = sqrt(lumaVariance.x + lumaVariance.y * ltmBoost * inputPixel.y);
         }
     } else {
         if (any(lumaVariance != 0)) {
-            lumaSigma = sqrt(lumaVariance.x + lumaVariance.y * inputPixel.x);
+            lumaSigma = sqrt(lumaVariance.x + lumaVariance.y * inputPixel.y);
         }
     }
 
