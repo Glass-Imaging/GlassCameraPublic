@@ -1506,77 +1506,13 @@ kernel void histogramStatistics(device histogram_data& histogram_data [[buffer(0
     }
 }
 
-kernel void convertTosRGB(texture2d<float> linearImage                  [[texture(0)]],
-                          texture2d<float> ltmMaskImage                 [[texture(1)]],
-                          texture2d<float, access::write> rgbImage      [[texture(2)]],
-                          constant Matrix3x3& transform                 [[buffer(3)]],
-                          constant RGBConversionParameters& parameters  [[buffer(4)]],
-                          constant histogram_data& histogram_data       [[buffer(5)]],
-                          uint2 index                                   [[thread_position_in_grid]])
-{
-    const int2 imageCoordinates = (int2) index;
-
-    float black_level = histogram_data.black_level;
-    float white_level = 1; // - 0.25 * (1 - smoothstep(0.375, 0.625, histogram_data.white_level));
-
-    float brightening = 1; // + 0.5 * smoothstep(0, 0.1, histogram_data.mean - histogram_data.median);
-    if (histogram_data.mean > 0.22) {
-        brightening *= 0.22 / histogram_data.mean;
-    }
-
-    // FIXME: Compute the black and white levels dynamically
-    float3 pixel_value = brightening * max(read_imagef(linearImage, imageCoordinates).xyz - black_level, 0) / (white_level - black_level);
-
-    // Exposure Bias
-    pixel_value *= parameters.exposureBias != 0 ? powr(2.0, parameters.exposureBias) : 1;
-
-    // Saturation
-    pixel_value = parameters.saturation != 1.0 ? saturationBoost(pixel_value, parameters.saturation) : pixel_value;
-
-    // Contrast
-    pixel_value = parameters.contrast != 1.0 ? contrastBoost(pixel_value, parameters.contrast) : pixel_value;
-
-    // Conversion to target color space, ensure definite positiveness
-    float3 rgb = max(float3(
-        dot(transform.m[0], pixel_value),
-        dot(transform.m[1], pixel_value),
-        dot(transform.m[2], pixel_value)
-    ), 0);
-
-    // Local Tone Mapping
-    if (parameters.localToneMapping) {
-        float ltmBoost = read_imagef(ltmMaskImage, imageCoordinates).x;
-
-        if (ltmBoost > 1) {
-            // Modified Naik and Murthy’s method for preserving hue/saturation under luminance changes
-            const float luma = 0.2126 * rgb.x + 0.7152 * rgb.y + 0.0722 * rgb.z; // BT.709-2 (sRGB) luma primaries
-            // rgb = mix(1 - (1.0 - rgb) * (1 - ltmBoost * luma) / (1 - luma), rgb * ltmBoost, smoothstep(0.125, 0.25, luma));
-            rgb = mix(rgb * ltmBoost,
-                      mix(1 - (1.0 - rgb) * (1 - ltmBoost * luma) / (1 - luma), rgb * ltmBoost, smoothstep(0.5, 0.8, luma)),
-                      min(pow(luma, 0.5), 1.0));
-        } else if (ltmBoost < 1) {
-            rgb *= ltmBoost;
-        }
-    }
-
-    // Tone Curve
-    rgb = toneCurve(max(rgb, 0), parameters.toneCurveSlope);
-
-    // Black Level Adjustment
-    if (parameters.blacks > 0) {
-        rgb = (rgb - parameters.blacks) / (1 - parameters.blacks);
-    }
-
-    write_imagef(rgbImage, imageCoordinates, float4(clamp(rgb, 0.0, 1.0), 1.0));
-}
-
 static inline float2 s_curve(float2 t) {
     return t * t * (3. - 2. * t);
 }
 
-static constant int B = 0x100;
+static constant int noiseGradSize = 514;
 
-float noise(float2 pos, constant array<int, B + B + 2>& p, constant array<float2, B + B + 2>& g2) {
+float noise(float2 pos, constant array<int, noiseGradSize>& p, constant array<float2, noiseGradSize>& g2) {
     // setup
     const int BM = 0xff;
     const int N = 0x1000;
@@ -1609,7 +1545,7 @@ float noise(float2 pos, constant array<int, B + B + 2>& p, constant array<float2
 }
 
 float octaveNoise(float2 pos, int octaves, float persistence, float lacunarity,
-                  constant array<int, B + B + 2>& p, constant array<float2, B + B + 2>& g2) {
+                  constant array<int, noiseGradSize>& p, constant array<float2, noiseGradSize>& g2) {
     float freq = 1.0f;
     float amp = 1.0f;
     float norm = 1.0f;
@@ -1626,8 +1562,8 @@ float octaveNoise(float2 pos, int octaves, float persistence, float lacunarity,
 }
 
 kernel void simplex_noise(texture2d<float> inputImage                   [[texture(0)]],
-                          constant array<int, B + B + 2>& p             [[buffer(1)]],
-                          constant array<float2, B + B + 2>& g2         [[buffer(2)]],
+                          constant array<int, noiseGradSize>& p         [[buffer(1)]],
+                          constant array<float2, noiseGradSize>& g2     [[buffer(2)]],
                           constant float2& variance                     [[buffer(3)]],
                           texture2d<float, access::write> outputImage   [[texture(4)]],
                           uint2 index                                   [[thread_position_in_grid]])
@@ -1640,4 +1576,90 @@ kernel void simplex_noise(texture2d<float> inputImage                   [[textur
     float sigma = sqrt(variance.x + variance.y * pixel.x);
     pixel.x += sigma * noise;
     write_imagef(outputImage, imageCoordinates, pixel);
+}
+
+kernel void convertTosRGB(texture2d<float> linearImage                  [[texture(0)]],
+                          texture2d<float> ltmMaskImage                 [[texture(1)]],
+                          texture2d<float, access::write> rgbImage      [[texture(2)]],
+                          constant Matrix3x3& transform                 [[buffer(3)]],
+                          constant RGBConversionParameters& parameters  [[buffer(4)]],
+                          constant histogram_data& histogram_data       [[buffer(5)]],
+                          constant float2& lumaVariance                 [[buffer(6)]],
+                          constant array<int, noiseGradSize>& p         [[buffer(7)]],
+                          constant array<float2, noiseGradSize>& g2     [[buffer(8)]],
+                          uint2 index                                   [[thread_position_in_grid]])
+{
+    const int2 imageCoordinates = (int2) index;
+
+    float black_level = histogram_data.black_level;
+    float white_level = 1; // - 0.25 * (1 - smoothstep(0.375, 0.625, histogram_data.white_level));
+
+    float brightening = 1; // + 0.5 * smoothstep(0, 0.1, histogram_data.mean - histogram_data.median);
+    if (histogram_data.mean > 0.22) {
+        brightening *= 0.22 / histogram_data.mean;
+    }
+
+    // FIXME: Compute the black and white levels dynamically
+    float3 inputPixel = read_imagef(linearImage, imageCoordinates).xyz;
+
+    float3 pixel_value = brightening * max(inputPixel - black_level, 0) / (white_level - black_level);
+
+    // Exposure Bias
+    pixel_value *= parameters.exposureBias != 0 ? powr(2.0, parameters.exposureBias) : 1;
+
+    // Saturation
+    pixel_value = parameters.saturation != 1.0 ? saturationBoost(pixel_value, parameters.saturation) : pixel_value;
+
+    // Contrast
+    pixel_value = parameters.contrast != 1.0 ? contrastBoost(pixel_value, parameters.contrast) : pixel_value;
+
+    // Conversion to target color space, ensure definite positiveness
+    float3 rgb = max(float3(
+        dot(transform.m[0], pixel_value),
+        dot(transform.m[1], pixel_value),
+        dot(transform.m[2], pixel_value)
+    ), 0);
+
+    // Sigma of perlin noise to add to the image
+    float lumaSigma = 0;
+
+    // Local Tone Mapping
+    if (parameters.localToneMapping) {
+        float ltmBoost = read_imagef(ltmMaskImage, imageCoordinates).x;
+
+        if (ltmBoost > 1) {
+            // Modified Naik and Murthy’s method for preserving hue/saturation under luminance changes
+            const float luma = 0.2126 * rgb.x + 0.7152 * rgb.y + 0.0722 * rgb.z; // BT.709-2 (sRGB) luma primaries
+            // rgb = mix(1 - (1.0 - rgb) * (1 - ltmBoost * luma) / (1 - luma), rgb * ltmBoost, smoothstep(0.125, 0.25, luma));
+            rgb = mix(rgb * ltmBoost,
+                      mix(1 - (1.0 - rgb) * (1 - ltmBoost * luma) / (1 - luma), rgb * ltmBoost, smoothstep(0.5, 0.8, luma)),
+                      min(pow(luma, 0.5), 1.0));
+        } else if (ltmBoost < 1) {
+            rgb *= ltmBoost;
+        }
+
+        if (any(lumaVariance != 0)) {
+            lumaSigma = sqrt(lumaVariance.x + lumaVariance.y * ltmBoost * inputPixel.x);
+        }
+    } else {
+        if (any(lumaVariance != 0)) {
+            lumaSigma = sqrt(lumaVariance.x + lumaVariance.y * inputPixel.x);
+        }
+    }
+
+    // Add back some good looking noise
+    if (lumaSigma > 0) {
+        float noise = octaveNoise(0.5 * float2(imageCoordinates), 4, 0.5, 0.5, p, g2);
+        rgb += lumaSigma * noise;
+    }
+
+    // Tone Curve
+    rgb = toneCurve(max(rgb, 0), parameters.toneCurveSlope);
+
+    // Black Level Adjustment
+    if (parameters.blacks > 0) {
+        rgb = (rgb - parameters.blacks) / (1 - parameters.blacks);
+    }
+
+    write_imagef(rgbImage, imageCoordinates, float4(clamp(rgb, 0.0, 1.0), 1.0));
 }

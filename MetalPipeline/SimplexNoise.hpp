@@ -31,8 +31,12 @@ static inline float mix(float a, float b, float t) {
 class Noise2D {
     static constexpr int B = 0x100;
 
-    int p[B + B + 2];
-    float g2[B + B + 2][2];
+public:
+    static constexpr int arraySize = 2 * B + 2;
+
+private:
+    std::array<int, arraySize> perm;
+    std::array<std::array<float, 2>, arraySize> grad;
 
     static inline void setup(int* b0, int* b1, float* r0, float* r1, float val) {
         const int BM = 0xff;
@@ -45,15 +49,15 @@ class Noise2D {
         *r1 = *r0 - 1;
     }
 
-    static inline float at2(float q[2], float rx, float ry) {
-        return rx * q[0] + ry * q[1];
+    static inline float at2(const std::array<float, 2>& q, const std::array<float, 2>& r) {
+        return r[0] * q[0] + r[1] * q[1];
     }
 
-    static inline void normalize2(float v[2]) {
+    static inline void normalize(std::array<float, 2>* v) {
         float s;
-        s = sqrt(v[0] * v[0] + v[1] * v[1]);
-        v[0] = v[0] / s;
-        v[1] = v[1] / s;
+        s = sqrt((*v)[0] * (*v)[0] + (*v)[1] * (*v)[1]);
+        (*v)[0] = (*v)[0] / s;
+        (*v)[1] = (*v)[1] / s;
     }
 
 public:
@@ -64,23 +68,23 @@ public:
         setup(&bx0, &bx1, &rx0, &rx1, x);
         setup(&by0, &by1, &ry0, &ry1, y);
 
-        int i = p[bx0];
-        int j = p[bx1];
+        int i = perm[bx0];
+        int j = perm[bx1];
 
-        int b00 = p[i + by0];
-        int b10 = p[j + by0];
-        int b01 = p[i + by1];
-        int b11 = p[j + by1];
+        int b00 = perm[i + by0];
+        int b10 = perm[j + by0];
+        int b01 = perm[i + by1];
+        int b11 = perm[j + by1];
 
         float sx = s_curve(rx0);
         float sy = s_curve(ry0);
 
-        float u = at2(g2[b00], rx0, ry0);
-        float v = at2(g2[b10], rx1, ry0);
+        float u = at2(grad[b00], { rx0, ry0 });
+        float v = at2(grad[b10], { rx1, ry0 });
         float a = mix(u, v, sx);
 
-        u = at2(g2[b01], rx0, ry1);
-        v = at2(g2[b11], rx1, ry1);
+        u = at2(grad[b01], { rx0, ry1 });
+        v = at2(grad[b11], { rx1, ry1 });
         float b = mix(u, v, sx);
 
         return mix(a, b, sy);
@@ -102,26 +106,40 @@ public:
         return total / max;
     }
 
-    Noise2D() {
+    static void initGradients(std::array<int, arraySize>* perm,
+                              std::array<std::array<float, 2>, arraySize>* grad) {
         for (int i = 0; i < B; i++) {
-            p[i] = i;
+            (*perm)[i] = i;
             for (int j = 0; j < 2; j++) {
-                g2[i][j] = (float)((random() % (B + B)) - B) / B;
+                (*grad)[i][j] = (float)((random() % (2 * B)) - B) / B;
             }
-            normalize2(g2[i]);
+            normalize(&(*grad)[i]);
         }
         for (int i = B - 1; i > 0; i--) {
-            int k = p[i];
+            int k = (*perm)[i];
             int j = random() % B;
-            p[i] = p[j];
-            p[j] = k;
+            (*perm)[i] = (*perm)[j];
+            (*perm)[j] = k;
         }
         for (int i = 0; i < B + 2; i++) {
-            p[B + i] = p[i];
+            (*perm)[B + i] = (*perm)[i];
             for (int j = 0; j < 2; j++) {
-                g2[B + i][j] = g2[i][j];
+                (*grad)[B + i][j] = (*grad)[i][j];
             }
         }
+    }
+
+    static void randomSeed(unsigned seed) {
+        srandom(seed);
+    }
+
+    Noise2D() {
+        initGradients(&perm, &grad);
+    }
+
+    Noise2D(unsigned seed) {
+        randomSeed(seed);
+        initGradients(&perm, &grad);
     }
 };
 

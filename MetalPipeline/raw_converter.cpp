@@ -111,33 +111,6 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::denoise(const gls::mtl_i
                                       demosaicParameters->ltmParameters, _histogramBuffer.get());
     }
 
-    // High ISO noise texture replacement
-    bool add_perlin_noise = true;
-    if (add_perlin_noise) {
-        gls::Vector<2> nlf = { noiseModel->rawNlf.first[1], noiseModel->rawNlf.second[1] };
-
-        std::cout << "Adding perlin noise with NLF " << nlf << std::endl;
-
-        bool use_gpu_noise = true;
-        if (use_gpu_noise) {
-            // Calling initialize() will generate a new noise pattern
-            _simplexNoise.initialize();
-            _simplexNoise(&_mtlContext, *denoisedImage, /*luma_nlf=*/ nlf * 4.0f, denoisedImage);
-        } else {
-            Noise2D simplexNoise;
-
-            _mtlContext.waitForCompletion();
-            auto denoisedImageCPU = denoisedImage->mapImage();
-
-            denoisedImageCPU->apply([&] (gls::rgba_pixel_float* p, int x, int y) {
-                float noise = simplexNoise.octaveNoise(0.5 * x, 0.5 * y, 4, 0.5, 0.5);
-                float sigma = std::sqrt(nlf[0] + nlf[1] * (*p)[0]);
-                const float16_t luma = (*p)[0] + sigma * noise;
-                *p = { luma, (*p)[1], (*p)[2], 1 };
-            });
-        }
-    }
-
     return denoisedImage;
 }
 
@@ -192,9 +165,6 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
 
     // Convert result back to camera RGB
     const auto ycbcr_to_cam = inverse(cam_to_ycbcr);
-
-    // Use the first pixel value of the image as a seed for the noise to have a stable noise pattern for every given image
-    _simplexNoise.randomSeed(rawImage[0][0]);
 
     _rawImage->copyPixelsFrom(rawImage);
 
@@ -254,8 +224,12 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
     // FIXME: This is horrible!
     demosaicParameters->rgbConversionParameters.exposureBias += log2(demosaicParameters->exposure_multiplier);
 
+    // Use the first pixel value of the image as a seed for the noise to have a stable noise pattern for every given image
+    _convertTosRGB.randomSeed(rawImage[0][0]);
+    _convertTosRGB.initGradients();
+
     _convertTosRGB(context, *_linearRGBImageA, _localToneMapping->getMask(), *demosaicParameters,
-                   _histogramBuffer.get(), _linearRGBImageA.get());
+                   _histogramBuffer.get(), 8.0f * rawVariance[1], _linearRGBImageA.get());
 
     _mtlContext.waitForCompletion();
 
@@ -335,7 +309,7 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::postprocess(gls::image<g
     _transformImage(context, *_linearRGBImageB, _linearRGBImageA.get(), ycbcr_to_cam);
 
     _convertTosRGB(context, *_linearRGBImageA, _localToneMapping->getMask(), *demosaicParameters,
-                   _histogramBuffer.get(), _linearRGBImageA.get());
+                   _histogramBuffer.get(), /*lumaVariance=*/{0, 0}, _linearRGBImageA.get());
 
     _mtlContext.waitForCompletion();
 
