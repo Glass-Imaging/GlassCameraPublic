@@ -10,12 +10,29 @@ import SwiftUI
 import Combine
 import AVFoundation
 
+
+
 struct ExposureParams: View {
     @EnvironmentObject var cameraState: CameraState
 
     @GestureState private var shutterSpeedGestureOffset: Float = .zero
     @GestureState private var isoGestureOffset: Float = .zero
     @GestureState private var exposureBiasGestureOffset: Float = .zero
+
+    @State private var showISOPresetsPicker: Bool = false
+    @State private var selectedISOPreset: Int = 21
+
+
+    func getParamPicker(selection: Binding<Int>) -> Picker<some View, Int, some View> {
+        return Picker(selection: $selectedISOPreset, content: {
+            Text("21").tag(21)
+            Text("42").tag(42)
+            Text("84").tag(84)
+            Text("168").tag(168)
+        }, label: {
+            Text("TEST!")
+        })
+    }
 
     var FStopField : some View {
         VStack {
@@ -53,8 +70,8 @@ struct ExposureParams: View {
         func getHint() -> String {
             return cameraState.isAtUpperDeviceExposureDurationLimit ? "MAX"
             : cameraState.isAtLowerDeviceExposureDurationLimit ? "MIN"
-            : (cameraState.isAtUpperTargetExposureDurationLimit || cameraState.isAtLowerTargetExposureDurationLimit) ? "LIMIT"
-            : cameraState.isManualExposureDuration ? "MANUAL":  " "
+            : cameraState.isManualExposureDuration ? "MANUAL"
+            : (cameraState.isAtUpperTargetExposureDurationLimit || cameraState.isAtLowerTargetExposureDurationLimit) ? "LIMIT" : " "
         }
 
         return VStack {
@@ -71,6 +88,15 @@ struct ExposureParams: View {
         .onTapGesture {
             cameraState.isManualExposureDuration.toggle()
             cameraState.userExposureDuration = cameraState.calculatedExposureDuration
+        }
+        .padding(5)
+        .contextMenu {
+            if cameraState.isManualExposureDuration {
+                ForEach([2, 1, -1, -2], id: \.self) { evBias in
+                    let exposureDuration = cameraState.calculatedExposureDuration.seconds * pow(2, evBias)
+                    Button("\(Int(evBias)) EV: 1 / \(Int(1/exposureDuration))") { cameraState.userExposureDuration = CMTime(seconds: exposureDuration, preferredTimescale: 1_000_000_000) }
+                }
+            }
         }
     }
 
@@ -90,8 +116,15 @@ struct ExposureParams: View {
         func getHint() -> String {
             return cameraState.isAtUpperDeviceISOLimit ? "MAX"
             : cameraState.isAtLowerDeviceISOLimit ? "MIN"
-            : (cameraState.isAtLowerTargetISOLimit || cameraState.isAtUpperTargetISOLimit) ? "LIMIT"
-            : cameraState.isManualISO ? "MANUAL":  " "
+            : cameraState.isManualISO ? "MANUAL"
+            : (cameraState.isAtLowerTargetISOLimit || cameraState.isAtUpperTargetISOLimit) ? "LIMIT" : " "
+        }
+
+
+        var isoPresets: Array<Int> = [100]
+        if(cameraState.deviceMaxISO != cameraState.deviceMinISO) {
+            let scale = Int(log2((cameraState.deviceMaxISO / cameraState.deviceMinISO)).rounded(.down))
+            isoPresets = stride(from: scale,  through: 0, by: -1).map { Int(cameraState.deviceMinISO * pow(2, Float($0))) }
         }
 
         return VStack {
@@ -108,6 +141,14 @@ struct ExposureParams: View {
         .onTapGesture {
             cameraState.isManualISO.toggle()
             cameraState.userISO = cameraState.calculatedISO
+        }
+        .padding(5) // Padding is required so context menu doesnt encroach on borders
+        .contextMenu {
+            if cameraState.isManualISO {
+                ForEach(isoPresets, id: \.self) { iso in
+                    Button(String(iso)) { cameraState.userISO = Float(iso) }
+                }
+            }
         }
     }
 
@@ -141,25 +182,27 @@ struct ExposureParams: View {
     }
 
     var body: some View {
-        HStack {
-            Spacer()
+        VStack {
 
-            FStopField
+            HStack {
+                Spacer()
 
-            Spacer()
+                FStopField
 
-            ExposureDurationField
+                Spacer()
 
-            Spacer()
+                ExposureDurationField
 
-            ISOField
+                Spacer()
 
-            Spacer()
+                ISOField
 
-            ExposureBiasField
+                Spacer()
 
-            Spacer()
+                ExposureBiasField
+
+                Spacer()
+            }
         }
-
     }
 }

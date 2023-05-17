@@ -17,16 +17,16 @@ final class CameraState: ObservableObject {
 
     // Unchanging per camera
     @Published var deviceAperture: Float = 0
-    @Published var deviceMaxExposureDuration: CMTime = CMTime(seconds: 0, preferredTimescale: 1)
-    @Published var deviceMinExposureDuration: CMTime = CMTime(seconds: 0, preferredTimescale: 1)
-    @Published var deviceMaxISO: Float = 0
-    @Published var deviceMinISO: Float = 0
+    @Published var deviceMaxExposureDuration: CMTime = CMTime(seconds: 1/100, preferredTimescale: 1_000_000)
+    @Published var deviceMinExposureDuration: CMTime = CMTime(seconds: 1/100, preferredTimescale: 1_000_000)
+    @Published var deviceMaxISO: Float = 100
+    @Published var deviceMinISO: Float = 100
     @Published var deviceMinExposureBias: Float = 0
     @Published var deviceMaxExposureBias: Float = 0
 
     // Exposure params as metered by default
-    @Published var meteredExposureDuration: CMTime = CMTime(seconds: 0, preferredTimescale: 1)
-    @Published var meteredISO: Float = 0
+    @Published var meteredExposureDuration: CMTime = CMTime(seconds: 1/100, preferredTimescale: 1_000_000_000)
+    @Published var meteredISO: Float = 100
     @Published var meteredExposureBias: Float = 0
     @Published var meteredExposureOffset: Float = 0
 
@@ -34,7 +34,6 @@ final class CameraState: ObservableObject {
     @Published var calculatedExposureDuration: CMTime = CMTime(seconds: 1/100, preferredTimescale: 1_000_000_000)
     @Published var calculatedISO: Float = 100
     @Published var calculatedExposureBias: Float = 0
-    //@Published var calculatedExposureOffset: Float = 0
 
     // User provided exposure params
     @Published var userExposureDuration: CMTime = CMTime(seconds: 1/100, preferredTimescale: 1_000_000_000)
@@ -44,8 +43,8 @@ final class CameraState: ObservableObject {
     // Exposure param limits as specified by user settings
     @Published var targetMaxExposureDuration: CMTime = CMTime(seconds: 1.0/60, preferredTimescale: 1_000_000_000)
     @Published var targetMinExposureDuration: CMTime = CMTime(seconds: 0, preferredTimescale: 1)
-    @Published var targetMaxISO: Float = Float.infinity
-    @Published var targetMinISO: Float = 0
+    @Published var targetMaxISO: Float = 100
+    @Published var targetMinISO: Float = 100
 
     // User Options
     @Published public var isFlashOn  = false
@@ -77,18 +76,8 @@ final class CameraState: ObservableObject {
     private var subscriptions = Set<AnyCancellable>()
 
     public init() {
-        /*
-        $meteredExposureDuration.sink { metered in
-            self.calculateExposureParams()
-        }.store(in: &self.subscriptions)
-
-        $meteredISO.sink { metered in
-            self.calculateExposureParams()
-        }.store(in: &self.subscriptions)
-         */
 
         $meteredExposureOffset
-            // .throttle(for: .milliseconds(100), scheduler: RunLoop.current, latest: true)
             .filter { newOffset in abs(newOffset - self.currentMeteredExposureOffset) > 0.1 }
             .sink { metered in
                 self.currentMeteredExposureOffset = metered
@@ -100,6 +89,7 @@ final class CameraState: ObservableObject {
         }.store(in: &self.subscriptions)
 
         $userISO.sink { user in
+            print("Updating User ISO to \(user)")
             self.calculateExposureParams()
         }.store(in: &self.subscriptions)
 
@@ -135,7 +125,6 @@ final class CameraState: ObservableObject {
             } else if (self.isManualISO) {
                 self.calculateExposureParamsManualISO(exposureDuration, iso, exposureBias, offset)
             } else {
-                //self.calculateExposureParamsAuto(exposureDuration, iso, exposureBias, offset)
                 self.calculateExposureParamsMinimizeISO(exposureDuration, iso, exposureBias, offset)
             }
 
@@ -224,8 +213,6 @@ final class CameraState: ObservableObject {
     }
 
     func updateCameraDevice(device: AVCaptureDevice) {
-        NSLog("CAMERA STATE - UPDATING CAMERA DEVICE")
-
         DispatchQueue.main.async {
             self.deviceMinISO = device.activeFormat.minISO
             self.deviceMaxISO = device.activeFormat.maxISO
@@ -281,4 +268,3 @@ final class CameraState: ObservableObject {
         }
     }
 }
-
