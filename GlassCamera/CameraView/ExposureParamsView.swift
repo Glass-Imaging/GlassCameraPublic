@@ -19,21 +19,6 @@ struct ExposureParams: View {
     @GestureState private var isoGestureOffset: Float = .zero
     @GestureState private var exposureBiasGestureOffset: Float = .zero
 
-    @State private var showISOPresetsPicker: Bool = false
-    @State private var selectedISOPreset: Int = 21
-
-
-    func getParamPicker(selection: Binding<Int>) -> Picker<some View, Int, some View> {
-        return Picker(selection: $selectedISOPreset, content: {
-            Text("21").tag(21)
-            Text("42").tag(42)
-            Text("84").tag(84)
-            Text("168").tag(168)
-        }, label: {
-            Text("TEST!")
-        })
-    }
-
     var FStopField : some View {
         VStack {
             Text("f/\(String(cameraState.deviceAperture))")
@@ -45,6 +30,9 @@ struct ExposureParams: View {
         }
         .padding(5)
         .overlay(RoundedRectangle(cornerRadius: 5).stroke(Color.clear, lineWidth: 2))
+        .padding([.leading, .trailing], 15)
+        .padding([.top, .bottom], 2)
+        .contentShape(Rectangle())
     }
 
     var ExposureDurationField : some View {
@@ -71,7 +59,9 @@ struct ExposureParams: View {
             return cameraState.isAtUpperDeviceExposureDurationLimit ? "MAX"
             : cameraState.isAtLowerDeviceExposureDurationLimit ? "MIN"
             : cameraState.isManualExposureDuration ? "MANUAL"
-            : (cameraState.isAtUpperTargetExposureDurationLimit || cameraState.isAtLowerTargetExposureDurationLimit) ? "LIMIT" : " "
+            : cameraState.isAtUpperTargetExposureDurationLimit ? "MAX AUTO"
+            : cameraState.isAtLowerTargetExposureDurationLimit ? "MIN AUTO"
+            : "AUTO"
         }
 
         return VStack {
@@ -89,12 +79,36 @@ struct ExposureParams: View {
             cameraState.isManualExposureDuration.toggle()
             cameraState.userExposureDuration = cameraState.calculatedExposureDuration
         }
-        .padding(5)
+        .padding([.leading, .trailing], 15)
+        .padding([.top, .bottom], 2)
+        .contentShape(Rectangle())
         .contextMenu {
             if cameraState.isManualExposureDuration {
+                Text("Manual Shutter Speed").font(.system(.title))
                 ForEach([2, 1, -1, -2], id: \.self) { evBias in
                     let exposureDuration = cameraState.calculatedExposureDuration.seconds * pow(2, evBias)
-                    Button("\(Int(evBias)) EV: 1 / \(Int(1/exposureDuration))") { cameraState.userExposureDuration = CMTime(seconds: exposureDuration, preferredTimescale: 1_000_000_000) }
+                    let biasText = evBias < 0 ? "\(Int(evBias))" : "+\(Int(evBias))"
+                    Button("\(biasText) EV  1/\(Int((1/exposureDuration).rounded()))") {
+                        cameraState.userExposureDuration = CMTime(seconds: exposureDuration, preferredTimescale: 1_000_000_000)
+                    }
+                }
+            } else {
+                Text("Auto Exposure Max").font(.system(.title))
+                Button("Unlimited - No Max") {
+                    cameraState.targetMaxExposureDuration = CMTime(seconds: cameraState.deviceMaxExposureDuration.seconds, preferredTimescale: 1_000_000_000)
+                    cameraState.calculateExposureParams()
+                }
+                Button("Still - Max 1/40s") {
+                    cameraState.targetMaxExposureDuration = CMTime(seconds: 1/40, preferredTimescale: 1_000_000_000)
+                    cameraState.calculateExposureParams()
+                }
+                Button("Default - Max 1/80s") {
+                    cameraState.targetMaxExposureDuration = CMTime(seconds: 1/80, preferredTimescale: 1_000_000_000)
+                    cameraState.calculateExposureParams()
+                }
+                Button("Motion - Max 1/160s") {
+                    cameraState.targetMaxExposureDuration = CMTime(seconds: 1/160, preferredTimescale: 1_000_000_000)
+                    cameraState.calculateExposureParams()
                 }
             }
         }
@@ -117,7 +131,9 @@ struct ExposureParams: View {
             return cameraState.isAtUpperDeviceISOLimit ? "MAX"
             : cameraState.isAtLowerDeviceISOLimit ? "MIN"
             : cameraState.isManualISO ? "MANUAL"
-            : (cameraState.isAtLowerTargetISOLimit || cameraState.isAtUpperTargetISOLimit) ? "LIMIT" : " "
+            : cameraState.isAtLowerTargetISOLimit ? "MIN AUTO"
+            : cameraState.isAtUpperTargetISOLimit ? "MAX AUTO"
+            : "AUTO"
         }
 
 
@@ -142,9 +158,12 @@ struct ExposureParams: View {
             cameraState.isManualISO.toggle()
             cameraState.userISO = cameraState.calculatedISO
         }
-        .padding(5) // Padding is required so context menu doesnt encroach on borders
+        .padding([.leading, .trailing], 15)
+        .padding([.top, .bottom], 2)
+        .contentShape(Rectangle())
         .contextMenu {
             if cameraState.isManualISO {
+                Text("Manual ISO").font(.system(.title))
                 ForEach(isoPresets, id: \.self) { iso in
                     Button(String(iso)) { cameraState.userISO = Float(iso) }
                 }
@@ -179,6 +198,9 @@ struct ExposureParams: View {
         .padding(5)
         .overlay(RoundedRectangle(cornerRadius: 5).stroke(cameraState.isManualEVBias ? Color.yellow : Color.clear, lineWidth: 2))
         .onTapGesture { cameraState.isManualEVBias.toggle() }
+        .padding([.leading, .trailing], 15)
+        .padding([.top, .bottom], 2)
+        .contentShape(Rectangle())
     }
 
     var body: some View {

@@ -111,7 +111,7 @@ final class CameraState: ObservableObject {
         }.store(in: &self.subscriptions)
     }
 
-    private func calculateExposureParams() {
+    func calculateExposureParams() {
         DispatchQueue.main.async {
             let exposureDuration = Float(self.meteredExposureDuration.seconds)
             let iso = self.meteredISO
