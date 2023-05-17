@@ -481,26 +481,52 @@ struct resampleImageKernel {
 struct histogramImageKernel {
     Kernel<MTL::Texture*,  // inputImage
            MTL::Buffer*    // histogramBuffer
-    > kernel;
+    > histogramImage;
 
-    histogramImageKernel(MetalContext* context) : kernel(context, "histogramImage") { }
-
-    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage, MTL::Buffer* histogramBuffer) {
-     kernel(context, /*gridSize=*/ MTL::Size(inputImage.width, inputImage.height, 1),
-            inputImage.texture(), histogramBuffer);
-    }
-};
-
-struct histogramStatisticsKernel {
     Kernel<MTL::Buffer*,  // histogramBuffer
            simd::uint2    // imageDimensions
-    > kernel;
+    > histogramStatistics;
 
-    histogramStatisticsKernel(MetalContext* context) : kernel(context, "histogramStatistics") { }
+    struct histogram_data {
+        std::array<uint32_t, 256> histogram;
+        std::array<uint32_t, 8> bands;
+        float black_level;
+        float white_level;
+        float shadows;
+        float highlights;
+        float mean;
+        float median;
+    };
 
-    void operator() (MetalContext* context, MTL::Buffer* histogramBuffer, const gls::size& imageDimensions) {
-        kernel(context, /*gridSize=*/ MTL::Size(1, 1, 1),
-               histogramBuffer, simd::uint2 {(unsigned) imageDimensions.width, (unsigned) imageDimensions.height});
+    gls::Buffer<histogram_data> histogramBuffer;
+
+    void reset() {
+        bzero(histogramBuffer.data(), sizeof(histogram_data));
+    }
+
+    histogram_data* histogramData() const {
+        return histogramBuffer.data();
+    }
+
+    MTL::Buffer* buffer() {
+        return histogramBuffer.buffer();
+    }
+
+    histogramImageKernel(MetalContext* context) :
+        histogramImage(context, "histogramImage"),
+        histogramStatistics(context, "histogramStatistics"),
+        histogramBuffer(context->device(), 1)
+        { }
+
+    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage) {
+        histogramImage(context, /*gridSize=*/ MTL::Size(inputImage.width, inputImage.height, 1),
+               inputImage.texture(), histogramBuffer.buffer());
+    }
+
+    void statistics(MetalContext* context, const gls::size& imageDimensions) {
+        histogramStatistics(context, /*gridSize=*/ MTL::Size(1, 1, 1),
+                            histogramBuffer.buffer(),
+                            simd::uint2 { (unsigned) imageDimensions.width, (unsigned) imageDimensions.height });
     }
 };
 
@@ -515,6 +541,7 @@ struct localToneMappingMaskKernel {
     > BoxFilterGFImage;
 
     Kernel<MTL::Texture*,  // inputImage
+           MTL::Texture*,  // gradientImage
            MTL::Texture*,  // lfAbImage
            MTL::Texture*,  // mfAbImage
            MTL::Texture*,  // hfAbImage
@@ -531,6 +558,7 @@ struct localToneMappingMaskKernel {
         { }
 
     void operator() (MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
+                     const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& gradientImage,
                      const std::array<const gls::mtl_image_2d<gls::rgba_pixel_float>*, 3>& guideImage,
                      const std::array<const gls::mtl_image_2d<gls::luma_alpha_pixel_float>*, 3>& abImage,
                      const std::array<const gls::mtl_image_2d<gls::luma_alpha_pixel_float>*, 3>& abMeanImage,
@@ -549,9 +577,10 @@ struct localToneMappingMaskKernel {
                          abImage[i]->texture(), abMeanImage[i]->texture());
         }
 
-        localToneMappingMaskImage(context, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1), inputImage.texture(),
-                  abMeanImage[0]->texture(), abMeanImage[1]->texture(), abMeanImage[2]->texture(),
-                  outputImage->texture(), ltmParameters, simd::float2 { nlf[0], nlf[1] }, histogramBuffer);
+        localToneMappingMaskImage(context, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
+                                  inputImage.texture(), gradientImage.texture(),
+                                  abMeanImage[0]->texture(), abMeanImage[1]->texture(), abMeanImage[2]->texture(),
+                                  outputImage->texture(), ltmParameters, simd::float2 { nlf[0], nlf[1] }, histogramBuffer);
     }
 };
 

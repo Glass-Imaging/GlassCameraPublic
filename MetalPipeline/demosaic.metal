@@ -933,9 +933,9 @@ kernel void subtractNoiseImage(texture2d<float> inputImage                      
 
     float alpha = sharpening;
     if (alpha > 1.0) {
-        float2 gradient = read_imagef(gradientImage, output_pos).xy;
+        float gradient = length(read_imagef(gradientImage, output_pos).xy);
         float sigma = sqrt(nlf.x + nlf.y * inputPixelDenoised1.x);
-        float detail = smoothstep(sigma, 4 * sigma, length(gradient))
+        float detail = smoothstep(sigma, 4 * sigma, gradient)
                        * (1.0 - smoothstep(0.95, 1.0, denoisedPixel.x))          // Highlights ringing protection
                        * (0.6 + 0.4 * smoothstep(0.0, 0.1, denoisedPixel.x));    // Shadows ringing protection
         alpha = 1 + (alpha - 1) * detail;
@@ -1369,7 +1369,7 @@ typedef struct LTMParameters {
     float detail[3];
 } LTMParameters;
 
-constant int histogramSize = 0x100;
+constant int histogramSize = 256;
 
 struct histogram_data {
     array<atomic<uint32_t>, histogramSize> histogram;
@@ -1382,56 +1382,11 @@ struct histogram_data {
     float median;
 };
 
-kernel void localToneMappingMaskImage(texture2d<float> inputImage                   [[texture(0)]],
-                                      texture2d<float> lfAbImage                    [[texture(1)]],
-                                      texture2d<float> mfAbImage                    [[texture(2)]],
-                                      texture2d<float> hfAbImage                    [[texture(3)]],
-                                      texture2d<float, access::write> ltmMaskImage  [[texture(4)]],
-                                      constant LTMParameters& ltmParameters         [[buffer(5)]],
-                                      constant float2& nlf                          [[buffer(6)]],
-                                      constant histogram_data& histogram_data       [[buffer(7)]],
-                                      uint2 index                                   [[thread_position_in_grid]]) {
-    const int2 imageCoordinates = (int2) index;
-    const float2 inputNorm = 1.0 / float2(get_image_dim(ltmMaskImage));
-    const float2 pos = float2(imageCoordinates) * inputNorm;
-
-    constexpr sampler linear_sampler(filter::linear);
-
-    float3 input = read_imagef(inputImage, imageCoordinates).xyz;
-    float2 lfAbSample = read_imagef(lfAbImage, linear_sampler, pos + 0.5f * inputNorm).xy;
-
-    float ltmMultiplier = computeLtmMultiplier(input, lfAbSample, ltmParameters.eps,
-                                               histogram_data.shadows, histogram_data.highlights,
-                                               ltmParameters.detail[0]);
-
-    float2 mfAbSample = read_imagef(mfAbImage, linear_sampler, pos + 0.5f * inputNorm).xy;
-    ltmMultiplier *= computeLtmMultiplier(input, mfAbSample, ltmParameters.eps,
-                                          histogram_data.shadows, 1, ltmParameters.detail[1]);
-
-    float hfDetail = ltmParameters.detail[2];
-
-    if (hfDetail > 1.0) {
-        float dx = (read_imagef(inputImage, imageCoordinates + int2(1, 0)).x -
-                    read_imagef(inputImage, imageCoordinates - int2(1, 0)).x) / 2;
-        float dy = (read_imagef(inputImage, imageCoordinates + int2(0, 1)).x -
-                    read_imagef(inputImage, imageCoordinates - int2(0, 1)).x) / 2;
-
-        float noiseThreshold = sqrt(nlf.x + nlf.y * input.x);
-        hfDetail = 1 + (hfDetail - 1) * smoothstep(0.5 * noiseThreshold, 2 * noiseThreshold, length(float2(dx, dy)));
-    }
-
-    float2 hfAbSample = read_imagef(hfAbImage, linear_sampler, pos + 0.5f * inputNorm).xy;
-    ltmMultiplier *= computeLtmMultiplier(input, hfAbSample, ltmParameters.eps,
-                                          histogram_data.shadows, 1, hfDetail);
-
-    write_imagef(ltmMaskImage, imageCoordinates, float4(ltmMultiplier, 0, 0, 0));
-}
-
 constant constexpr float kHistogramScale = 2;
 
-kernel void histogramImage(texture2d<float> inputImage          [[texture(0)]],
-                           device histogram_data& histogram_data [[buffer(1)]],
-                           uint2 index                          [[thread_position_in_grid]]) {
+kernel void histogramImage(texture2d<float> inputImage              [[texture(0)]],
+                           device histogram_data& histogram_data    [[buffer(1)]],
+                           uint2 index                              [[thread_position_in_grid]]) {
     const int2 imageCoordinates = (int2) index;
 
     float3 pixelValue = read_imagef(inputImage, imageCoordinates).xyz;
@@ -1449,6 +1404,8 @@ kernel void histogramStatistics(device histogram_data& histogram_data [[buffer(0
 
         const uint32_t image_size = image_dimensions.x * image_dimensions.y;
 
+        const int bands_ratio = histogram_data.histogram.size() / histogram_data.bands.size();
+
         float mean = 0;
         bool found_median = false;
         bool found_black = false;
@@ -1461,7 +1418,7 @@ kernel void histogramStatistics(device histogram_data& histogram_data [[buffer(0
             const uint32_t entry = (*plain_histogram)[i];
 
             // Compute subsampled (8 bands) histogram
-            histogram_data.bands[i / 32] += entry;
+            histogram_data.bands[i / bands_ratio] += entry;
 
             // Compute average image value
             mean += entry * (i + 1) / (float) histogramSize;
@@ -1504,6 +1461,59 @@ kernel void histogramStatistics(device histogram_data& histogram_data [[buffer(0
                                                         (histogram_data.bands[0] +
                                                          histogram_data.bands[1]) / (float) image_size);
     }
+}
+
+kernel void localToneMappingMaskImage(texture2d<float> inputImage                   [[texture(0)]],
+                                      texture2d<float> gradientImage                [[texture(1)]],
+                                      texture2d<float> lfAbImage                    [[texture(2)]],
+                                      texture2d<float> mfAbImage                    [[texture(3)]],
+                                      texture2d<float> hfAbImage                    [[texture(4)]],
+                                      texture2d<float, access::write> ltmMaskImage  [[texture(5)]],
+                                      constant LTMParameters& ltmParameters         [[buffer(6)]],
+                                      constant float2& nlf                          [[buffer(7)]],
+                                      constant histogram_data& histogram_data       [[buffer(8)]],
+                                      uint2 index                                   [[thread_position_in_grid]]) {
+    const int2 imageCoordinates = (int2) index;
+    const float2 inputNorm = 1.0 / float2(get_image_dim(ltmMaskImage));
+    const float2 pos = float2(imageCoordinates) * inputNorm;
+
+    constexpr sampler linear_sampler(filter::linear);
+
+    float3 input = read_imagef(inputImage, imageCoordinates).xyz;
+    float2 lfAbSample = read_imagef(lfAbImage, linear_sampler, pos + 0.5f * inputNorm).xy;
+
+    float ltmMultiplier = computeLtmMultiplier(input, lfAbSample, ltmParameters.eps,
+                                               histogram_data.shadows, histogram_data.highlights,
+                                               ltmParameters.detail[0]);
+
+    float mfDetail = ltmParameters.detail[1];
+    if (mfDetail > 1.0) {
+        float detail = (1.0 - smoothstep(0.3, 0.5, input.x))            // Highlights ringing protection
+                       * (0.6 + 0.4 * smoothstep(0.0, 0.01, input.x));  // Shadows ringing protection
+        mfDetail = 1 + (mfDetail - 1) * detail;
+    }
+
+    float2 mfAbSample = read_imagef(mfAbImage, linear_sampler, pos + 0.5f * inputNorm).xy;
+    ltmMultiplier *= computeLtmMultiplier(input, mfAbSample, ltmParameters.eps,
+                                          histogram_data.shadows, 1, mfDetail);
+
+    float hfDetail = ltmParameters.detail[2];
+    if (hfDetail > 1.0) {
+        float gradient = length(read_imagef(gradientImage, imageCoordinates).xy);
+
+        float sigma = sqrt(nlf.x + nlf.y * input.x);
+        float detail = smoothstep(2 * sigma, 8 * sigma, gradient)               // Don't sharpen noise
+                       * (1 - smoothstep(32 * sigma, 128 * sigma, gradient))    // Don't sharpen high gradients
+                       * (1.0 - smoothstep(0.7, 0.9, input.x))                  // Highlights ringing protection
+                       * (0.6 + 0.4 * smoothstep(0.0, 0.01, input.x));          // Shadows ringing protection
+        hfDetail = 1 + (hfDetail - 1) * detail;
+    }
+
+    float2 hfAbSample = read_imagef(hfAbImage, linear_sampler, pos + 0.5f * inputNorm).xy;
+    ltmMultiplier *= computeLtmMultiplier(input, hfAbSample, ltmParameters.eps,
+                                          histogram_data.shadows, 1, hfDetail);
+
+    write_imagef(ltmMaskImage, imageCoordinates, float4(ltmMultiplier, 0, 0, 0));
 }
 
 static inline float2 s_curve(float2 t) {

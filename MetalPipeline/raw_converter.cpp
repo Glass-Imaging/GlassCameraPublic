@@ -85,8 +85,8 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::denoise(const gls::mtl_i
 
     // Use a lower level of the pyramid to compute the histogram
     const auto histogramImage = _pyramidProcessor->denoisedImagePyramid[3].get();
-    _histogramImage(&_mtlContext, *histogramImage, _histogramBuffer.get());
-    _histogramStatistics(&_mtlContext, _histogramBuffer.get(), histogramImage->size());
+    _histogramImage(&_mtlContext, *histogramImage);
+    _histogramImage.statistics(&_mtlContext, histogramImage->size());
 
 //    _mtlContext.waitForCompletion();
 //    auto histogramData = this->histogramData();
@@ -107,8 +107,8 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::denoise(const gls::mtl_i
             _pyramidProcessor->denoisedImagePyramid[2].get(),
             _pyramidProcessor->denoisedImagePyramid[0].get()
         };
-        _localToneMapping->createMask(&_mtlContext, *denoisedImage, guideImage, *noiseModel,
-                                      demosaicParameters->ltmParameters, _histogramBuffer.get());
+        _localToneMapping->createMask(&_mtlContext, *denoisedImage, *_rawGradientImage, guideImage, *noiseModel,
+                                      demosaicParameters->ltmParameters, _histogramImage.buffer());
     }
 
     return denoisedImage;
@@ -149,7 +149,7 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
     allocateTextures(rawImage.size());
 
     // Zero histogram data
-    bzero(_histogramBuffer->contents(), _histogramBuffer->length());
+    _histogramImage.reset();
 
     if (demosaicParameters->rgbConversionParameters.localToneMapping) {
         _localToneMapping->allocateTextures(&_mtlContext, rawImage.width, rawImage.height);
@@ -229,7 +229,7 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
     _convertTosRGB.initGradients();
 
     _convertTosRGB(context, *_linearRGBImageA, _localToneMapping->getMask(), *demosaicParameters,
-                   _histogramBuffer.get(), 8.0f * rawVariance[1], _linearRGBImageA.get());
+                   _histogramImage.buffer(), 8.0f * rawVariance[1], _linearRGBImageA.get());
 
     _mtlContext.waitForCompletion();
 
@@ -240,7 +240,7 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::postprocess(gls::image<g
     allocateTextures(rgbImage.size());
 
     // Zero histogram data
-    bzero(_histogramBuffer->contents(), _histogramBuffer->length());
+    _histogramImage.reset();
 
     if (demosaicParameters->rgbConversionParameters.localToneMapping) {
         _localToneMapping->allocateTextures(&_mtlContext, rgbImage.width, rgbImage.height);
@@ -292,8 +292,8 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::postprocess(gls::image<g
 
     // Use a lower level of the pyramid to compute the histogram
     const auto histogramImage = _ltmImagePyramid[2].get();
-    _histogramImage(&_mtlContext, *histogramImage, _histogramBuffer.get());
-    _histogramStatistics(&_mtlContext, _histogramBuffer.get(), histogramImage->size());
+    _histogramImage(&_mtlContext, *histogramImage);
+    _histogramImage.statistics(&_mtlContext, histogramImage->size());
 
     if (demosaicParameters->rgbConversionParameters.localToneMapping) {
         const std::array<const gls::mtl_image_2d<gls::rgba_pixel_float>*, 3>& guideImage = {
@@ -301,15 +301,15 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::postprocess(gls::image<g
             _ltmImagePyramid[1].get(),
             _linearRGBImageB.get()
         };
-        _localToneMapping->createMask(&_mtlContext, *_linearRGBImageB, guideImage, *noiseModel,
-                                      demosaicParameters->ltmParameters, _histogramBuffer.get());
+        _localToneMapping->createMask(&_mtlContext, *_linearRGBImageB, *_rawGradientImage, guideImage, *noiseModel,
+                                      demosaicParameters->ltmParameters, _histogramImage.buffer());
     }
 
     // Convert to RGB
     _transformImage(context, *_linearRGBImageB, _linearRGBImageA.get(), ycbcr_to_cam);
 
     _convertTosRGB(context, *_linearRGBImageA, _localToneMapping->getMask(), *demosaicParameters,
-                   _histogramBuffer.get(), /*lumaVariance=*/{0, 0}, _linearRGBImageA.get());
+                   _histogramImage.buffer(), /*lumaVariance=*/{0, 0}, _linearRGBImageA.get());
 
     _mtlContext.waitForCompletion();
 
