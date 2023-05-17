@@ -1404,7 +1404,7 @@ kernel void histogramStatistics(device histogram_data& histogram_data [[buffer(0
 
         const uint32_t image_size = image_dimensions.x * image_dimensions.y;
 
-        const int bands_ratio = histogram_data.histogram.size() / histogram_data.bands.size();
+        const int band_width = histogram_data.histogram.size() / histogram_data.bands.size();
 
         float mean = 0;
         bool found_median = false;
@@ -1414,40 +1414,45 @@ kernel void histogramStatistics(device histogram_data& histogram_data [[buffer(0
         int black_index = 0;
         int white_index = 0;
         uint32_t sum = 0;
-        for (int i = 0; i < histogramSize; i++) {
-            const uint32_t entry = (*plain_histogram)[i];
+        for (int band = 0; band < 8; band++) {
+            for (int i = 0; i < band_width; i++) {
+                int index = band * band_width + i;
+                const uint32_t entry = (*plain_histogram)[index];
+                histogram_data.bands[band] += entry;
 
-            // Compute subsampled (8 bands) histogram
-            histogram_data.bands[i / bands_ratio] += entry;
+                // Compute average image value
+                mean += entry * (index + 1) / (float) histogramSize;
 
-            // Compute average image value
-            mean += entry * (i + 1) / (float) histogramSize;
-
-            // Compute cumulative function statistics
-            sum += entry;
-            if (!found_median && (sum >= (image_size + 1) / 2)) {
-                median_index = i;
-                found_median = true;
-            }
-            if (!found_black && sum >= 0.001 * image_size) {
-                black_index = i;
-                found_black = true;
-            }
-            if (!found_white && sum >= 0.999 * image_size) {
-                white_index = i;
-                found_white = true;
+                // Compute cumulative function statistics
+                sum += entry;
+                if (!found_median && (sum >= (image_size + 1) / 2)) {
+                    median_index = index;
+                    found_median = true;
+                }
+                if (!found_black && sum >= 0.001 * image_size) {
+                    black_index = index;
+                    found_black = true;
+                }
+                if (!found_white && sum >= 0.999 * image_size) {
+                    white_index = index;
+                    found_white = true;
+                }
             }
         }
         mean /= image_size;
 
+        // Black Level
         {
             float v = (black_index - 1) / (float) (histogramSize - 1);
             histogram_data.black_level = kHistogramScale * v * v;
         }
+
+        // White Level
         {
             float v = white_index / (float) (histogramSize - 1);
             histogram_data.white_level = kHistogramScale * v * v;
         }
+
         histogram_data.median = median_index / (float) (histogramSize - 1) - histogram_data.black_level;
         histogram_data.mean = mean - histogram_data.black_level;
 
