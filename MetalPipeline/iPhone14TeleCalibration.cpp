@@ -84,6 +84,7 @@ public:
                 .chroma = cmult[0] * lerp_c,
                 .chromaBoost = chromaBoost,
                 .gradientBoost = 8, // 4 * (2 - smoothstep(0.25, 0.5, nlf_alpha)),
+                .gradientThreshold = 1,
                 .sharpening = std::lerp(1.5f, 1.0f, nlf_alpha)
             },
             {
@@ -91,6 +92,7 @@ public:
                 .chroma = cmult[1] * lerp_c,
                 .chromaBoost = chromaBoost,
                 .gradientBoost = 2, // (2 - smoothstep(0.25, 0.5, nlf_alpha)),
+                .gradientThreshold = 1,
                 .sharpening = 1
             },
             {
@@ -120,7 +122,7 @@ public:
 
     DemosaicParameters buildDemosaicParameters() const override {
         return {
-            .lensShadingCorrection = 1.6,
+            .lensShadingCorrection = 0,
             .rgbConversionParameters = {
                 .contrast = 1.05,
                 .saturation = 1.0,

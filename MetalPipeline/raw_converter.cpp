@@ -229,7 +229,7 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
     _convertTosRGB.initGradients();
 
     _convertTosRGB(context, *_linearRGBImageA, _localToneMapping->getMask(), *demosaicParameters,
-                   _histogramImage.buffer(), 8.0f * rawVariance[1], _linearRGBImageA.get());
+                   _histogramImage.buffer(), /*luma_nlf=*/ 4.0f * rawVariance[1], _linearRGBImageA.get());
 
     _mtlContext.waitForCompletion();
 

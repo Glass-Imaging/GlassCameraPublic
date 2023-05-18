@@ -42,7 +42,6 @@ public:
 
     DemosaicParameters buildDemosaicParameters() const override {
         return {
-            .lensShadingCorrection = 1,
             .rgbConversionParameters = {
                 .contrast = 1.05,
                 .saturation = 1.0,
