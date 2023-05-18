@@ -210,6 +210,15 @@ struct ExposureParams: View {
                            isSelected: cameraState.isManualEVBias)
             .gesture(dragGesture)
             .onTapGesture { cameraState.isManualEVBias.toggle() }
+            .contextMenu {
+                if cameraState.isManualEVBias {
+                    Text("Manual EV Presets").font(.system(.title))
+                    ForEach([2, 1, 0, -1, -2], id: \.self) { bias in
+                        let biasString = bias < 0 ? "\(bias)" :  bias > 0 ? "+\(bias)" : " \(bias)"
+                        Button(biasString + " EV") { cameraState.userExposureBias = Float(bias) }
+                    }
+                }
+            }
     }
 
     var body: some View {

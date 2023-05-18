@@ -26,6 +26,7 @@ final class CameraModel: ObservableObject {
     
     @Published var thumbnailImage: Image?
     @Published var showAlertError = false
+    @Published var zoomLevel: BackCameraConfiguration = .Wide
 
     var session: AVCaptureSession
 
@@ -54,11 +55,19 @@ final class CameraModel: ObservableObject {
             self?.showAlertError = val
         }
         .store(in: &self.subscriptions)
-    }
 
-    func deviceConfiguration(_ configuration : BackCameraConfiguration) -> DeviceConfiguration {
-        return service.backDeviceConfigurations[configuration] ??
+        $zoomLevel.sink { configuration in
+            if(self.service.isConfigured) {
+                print("SET ZOOM LEVEL :: \(configuration)")
+                let newConfiguration = self.service.backDeviceConfigurations[configuration] ??
                 DeviceConfiguration(position: .back, deviceType: .builtInWideAngleCamera)
+                self.switchCamera(newConfiguration)
+            }
+
+        }
+        .store(in: &self.subscriptions)
+
+        configure(DeviceConfiguration(position: .back, deviceType: .builtInWideAngleCamera))
     }
 
     func configure(_ configuration: DeviceConfiguration) {
@@ -81,7 +90,8 @@ final class CameraModel: ObservableObject {
     func flipCamera() {
         let configuration = service.currentDevice?.position == .back ?
                 DeviceConfiguration(position: .front, deviceType: .builtInWideAngleCamera) :
-                DeviceConfiguration(position: .back,  deviceType: .builtInWideAngleCamera)
+                service.backDeviceConfigurations[self.zoomLevel]!
+
         service.changeCamera(configuration)
     }
 
@@ -125,9 +135,7 @@ final class CameraModel: ObservableObject {
 
 struct CameraView: View {
     @EnvironmentObject var cameraState: CameraState
-    @ObservedObject var model: CameraModel // = CameraModel(cameraState)
-
-    @State private var zoomLevel:BackCameraConfiguration = .Wide
+    @ObservedObject var model: CameraModel
 
     init(model: CameraModel) {
         self.model = model
@@ -163,7 +171,7 @@ struct CameraView: View {
 
     var zoomLevelPicker: some View {
         VStack {
-            Picker("Camera Configuration", selection: $zoomLevel) {
+            Picker("Camera Configuration", selection: $model.zoomLevel) {
                 // Preserve the order in the BackCameraConfiguration definition
                 ForEach(BackCameraConfiguration.allCases) { configuration in
                     if model.service.availableBackDevices.contains(configuration) {
@@ -172,8 +180,6 @@ struct CameraView: View {
                 }
             }
             .pickerStyle(.segmented)
-        }.onChange(of: zoomLevel) { newValue in
-            model.switchCamera(model.deviceConfiguration(newValue))
         }
     }
 
@@ -225,10 +231,12 @@ struct CameraView: View {
 
                         ZStack {
                             CameraPreview(session: model.session)
+                            /*
                                 .onAppear {
                                     // TODO: Fetch this from stored preferences
                                     model.configure(DeviceConfiguration(position: .back, deviceType: .builtInWideAngleCamera))
                                 }
+                             */
                                 .alert(isPresented: $model.showAlertError, content: {
                                     Alert(title: Text(model.service.alertError.title),
                                           message: Text(model.service.alertError.message),
@@ -237,15 +245,6 @@ struct CameraView: View {
                                     }))
                                 })
                                 .overlay(Group {
-                                    /*
-                                    if model.service.shouldShowSpinner {
-                                        Color.black.opacity(0.2)
-
-                                        ProgressView()
-                                            .scaleEffect(2, anchor: .center)
-                                            .progressViewStyle(CircularProgressViewStyle(tint: Color.white))
-                                    }
-                                     */
                                     if model.service.isPhotoCapturing {
                                         Group {
                                             Color.black
@@ -263,7 +262,8 @@ struct CameraView: View {
 
                         if (model.service.currentDevice?.position == .back) {
                             zoomLevelPicker
-                                .padding(.all, 20)
+                                .padding(.top, 5)
+                                .padding(.bottom, 10)
                         }
 
                         Spacer()

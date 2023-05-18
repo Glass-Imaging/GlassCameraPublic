@@ -39,7 +39,7 @@ public struct AlertError {
     }
 }
 
-public enum BackCameraConfiguration: String, CaseIterable, Identifiable {
+public enum BackCameraConfiguration: String, CaseIterable, Identifiable, Equatable {
     case UltraWide
     case Wide
     case Tele
@@ -369,6 +369,7 @@ public class CameraService: NSObject, Identifiable {
 
         sessionQueue.async {
             let currentVideoDevice = self.videoDeviceInput.device
+
             let devices = self.videoDeviceDiscoverySession.devices
             var newVideoDevice: AVCaptureDevice? = nil
 
