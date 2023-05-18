@@ -41,7 +41,7 @@ final class CameraState: ObservableObject {
     @Published var userExposureBias: Float = 0
 
     // Exposure param limits as specified by user settings
-    @Published var targetMaxExposureDuration: CMTime = CMTime(seconds: 1.0/60, preferredTimescale: 1_000_000_000)
+    @Published var targetMaxExposureDuration: CMTime = CMTime(seconds: 1.0/80, preferredTimescale: 1_000_000_000)
     @Published var targetMinExposureDuration: CMTime = CMTime(seconds: 0, preferredTimescale: 1)
     @Published var targetMaxISO: Float = 100
     @Published var targetMinISO: Float = 100
@@ -89,7 +89,6 @@ final class CameraState: ObservableObject {
         }.store(in: &self.subscriptions)
 
         $userISO.sink { user in
-            print("Updating User ISO to \(user)")
             self.calculateExposureParams()
         }.store(in: &self.subscriptions)
 
