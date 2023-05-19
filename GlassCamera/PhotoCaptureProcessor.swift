@@ -48,6 +48,7 @@ class AtomicCounter {
         return x.value
     }
 
+    /*
     static prefix func --(x:AtomicCounter) -> Int {
         x.lock.lock()
         defer { x.lock.unlock() }
@@ -55,6 +56,7 @@ class AtomicCounter {
         x.value -= 1
         return x.value
     }
+     */
 }
 
 extension [String : Any] {
@@ -85,7 +87,8 @@ extension RawMetadata {
 }
 
 class PhotoCaptureProcessor: NSObject {
-    private(set) var requestedPhotoSettings: AVCapturePhotoSettings
+    // private(set) var requestedPhotoSettings: AVCapturePhotoSettings
+    let id: Int
 
     private(set) var dngFile: URL?
     // private(set) var procesedImage: Data?
@@ -110,14 +113,16 @@ class PhotoCaptureProcessor: NSObject {
     var location: CLLocation?
 
     init(saveCollection: PhotoCollection,
-         with requestedPhotoSettings: AVCapturePhotoSettings,
+         // with requestedPhotoSettings: AVCapturePhotoSettings,
+         id: Int,
          isNNProcessingOn: Bool,
          completionHandler: @escaping (PhotoCaptureProcessor) -> Void,
          photoCapturingHandler: @escaping (Bool) -> Void,
          photoProcessingHandler: @escaping (Bool) -> Void) {
 
         self.saveCollection = saveCollection
-        self.requestedPhotoSettings = requestedPhotoSettings
+        //self.requestedPhotoSettings = requestedPhotoSettings
+        self.id = id
         self.isNNProcessingOn = isNNProcessingOn
         self.completionHandler = completionHandler
         self.photoCapturingHandler = photoCapturingHandler

@@ -58,6 +58,7 @@ public class CameraService: NSObject, Identifiable {
     // MARK: Observed Properties UI must react to
 
     private var cameraState: CameraState
+    private var isCameraPrepared: Task<Bool, Never>? = nil
 
     @Published public var shouldShowAlertView = false
     @Published public var shouldShowSpinner = false
@@ -103,7 +104,9 @@ public class CameraService: NSObject, Identifiable {
 
     let photoOutput = AVCapturePhotoOutput()
 
-    var inProgressPhotoCaptureDelegates = [Int64: PhotoCaptureProcessor]()
+    var processingID = AtomicCounter(0)
+    // var inProgressPhotoCaptureDelegates = [Int64: PhotoCaptureProcessor]()
+    var inProgressPhotoCaptureDelegates = [Int: PhotoCaptureProcessor]()
 
     // MARK: KVO and Notifications Properties
 
@@ -331,6 +334,11 @@ public class CameraService: NSObject, Identifiable {
             return
         }
 
+
+        print("PREPARING PHOTO SETTINGS CONFIG")
+        self.preparePhotoSettings()
+
+
         session.commitConfiguration()
         self.isConfigured = true
 
@@ -428,6 +436,9 @@ public class CameraService: NSObject, Identifiable {
                     }
 
                     self.photoOutput.maxPhotoQualityPrioritization = .quality
+
+                    print("PREPARING PHOTO SETTINGS CHANGE CAM")
+                    self.preparePhotoSettings()
 
                     self.session.commitConfiguration()
                 } catch {
@@ -551,8 +562,86 @@ public class CameraService: NSObject, Identifiable {
         }
     }
 
-    // MARK: Capture Photo
+    func preparePhotoSettings() {
+        self.isCameraPrepared = Task(priority: .high) {
+            let videoPreviewLayerOrientation = await AVCaptureVideoOrientation(deviceOrientation: UIDevice.current.orientation)
 
+            if let photoOutputConnection = self.photoOutput.connection(with: .video) {
+                if let videoPreviewLayerOrientation = videoPreviewLayerOrientation {
+                    photoOutputConnection.videoOrientation = videoPreviewLayerOrientation
+                } else {
+                    photoOutputConnection.videoOrientation = .portrait
+                }
+            }
+
+            let query = self.photoOutput.isAppleProRAWEnabled ?
+            { !AVCapturePhotoOutput.isAppleProRAWPixelFormat($0) } :
+            { AVCapturePhotoOutput.isBayerRAWPixelFormat($0) }
+
+            var photoSettings: AVCapturePhotoSettings
+
+            // Retrieve the RAW format, favoring the Apple ProRAW format when it's in an enabled state.
+            if let rawFormat = self.photoOutput.availableRawPhotoPixelFormatTypes.first(where: query) {
+                // Capture a RAW format photo, along with a processed format photo.
+                let processedFormat = [AVVideoCodecKey: AVVideoCodecType.hevc]
+                photoSettings = AVCapturePhotoSettings(rawPixelFormatType: rawFormat,
+                                                       processedFormat: processedFormat)
+
+                // Select the first available codec type, which is JPEG.
+                guard let thumbnailPhotoCodecType =
+                        photoSettings.availableRawEmbeddedThumbnailPhotoCodecTypes.first else {
+                    // Handle the failure to find an available thumbnail photo codec type.
+                    fatalError("Failed configuring RAW tumbnail.")
+                }
+
+                if self.videoDeviceInput.device.isFlashAvailable {
+                    photoSettings.flashMode = self.cameraState.isFlashOn ? .on : .off
+                }
+
+                // Select the maximum photo dimensions as thumbnail dimensions if a full-size thumbnail is desired.
+                // The system clamps these dimensions to the photo dimensions if the capture produces a photo with smaller than maximum dimensions.
+                let dimensions = photoSettings.maxPhotoDimensions
+                photoSettings.rawEmbeddedThumbnailPhotoFormat = [
+                    AVVideoCodecKey: thumbnailPhotoCodecType,
+                    AVVideoWidthKey: dimensions.width,
+                    AVVideoHeightKey: dimensions.height
+                ]
+            } else {
+                print("RAW Not available, defaulting to compressed images.")
+
+                photoSettings = AVCapturePhotoSettings()
+
+                // Capture HEIF photos when supported. Enable according to user settings and high-resolution photos.
+                if self.photoOutput.availablePhotoCodecTypes.contains(.hevc) {
+                    photoSettings = AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.hevc])
+                }
+
+                if self.videoDeviceInput.device.isFlashAvailable {
+                    photoSettings.flashMode = self.cameraState.isFlashOn ? .on : .off
+                }
+
+                // photoSettings.isHighResolutionPhotoEnabled = true
+                if !photoSettings.__availablePreviewPhotoPixelFormatTypes.isEmpty {
+                    photoSettings.previewPhotoFormat = [kCVPixelBufferPixelFormatTypeKey as String: photoSettings.__availablePreviewPhotoPixelFormatTypes.first!]
+                }
+
+                photoSettings.photoQualityPrioritization = .quality
+            }
+
+
+            do {
+                try await self.photoOutput.setPreparedPhotoSettingsArray([photoSettings])
+            } catch {
+                // TODO: Handle this better?
+                NSLog("DONE FAILED Preparing Photo Settings!")
+                return false
+            }
+
+            return true
+        }
+    }
+
+    // MARK: Capture Photo
     func capturePhoto(saveCollection: PhotoCollection) {
         /*
          Retrieve the video preview layer's video orientation on the main queue before
@@ -561,113 +650,44 @@ public class CameraService: NSObject, Identifiable {
          */
 
         if self.setupResult != .configurationFailed {
-            // Take the device orientation into account
-            let videoPreviewLayerOrientation = AVCaptureVideoOrientation(deviceOrientation: UIDevice.current.orientation)
-
             self.isCameraButtonDisabled = true
 
-            sessionQueue.async {
-                if let photoOutputConnection = self.photoOutput.connection(with: .video) {
-                    if let videoPreviewLayerOrientation = videoPreviewLayerOrientation {
-                        photoOutputConnection.videoOrientation = videoPreviewLayerOrientation
-                    } else {
-                        photoOutputConnection.videoOrientation = .portrait
-                    }
-                }
+            let photoCaptureProcessor = PhotoCaptureProcessor(saveCollection: saveCollection,
+                                                              id: ++self.processingID,
+                                                              isNNProcessingOn: self.cameraState.isNNProcessingOn,
+                                                              completionHandler: { (photoCaptureProcessor) in
 
-                let query = self.photoOutput.isAppleProRAWEnabled ?
-                { !AVCapturePhotoOutput.isAppleProRAWPixelFormat($0) } :
-                { AVCapturePhotoOutput.isBayerRAWPixelFormat($0) }
-
-                var photoSettings: AVCapturePhotoSettings
-
-                // Retrieve the RAW format, favoring the Apple ProRAW format when it's in an enabled state.
-                if let rawFormat = self.photoOutput.availableRawPhotoPixelFormatTypes.first(where: query) {
-                    // Capture a RAW format photo, along with a processed format photo.
-                    let processedFormat = [AVVideoCodecKey: AVVideoCodecType.hevc]
-                    photoSettings = AVCapturePhotoSettings(rawPixelFormatType: rawFormat,
-                                                           processedFormat: processedFormat)
-
-                    // Select the first available codec type, which is JPEG.
-                    guard let thumbnailPhotoCodecType =
-                            photoSettings.availableRawEmbeddedThumbnailPhotoCodecTypes.first else {
-                        // Handle the failure to find an available thumbnail photo codec type.
-                        fatalError("Failed configuring RAW tumbnail.")
-                    }
-
-                    if self.videoDeviceInput.device.isFlashAvailable {
-                        photoSettings.flashMode = self.cameraState.isFlashOn ? .on : .off
-                    }
-
-                    // Select the maximum photo dimensions as thumbnail dimensions if a full-size thumbnail is desired.
-                    // The system clamps these dimensions to the photo dimensions if the capture produces a photo with smaller than maximum dimensions.
-                    let dimensions = photoSettings.maxPhotoDimensions
-                    photoSettings.rawEmbeddedThumbnailPhotoFormat = [
-                        AVVideoCodecKey: thumbnailPhotoCodecType,
-                        AVVideoWidthKey: dimensions.width,
-                        AVVideoHeightKey: dimensions.height
-                    ]
-                } else {
-                    print("RAW Not available, defaulting to compressed images.")
-
-                    photoSettings = AVCapturePhotoSettings()
-
-                    // Capture HEIF photos when supported. Enable according to user settings and high-resolution photos.
-                    if self.photoOutput.availablePhotoCodecTypes.contains(.hevc) {
-                        photoSettings = AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.hevc])
-                    }
-
-                    if self.videoDeviceInput.device.isFlashAvailable {
-                        photoSettings.flashMode = self.cameraState.isFlashOn ? .on : .off
-                    }
-
-                    // photoSettings.isHighResolutionPhotoEnabled = true
-                    if !photoSettings.__availablePreviewPhotoPixelFormatTypes.isEmpty {
-                        photoSettings.previewPhotoFormat = [kCVPixelBufferPixelFormatTypeKey as String: photoSettings.__availablePreviewPhotoPixelFormatTypes.first!]
-                    }
-
-                    photoSettings.photoQualityPrioritization = .quality
-                }
-
-                let photoCaptureProcessor = PhotoCaptureProcessor(saveCollection: saveCollection,
-                                                                  with: photoSettings,
-                                                                  isNNProcessingOn: self.cameraState.isNNProcessingOn,
-                                                                  completionHandler: { (photoCaptureProcessor) in
-                    // When the capture is complete, remove a reference to the photo capture delegate so it can be deallocated.
-                    if let data = photoCaptureProcessor.capturedImage {
-                        UIImage(data: data)!.prepareThumbnail(of: CGSize(width: 100, height: 100)) { thumbnail in
-                            DispatchQueue.main.async {
-                                self.thumbnail = thumbnail
-                            }
+                // When the capture is complete, remove a reference to the photo capture delegate so it can be deallocated.
+                if let data = photoCaptureProcessor.capturedImage {
+                    UIImage(data: data)!.prepareThumbnail(of: CGSize(width: 100, height: 100)) { thumbnail in
+                        DispatchQueue.main.async {
+                            self.thumbnail = thumbnail
                         }
-                    } else {
-                        print("No photo data")
                     }
+                } else {
+                    print("No photo data")
+                }
 
-                    self.isCameraButtonDisabled = false
+                self.isCameraButtonDisabled = false
+                self.inProgressPhotoCaptureDelegates[photoCaptureProcessor.id] = nil
+            }, photoCapturingHandler: { isCapturing in self.isPhotoCapturing = isCapturing
+            }, photoProcessingHandler: { isProcessing in self.shouldShowSpinner = isProcessing })
 
-                    // This should go off by itself, but it might stay set when there is too much pressure
-                    // self.willCapturePhoto = false
+            // Specify the location the photo was taken
+            photoCaptureProcessor.location = self.locationManager.location
 
-                    self.sessionQueue.async {
-                        self.inProgressPhotoCaptureDelegates[photoCaptureProcessor.requestedPhotoSettings.uniqueID] = nil
-                    }
-                }, photoCapturingHandler: { isCapturing in
-                    print("CAPTURING PHOTO \(isCapturing)!")
-                    self.isPhotoCapturing = isCapturing
-                },photoProcessingHandler: { isProcessing in
-                    print("PROCESSING PHOTO \(isProcessing)!")
-                    self.shouldShowSpinner = isProcessing
-                })
+            // The photo output holds a weak reference to the photo capture delegate and stores it in an array to maintain a strong reference.
+            self.inProgressPhotoCaptureDelegates[photoCaptureProcessor.id] = photoCaptureProcessor
 
-                // Specify the location the photo was taken
-                photoCaptureProcessor.location = self.locationManager.location
 
-                // The photo output holds a weak reference to the photo capture delegate and stores it in an array to maintain a strong reference.
-                self.inProgressPhotoCaptureDelegates[photoCaptureProcessor.requestedPhotoSettings.uniqueID] = photoCaptureProcessor
-
-                self.photoOutput.capturePhoto(with: photoSettings, delegate: photoCaptureProcessor)
+            Task(priority: .userInitiated) {
+                if await self.isCameraPrepared!.value {
+                    self.photoOutput.capturePhoto(with: self.photoOutput.preparedPhotoSettingsArray.first!, delegate: photoCaptureProcessor)
+                    print("PREPARING PHOTO SETTINGS AGAIN")
+                    self.preparePhotoSettings()
+                }
             }
+
         }
     }
 
