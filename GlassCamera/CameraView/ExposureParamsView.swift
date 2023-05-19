@@ -86,23 +86,24 @@ struct ExposureParams: View {
             : cameraState.isAtLowerDeviceExposureDurationLimit ? "MIN"
             : cameraState.isManualExposureDuration ? "MANUAL"
             : cameraState.isAtUpperTargetExposureDurationLimit ? "MAX AUTO"
-            : cameraState.isAtLowerTargetExposureDurationLimit ? "MIN AUTO"
             : "AUTO"
         }
 
         func getValue() -> String {
-            return cameraState.calculatedExposureDuration.seconds == Double(0) ? "0"
-            : "1/\(Int((1 / cameraState.calculatedExposureDuration.seconds).rounded()))"
+            return cameraState.displayExposureDuration.seconds == Double(0) ? "0"
+            : "1/\(Int((1 / cameraState.displayExposureDuration.seconds).rounded()))"
         }
 
         var manualExposureContextMenu : some View {
             Group {
                 Text("Manual Shutter Speed").font(.system(.title))
                 ForEach([2, 1, -1, -2], id: \.self) { evBias in
-                    let exposureDuration = cameraState.calculatedExposureDuration.seconds * pow(2, evBias)
+                    //let exposureDuration = cameraState.displayExposureDuration.seconds * pow(2, evBias)
+                    let exposureDuration = min(max(Float(cameraState.displayExposureDuration.seconds * pow(2, evBias)), Float(cameraState.deviceMinExposureDuration.seconds)),
+                                        Float(cameraState.deviceMaxExposureDuration.seconds))
                     let biasText = evBias < 0 ? "\(Int(evBias))" : "+\(Int(evBias))"
                     Button("\(biasText) EV  1/\(Int((1/exposureDuration).rounded()))") {
-                        cameraState.userExposureDuration = CMTime(seconds: exposureDuration, preferredTimescale: 1_000_000_000)
+                        cameraState.userExposureDuration = CMTime(seconds: Double(exposureDuration), preferredTimescale: 1_000_000_000)
                     }
                 }
             }
@@ -112,7 +113,7 @@ struct ExposureParams: View {
             Group {
                 Text("Auto Exposure Max").font(.system(.title))
                 Button("Unlimited - No Max") {
-                    cameraState.targetMaxExposureDuration = CMTime(seconds: cameraState.deviceMaxExposureDuration.seconds, preferredTimescale: 1_000_000_000)
+                    cameraState.targetMaxExposureDuration = cameraState.deviceMaxExposureDuration
                     cameraState.calculateExposureParams()
                 }
                 Button("Still - Max 1/40s") {
@@ -137,7 +138,7 @@ struct ExposureParams: View {
             .gesture(dragGesture)
             .onTapGesture {
                 cameraState.isManualExposureDuration.toggle()
-                cameraState.userExposureDuration = cameraState.calculatedExposureDuration
+                cameraState.userExposureDuration = cameraState.displayExposureDuration
             }
             .contextMenu {
                 if cameraState.isManualExposureDuration {
@@ -158,8 +159,6 @@ struct ExposureParams: View {
             return cameraState.isAtUpperDeviceISOLimit ? "MAX"
             : cameraState.isAtLowerDeviceISOLimit ? "MIN"
             : cameraState.isManualISO ? "MANUAL"
-            : cameraState.isAtLowerTargetISOLimit ? "MIN AUTO"
-            : cameraState.isAtUpperTargetISOLimit ? "MAX AUTO"
             : "AUTO"
         }
 
@@ -171,14 +170,14 @@ struct ExposureParams: View {
             }
         }
 
-        return ExposureParamField(value: String(Int(cameraState.calculatedISO.rounded())),
+        return ExposureParamField(value: String(Int(cameraState.displayISO.rounded())),
                            name: "ISO",
                            hint: getHint(),
                            isSelected: cameraState.isManualISO)
             .gesture(dragGesture)
             .onTapGesture {
                 cameraState.isManualISO.toggle()
-                cameraState.userISO = cameraState.calculatedISO
+                cameraState.userISO = cameraState.displayISO
             }
             .contextMenu {
                 if cameraState.isManualISO {
@@ -188,7 +187,8 @@ struct ExposureParams: View {
                     }
                 } else {
                     Text("Auto ISO Mode").font(.system(.title))
-                    Button("Minimize ISO") {}
+                    // Button("Minimize ISO") {}
+                    // Button("Balanced ISO & SS") {}
                 }
             }
     }
@@ -201,7 +201,7 @@ struct ExposureParams: View {
 
         func getValue() -> String {
             return String(cameraState.isManualEVBias ? String(format: "%.1f", cameraState.userExposureBias)
-                          : String(format: "%.1f", cameraState.calculatedExposureBias))
+                          : String(format: "%.1f", cameraState.displayExposureBias))
         }
 
         return ExposureParamField(value: getValue(),

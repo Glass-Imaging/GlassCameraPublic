@@ -28,9 +28,9 @@ struct DebugOverlay: View {
                 }.foregroundColor(.red)
                 VStack {
                     Text(verbatim: "CALCULATED").frame(maxWidth: .infinity, alignment: .leading)
-                    Text(verbatim: "Duration :: 1/\((1 / cameraState.calculatedExposureDuration.seconds).rounded())").frame(maxWidth: .infinity, alignment: .leading)
-                    Text(verbatim: "ISO      :: \(Int(cameraState.calculatedISO.rounded()))").frame(maxWidth: .infinity, alignment: .leading)
-                    Text(verbatim: "Bias     :: \(cameraState.calculatedExposureBias)").frame(maxWidth: .infinity, alignment: .leading)
+                    Text(verbatim: "Duration :: 1/\((1 / cameraState.customExposureDuration.seconds).rounded())").frame(maxWidth: .infinity, alignment: .leading)
+                    Text(verbatim: "ISO      :: \(Int(cameraState.customISO.rounded()))").frame(maxWidth: .infinity, alignment: .leading)
+                    Text(verbatim: "Bias     :: \(cameraState.customExposureBias)").frame(maxWidth: .infinity, alignment: .leading)
                 }.foregroundColor(.yellow)
                 VStack {
                     Text(verbatim: "USER").frame(maxWidth: .infinity, alignment: .leading)

@@ -137,16 +137,15 @@ public class CameraService: NSObject, Identifiable {
             locationManager.requestWhenInUseAuthorization()
         }
 
-        cameraState.$calculatedExposureBias.sink { newBias in
-            if(self.videoDeviceInput != nil) {
-                let clampedNewBias = min(max(newBias, cameraState.deviceMinExposureBias), cameraState.deviceMaxExposureBias)
-                try? self.videoDeviceInput.device.lockForConfiguration()
-                self.videoDeviceInput.device.setExposureTargetBias(clampedNewBias) { _ in }
-                self.videoDeviceInput.device.unlockForConfiguration()
-            }
+        cameraState.$customExposureBias.sink { newBias in
+            guard let captureDevice = self.videoDeviceInput?.device else { return }
+            let clampedNewBias = min(max(newBias, cameraState.deviceMinExposureBias), cameraState.deviceMaxExposureBias)
+            try! captureDevice.lockForConfiguration()
+            captureDevice.setExposureTargetBias(clampedNewBias) { _ in }
+            captureDevice.unlockForConfiguration()
         }.store(in: &self.subscriptions)
 
-        cameraState.$calculatedExposureDuration.combineLatest(cameraState.$calculatedISO)
+        cameraState.$customExposureDuration.combineLatest(cameraState.$customISO)
             .filter { newExposureDuration, newISO in
                 return self.videoDeviceInput != nil
                 && self.cameraState.isCustomExposure
@@ -166,13 +165,18 @@ public class CameraService: NSObject, Identifiable {
             .removeDuplicates()
             .filter { isCustomExposure in return !isCustomExposure }
             .sink { _ in
-                print("ENABLING FULL AUTO EXPOSURE!")
-                if self.videoDeviceInput != nil {
-                    try! self.videoDeviceInput.device.lockForConfiguration()
-                    self.videoDeviceInput.device.exposureMode = AVCaptureDevice.ExposureMode.continuousAutoExposure
-                    self.videoDeviceInput.device.unlockForConfiguration()
-                }
+                guard let captureDevice = self.videoDeviceInput?.device else { return }
+                try! captureDevice.lockForConfiguration()
+                captureDevice.exposureMode = AVCaptureDevice.ExposureMode.continuousAutoExposure
+                captureDevice.unlockForConfiguration()
             }.store(in: &self.subscriptions)
+
+        cameraState.$targetMaxExposureDuration.sink { newTargetMaxExposureDuration in
+            guard let captureDevice = self.videoDeviceInput?.device else { return }
+            try! captureDevice.lockForConfiguration()
+            captureDevice.activeMaxExposureDuration = newTargetMaxExposureDuration
+            captureDevice.unlockForConfiguration()
+        }.store(in: &self.subscriptions)
     }
 
     public func configure(_ configuration: DeviceConfiguration) {
@@ -281,6 +285,7 @@ public class CameraService: NSObject, Identifiable {
             if videoDevice.activeFormat.isGlobalToneMappingSupported {
                 try! videoDevice.lockForConfiguration()
                 videoDevice.isGlobalToneMappingEnabled = true
+                videoDevice.activeMaxExposureDuration = cameraState.targetMaxExposureDuration
                 videoDevice.unlockForConfiguration()
             }
 
@@ -290,6 +295,7 @@ public class CameraService: NSObject, Identifiable {
             if session.canAddInput(videoDeviceInput) {
                 session.addInput(videoDeviceInput)
                 self.videoDeviceInput = videoDeviceInput
+                self.videoDeviceInput.unifiedAutoExposureDefaultsEnabled = true
                 self.cameraState.updateCameraDevice(device: self.videoDeviceInput.device)
 
                 DispatchQueue.main.async {
@@ -313,7 +319,7 @@ public class CameraService: NSObject, Identifiable {
         if session.canAddOutput(photoOutput) {
             session.addOutput(photoOutput)
 
-            photoOutput.isHighResolutionCaptureEnabled = true
+            // photoOutput.isHighResolutionCaptureEnabled = true
             photoOutput.maxPhotoQualityPrioritization = .quality
 
             // Use the Apple ProRAW format when the environment supports it.
@@ -385,6 +391,7 @@ public class CameraService: NSObject, Identifiable {
                     print("Is Global Tone mapping supported :: \(videoDevice.activeFormat.isGlobalToneMappingSupported)")
                     try! videoDevice.lockForConfiguration()
                     videoDevice.isGlobalToneMappingEnabled = true
+                    videoDevice.activeMaxExposureDuration = self.cameraState.targetMaxExposureDuration
                     videoDevice.unlockForConfiguration()
 
                     let videoDeviceInput = try AVCaptureDeviceInput(device: videoDevice)
@@ -406,6 +413,9 @@ public class CameraService: NSObject, Identifiable {
 
                         self.session.addInput(videoDeviceInput)
                         self.videoDeviceInput = videoDeviceInput
+                        print("Unified AE Defualts?? \(self.videoDeviceInput.unifiedAutoExposureDefaultsEnabled)")
+                        self.videoDeviceInput.unifiedAutoExposureDefaultsEnabled = true
+
                         self.cameraState.updateCameraDevice(device: self.videoDeviceInput.device)
                     } else {
                         self.session.addInput(self.videoDeviceInput)
@@ -611,7 +621,7 @@ public class CameraService: NSObject, Identifiable {
                         photoSettings.flashMode = self.cameraState.isFlashOn ? .on : .off
                     }
 
-                    photoSettings.isHighResolutionPhotoEnabled = true
+                    // photoSettings.isHighResolutionPhotoEnabled = true
                     if !photoSettings.__availablePreviewPhotoPixelFormatTypes.isEmpty {
                         photoSettings.previewPhotoFormat = [kCVPixelBufferPixelFormatTypeKey as String: photoSettings.__availablePreviewPhotoPixelFormatTypes.first!]
                     }
