@@ -26,7 +26,7 @@
 static const char* TAG = "DEMOSAIC";
 
 template <size_t levels = 5>
-class CanonR6IICalibration : public CameraCalibration<levels> {
+class CanonEOSR6IICalibration : public CameraCalibration<levels> {
     static const std::array<NoiseModel<levels>, 11> NLFData;
 
 public:
@@ -66,12 +66,14 @@ public:
     }
 
     std::pair<RAWDenoiseParameters, std::array<DenoiseParameters, levels>> getDenoiseParameters(int iso) const override {
+        const float highNoiseISO = 6400;
+
         const float nlf_alpha = std::clamp((log2(iso) - log2(100)) / (log2(102400) - log2(100)), 0.0, 1.0);
-        const float raw_nlf_alpha = std::clamp((log2(iso) - log2(6400)) / (log2(102400) - log2(6400)), 0.0, 1.0);
+        const float raw_nlf_alpha = std::clamp((log2(iso) - log2(highNoiseISO)) / (log2(102400) - log2(highNoiseISO)), 0.0, 1.0);
 
-        LOG_INFO(TAG) << "CanonR6II DenoiseParameters nlf_alpha: " << nlf_alpha << ", ISO: " << iso << std::endl;
+        LOG_INFO(TAG) << "CanonEOSR6II DenoiseParameters nlf_alpha: " << nlf_alpha << ", ISO: " << iso << std::endl;
 
-        float lerp = std::lerp(1.0, 3.0, nlf_alpha);
+        float lerp = std::lerp(1.0, 2.0, nlf_alpha);
         float lerp_c = 1;
 
         float lmult[5] = { 1, 1, 1, 1, 1 };
@@ -85,13 +87,15 @@ public:
                 .chroma = cmult[0] * lerp_c,
                 .chromaBoost = chromaBoost,
                 .gradientBoost = 2 * (2 - smoothstep(0.3, 0.6, nlf_alpha)),
-                .sharpening = std::lerp(1.1f, 1.0f, nlf_alpha),
+                .gradientThreshold = 2,
+                .sharpening = std::lerp(1.4f, 1.0f, nlf_alpha),
             },
             {
                 .luma = lmult[1] * lerp,
                 .chroma = cmult[1] * lerp_c,
                 .chromaBoost = chromaBoost,
                 .gradientBoost = (2 - smoothstep(0.3, 0.6, nlf_alpha)),
+                .gradientThreshold = 2,
                 .sharpening = 1
             },
             {
@@ -112,7 +116,7 @@ public:
         }};
 
         RAWDenoiseParameters rawDenoiseParameters = {
-            .highNoiseImage = iso >= 6400,
+            .highNoiseImage = iso >= highNoiseISO,
             .strength = std::lerp(0.5f, 1.5f, raw_nlf_alpha)
         };
 
@@ -125,7 +129,7 @@ public:
                 .contrast = 1.05,
                 .saturation = 1.0,
                 .toneCurveSlope = 3.5,
-                .localToneMapping = false
+                .localToneMapping = true
             },
             .ltmParameters = {
                 .eps = 0.01,
@@ -137,11 +141,11 @@ public:
     }
 };
 
-std::unique_ptr<DemosaicParameters> unpackCanonR6IIRawImage(const gls::image<gls::luma_pixel_16>& inputImage,
+std::unique_ptr<DemosaicParameters> unpackCanonEOSR6IIRawImage(const gls::image<gls::luma_pixel_16>& inputImage,
                                                             const gls::Matrix<3, 3>& xyz_rgb,
                                                             gls::tiff_metadata* dng_metadata,
                                                             gls::tiff_metadata* exif_metadata) {
-    CanonR6IICalibration calibration;
+    CanonEOSR6IICalibration calibration;
     auto demosaicParameters = calibration.getDemosaicParameters(inputImage, xyz_rgb, dng_metadata, exif_metadata);
 
     unpackDNGMetadata(inputImage, dng_metadata, demosaicParameters.get(), xyz_rgb, /*auto_white_balance=*/false, nullptr, false);
@@ -153,7 +157,7 @@ std::unique_ptr<DemosaicParameters> unpackCanonR6IIRawImage(const gls::image<gls
 // --- NLFData ---
 
 template<>
-const std::array<NoiseModel<5>, 11> CanonR6IICalibration<5>::NLFData = {{
+const std::array<NoiseModel<5>, 11> CanonEOSR6IICalibration<5>::NLFData = {{
     // ISO 100
     {
         {{1.000e-08, 1.000e-08, 1.000e-08, 1.000e-08}, {7.790e-05, 7.240e-05, 6.672e-05, 7.199e-05}},

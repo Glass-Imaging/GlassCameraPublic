@@ -63,9 +63,13 @@ std::unique_ptr<DemosaicParameters> unpackiPhone14TeleFEMNRawImage(const gls::im
                                                                    gls::tiff_metadata* dng_metadata,
                                                                    gls::tiff_metadata* exif_metadata);
 
-std::unique_ptr<DemosaicParameters> unpackCanonR6IIRawImage(const gls::image<gls::luma_pixel_16>& inputImage,
+std::unique_ptr<DemosaicParameters> unpackCanonEOSR6IIRawImage(const gls::image<gls::luma_pixel_16>& inputImage,
                                                             const gls::Matrix<3, 3>& xyz_rgb,
                                                             gls::tiff_metadata* dng_metadata,
                                                             gls::tiff_metadata* exif_metadata);
 
+std::unique_ptr<DemosaicParameters> unpackCanonEOSRPRawImage(const gls::image<gls::luma_pixel_16>& inputImage,
+                                                          const gls::Matrix<3, 3>& xyz_rgb,
+                                                          gls::tiff_metadata* dng_metadata,
+                                                          gls::tiff_metadata* exif_metadata);
 #endif /* CameraCalibration_hpp */

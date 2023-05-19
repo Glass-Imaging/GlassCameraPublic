@@ -585,8 +585,8 @@ float3 sharpen(float3 pixel_value, float amount, float radius, texture2d<float> 
 
     // Smart sharpening
     float3 sharpening = amount * smoothstep(0.0, 0.03, length(dx) + length(dy))     // Gradient magnitude thresholding
-                               * (1.0 - smoothstep(0.95, 1.0, pixel_value))         // Highlight ringing protection
-                               * (0.6 + 0.4 * smoothstep(0.0, 0.1, pixel_value));   // Shadows ringing protection
+                               * (1.0 - smoothstep(0.95, 1.0, pixel_value))         // Highlights ringing protection
+                               * smoothstep(0.05, 0.1, pixel_value);                // Shadows ringing protection
 
     float3 blurred_pixel = gaussianBlur(radius, inputImage, imageCoordinates);
 
@@ -933,8 +933,8 @@ kernel void subtractNoiseImage(texture2d<float> inputImage                      
         float gradient = length(read_imagef(gradientImage, output_pos).xy);
         float sigma = sqrt(nlf.x + nlf.y * inputPixelDenoised1.x);
         float detail = smoothstep(sigma, 4 * sigma, gradient)
-                       * (1.0 - smoothstep(0.95, 1.0, denoisedPixel.x))          // Highlights ringing protection
-                       * (0.6 + 0.4 * smoothstep(0.0, 0.1, denoisedPixel.x));    // Shadows ringing protection
+                       * (1.0 - smoothstep(0.75, 0.95, inputPixelDenoised1.x))        // Highlights ringing protection
+                       * smoothstep(0.05, 0.1, inputPixelDenoised1.x);                // Shadows ringing protection
         alpha = 1 + (alpha - 1) * detail;
     }
 
@@ -1491,14 +1491,11 @@ kernel void localToneMappingMaskImage(texture2d<float> inputImage               
 
     float lfDetail = ltmParameters.detail[0];
     if (lfDetail > 1.0) {
-        float detail = (1.0 - smoothstep(0.3, 0.5, lfIlluminance))                  // Highlights ringing protection
-                       * (0.6 + 0.4 * smoothstep(0.0, 0.01, lfIlluminance));        // Shadows ringing protection
-                       lfDetail = 1 + (lfDetail - 1) * detail;
+        float detail = (1.0 - smoothstep(0.75, 0.95, lfIlluminance))        // Highlights ringing protection
+                       * smoothstep(0.05, 0.1, lfIlluminance);              // Shadows ringing protection
+        lfDetail = 1 + (lfDetail - 1) * detail;
     }
-
-    float ltmMultiplier = computeLtmMultiplier(input, lfIlluminance,
-                                               histogram_data.shadows, histogram_data.highlights,
-                                               lfDetail);
+    float ltmMultiplier = computeLtmMultiplier(input, lfIlluminance, histogram_data.shadows, histogram_data.highlights, lfDetail);
 
     // Medium Frequency Band - only detail and shadows adjustment
 
@@ -1508,11 +1505,10 @@ kernel void localToneMappingMaskImage(texture2d<float> inputImage               
 
     float mfDetail = ltmParameters.detail[1];
     if (mfDetail > 1.0) {
-        float detail = (1.0 - smoothstep(0.3, 0.5, mfIlluminance))                  // Highlights ringing protection
-                       * (0.6 + 0.4 * smoothstep(0.0, 0.01, mfIlluminance));        // Shadows ringing protection
-                       mfDetail = 1 + (mfDetail - 1) * detail;
+        float detail = (1.0 - smoothstep(0.75, 0.95, mfIlluminance))        // Highlights ringing protection
+                       * smoothstep(0.05, 0.1, mfIlluminance);              // Shadows ringing protection
+        mfDetail = 1 + (mfDetail - 1) * detail;
     }
-
     ltmMultiplier *= computeLtmMultiplier(input, mfIlluminance, histogram_data.shadows, /*highlights=*/ 1, mfDetail);
 
     // High Frequency Band - only detail and shadows adjustment
@@ -1528,11 +1524,10 @@ kernel void localToneMappingMaskImage(texture2d<float> inputImage               
         float sigma = sqrt(nlf.x + nlf.y * hfIlluminance);
         float detail = smoothstep(2 * sigma, 8 * sigma, gradient)                   // Don't sharpen noise
                        * (1 - smoothstep(32 * sigma, 128 * sigma, gradient))        // Don't sharpen high gradients
-                       * (1.0 - smoothstep(0.7, 0.9, hfIlluminance))                // Highlights ringing protection
-                       * (0.6 + 0.4 * smoothstep(0.0, 0.01, hfIlluminance));        // Shadows ringing protection
+                       * (1.0 - smoothstep(0.75, 0.95, hfIlluminance))              // Highlights ringing protection
+                       * smoothstep(0.05, 0.1, hfIlluminance);                      // Shadows ringing protection
         hfDetail = 1 + (hfDetail - 1) * detail;
     }
-
     ltmMultiplier *= computeLtmMultiplier(input, hfIlluminance, histogram_data.shadows, /*highlights=*/ 1, hfDetail);
 
     write_imagef(ltmMaskImage, imageCoordinates, float4(ltmMultiplier, 0, 0, 0));

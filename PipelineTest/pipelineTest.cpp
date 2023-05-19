@@ -113,7 +113,7 @@ void demosaicFile(RawConverter* rawConverter, std::filesystem::path input_path) 
     gls::tiff_metadata dng_metadata, exif_metadata;
     const auto rawImage =
     gls::image<gls::luma_pixel_16>::read_dng_file(input_path.string(), &dng_metadata, &exif_metadata);
-    auto demosaicParameters = unpackiPhone14WideRawImage(*rawImage, rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
+    auto demosaicParameters = unpackiPhone14TeleRawImage(*rawImage, rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
 
     rawConverter->allocateTextures(rawImage->size());
 
@@ -127,8 +127,8 @@ void demosaicFile(RawConverter* rawConverter, std::filesystem::path input_path) 
     std::cout << "Metal Pipeline Execution Time: " << (int)elapsed_time_ms
     << "ms for image of size: " << rawImage->width << " x " << rawImage->height << std::endl;
 
-    const auto output_dir = input_path.parent_path(); //.parent_path() / "Classic";
-    const auto filename = input_path.filename().replace_extension("_t_g4.tif");
+    const auto output_dir = input_path.parent_path().parent_path() / "Classic";
+    const auto filename = input_path.filename().replace_extension("_t_g3.tif");
     const auto output_path = output_dir / filename;
 
     const auto srgbImageCpu = srgbImage->mapImage();

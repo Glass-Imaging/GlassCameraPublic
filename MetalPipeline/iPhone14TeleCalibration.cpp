@@ -133,7 +133,7 @@ public:
                 .eps = 0.01,
                 .shadows = 1.0,
                 .highlights = 1.0,
-                .detail = { 1, 1, 3 }
+                .detail = { 1, 1.2, 3 }
             }
         };
     }
