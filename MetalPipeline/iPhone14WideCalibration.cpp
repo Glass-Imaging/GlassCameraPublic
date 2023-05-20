@@ -73,16 +73,14 @@ public:
 
         std::cout << "iPhone 14 Wide DenoiseParameters nlf_alpha: " << nlf_alpha << ", ISO: " << iso << ", lerp: " << lerp << std::endl;
 
-        float lmult[5] = { 2, 1, 1, 1, 1 };
+        float lmult[5] = { 3, 1.5, 1, 1, 1 };
         float cmult[5] = { 1, 1, 1, 1, 1 };
-
-        float chromaBoost = 8;
 
         std::array<DenoiseParameters, 5> denoiseParameters = {{
             {
                 .luma = lmult[0] * lerp,
                 .chroma = cmult[0] * lerp_c,
-                .chromaBoost = chromaBoost,
+                .chromaBoost = 8,
                 .gradientBoost = 2 * (2 - smoothstep(0.3, 0.6, nlf_alpha)),
                 .gradientThreshold = 2,
                 .sharpening = std::lerp(1.5f, 1.0f, nlf_alpha)
@@ -90,7 +88,7 @@ public:
             {
                 .luma = lmult[1] * lerp,
                 .chroma = cmult[1] * lerp_c,
-                .chromaBoost = chromaBoost,
+                .chromaBoost = 4,
                 .gradientBoost = (2 - smoothstep(0.3, 0.6, nlf_alpha)),
                 .gradientThreshold = 2,
                 .sharpening = 1.1
@@ -98,17 +96,17 @@ public:
             {
                 .luma = lmult[2] * lerp,
                 .chroma = cmult[2] * lerp_c,
-                .chromaBoost = chromaBoost,
+                .chromaBoost = 2,
             },
             {
                 .luma = lmult[3] * lerp,
                 .chroma = cmult[3] * lerp_c,
-                .chromaBoost = chromaBoost,
+                .chromaBoost = 2,
             },
             {
                 .luma = lmult[4] * lerp,
                 .chroma = cmult[4] * lerp_c,
-                .chromaBoost = chromaBoost,
+                .chromaBoost = 2,
             }
         }};
 

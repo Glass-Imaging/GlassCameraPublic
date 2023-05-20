@@ -852,12 +852,11 @@ kernel void blockMatchingDenoiseImage(texture2d<half> inputImage                
             half3 inputSampleYCC = read_imageh(inputImage, imageCoordinates + int2(x, y)).xyz;
             _half8 samplePCA = _half8(read_imageui(pcaImage, imageCoordinates + int2(x, y)));
 
-            half pcaDiff = length(samplePCA - inputPCA, pcaComponents);
+            half pcaDiff = length(samplePCA - inputPCA, pcaComponents) * diffMultiplier.x;
             half2 inputChromaDiff = (inputSampleYCC.yz - inputYCC.yz) * diffMultiplier.yz;
 
-            half pcaMultDiff = pcaDiff * diffMultiplier.x;
-            half lumaWeight = gaussian(pcaMultDiff / (1 + (half) gradientBoost * edge));
-            half chromaWeight = gaussian(length(half3(pcaMultDiff, inputChromaDiff)) / (half) chromaBoost);
+            half lumaWeight = gaussian(pcaDiff / (1 + gradientBoost * edge));
+            half chromaWeight = gaussian(length(half3(lumaWeight, inputChromaDiff / chromaBoost)));
             half directionWeight = steer(x, y, angle, mix(2 * size, 1, edge), 2 * size);
 
             half3 sampleWeight = directionWeight * half3(lumaWeight, chromaWeight, chromaWeight);
@@ -868,7 +867,7 @@ kernel void blockMatchingDenoiseImage(texture2d<half> inputImage                
     }
     half3 denoisedPixel = half3(filtered_pixel / kernel_norm);
 
-    write_imageh(denoisedImage, imageCoordinates, half4(denoisedPixel, 1024 * sqrt(pca_sum - pca02)));
+    write_imageh(denoisedImage, imageCoordinates, half4(denoisedPixel, kernel_norm.x));
 }
 
 kernel void downsampleImageXYZ(texture2d<float> inputImage                  [[texture(0)]],

@@ -65,8 +65,8 @@ public:
     std::pair<RAWDenoiseParameters, std::array<DenoiseParameters, levels>> getDenoiseParameters(int iso) const override {
         const float highNoiseISO = 6400;
 
-        const float nlf_alpha = std::clamp((log2(iso) - log2(100)) / (log2(102400) - log2(100)), 0.0, 1.0);
-        const float raw_nlf_alpha = std::clamp((log2(iso) - log2(highNoiseISO)) / (log2(102400) - log2(highNoiseISO)), 0.0, 1.0);
+        const float nlf_alpha = std::clamp((log2(iso) - log2(100)) / (log2(40000) - log2(100)), 0.0, 1.0);
+        const float raw_nlf_alpha = std::clamp((log2(iso) - log2(highNoiseISO)) / (log2(40000) - log2(highNoiseISO)), 0.0, 1.0);
 
         LOG_INFO(TAG) << "CanonEOSRP DenoiseParameters nlf_alpha: " << nlf_alpha << ", ISO: " << iso << std::endl;
 
@@ -76,13 +76,11 @@ public:
         float lmult[5] = { 1, 1, 1, 1, 1 };
         float cmult[5] = { 1, 1, 1, 1, 1 };
 
-        float chromaBoost = 8;
-
         std::array<DenoiseParameters, 5> denoiseParameters = {{
             {
                 .luma = lmult[0] * lerp,
                 .chroma = cmult[0] * lerp_c,
-                .chromaBoost = chromaBoost,
+                .chromaBoost = 8,
                 .gradientBoost = 4, // 2 * (2 - smoothstep(0.3, 0.6, nlf_alpha)),
                 .gradientThreshold = 2,
                 .sharpening = std::lerp(1.5f, 1.0f, nlf_alpha),
@@ -90,7 +88,7 @@ public:
             {
                 .luma = lmult[1] * lerp,
                 .chroma = cmult[1] * lerp_c,
-                .chromaBoost = chromaBoost,
+                .chromaBoost = 4,
                 .gradientBoost = 2, // (2 - smoothstep(0.3, 0.6, nlf_alpha)),
                 .gradientThreshold = 2,
                 .sharpening = 1
@@ -98,17 +96,17 @@ public:
             {
                 .luma = lmult[2] * lerp,
                 .chroma = cmult[2] * lerp_c,
-                .chromaBoost = chromaBoost,
+                .chromaBoost = 2,
             },
             {
                 .luma = lmult[3] * lerp,
                 .chroma = cmult[3] * lerp_c,
-                .chromaBoost = chromaBoost,
+                .chromaBoost = 2,
             },
             {
                 .luma = lmult[4] * lerp,
                 .chroma = cmult[4] * lerp_c,
-                .chromaBoost = chromaBoost,
+                .chromaBoost = 2,
             }
         }};
 
@@ -126,7 +124,7 @@ public:
                 .contrast = 1.05,
                 .saturation = 1.0,
                 .toneCurveSlope = 3.5,
-                .localToneMapping = true
+                .localToneMapping = false
             },
             .ltmParameters = {
                 .eps = 0.01,
