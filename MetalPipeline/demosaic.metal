@@ -796,6 +796,14 @@ kernel void pcaProjection(texture2d<half> inputImage                        [[te
     write_imageui(projectedImage, imageCoordinates, uint4(v_result));
 }
 
+// Steering Kernel
+half steer(half x, half y, half angle, half s1, half s2) {
+    half cos, sin = sincos(angle, cos);
+    half a = x * cos + y * sin;
+    half b = -x * cos + y * sin;
+    return exp(-((a * a) / s1 + (b * b) / s2));
+}
+
 kernel void blockMatchingDenoiseImage(texture2d<half> inputImage                     [[texture(0)]],
                                       texture2d<half> gradientImage                  [[texture(1)]],
                                       texture2d<uint> pcaImage                       [[texture(2)]],
@@ -814,10 +822,10 @@ kernel void blockMatchingDenoiseImage(texture2d<half> inputImage                
 
     // FIXME: add lensShadingCorrection
     half3 sigma = half3(sqrt(var_a + var_b * inputYCC.x));
-
     half3 diffMultiplier = 1 / (half3(thresholdMultipliers) * sigma);
 
     half2 gradient = read_imageh(gradientImage, imageCoordinates).xy;
+    half angle = atan2(gradient.y, gradient.x);
     half magnitude = length(gradient);
     half edge = smoothstep(2, 16, gradientThreshold * magnitude / sigma.x);
 
@@ -845,21 +853,14 @@ kernel void blockMatchingDenoiseImage(texture2d<half> inputImage                
             _half8 samplePCA = _half8(read_imageui(pcaImage, imageCoordinates + int2(x, y)));
 
             half pcaDiff = length(samplePCA - inputPCA, pcaComponents);
-
             half2 inputChromaDiff = (inputSampleYCC.yz - inputYCC.yz) * diffMultiplier.yz;
 
-            // half directionWeight = mix(1, tunnel(x, y, angle, (half) 0.25), edge);
-
             half pcaMultDiff = pcaDiff * diffMultiplier.x;
-            // half lumaWeight = 1 - step(1 + (half) gradientBoost * edge, pcaMultDiff);
             half lumaWeight = gaussian(pcaMultDiff / (1 + (half) gradientBoost * edge));
-
-            // half chromaWeight = 1 - step((half) chromaBoost, length(half3(pcaMultDiff, inputChromaDiff)));
             half chromaWeight = gaussian(length(half3(pcaMultDiff, inputChromaDiff)) / (half) chromaBoost);
+            half directionWeight = steer(x, y, angle, mix(2 * size, 1, edge), 2 * size);
 
-            half distanceWeight = gaussian(0.1 * length(float2(x, y)));
-
-            half3 sampleWeight = distanceWeight * half3(/*directionWeight * */ lumaWeight, chromaWeight, chromaWeight);
+            half3 sampleWeight = directionWeight * half3(lumaWeight, chromaWeight, chromaWeight);
 
             filtered_pixel += float3(sampleWeight * inputSampleYCC);
             kernel_norm += float3(sampleWeight);
@@ -867,7 +868,7 @@ kernel void blockMatchingDenoiseImage(texture2d<half> inputImage                
     }
     half3 denoisedPixel = half3(filtered_pixel / kernel_norm);
 
-    write_imageh(denoisedImage, imageCoordinates, half4(denoisedPixel, (half) (255 * pcaComponents) / 8 ));
+    write_imageh(denoisedImage, imageCoordinates, half4(denoisedPixel, 1024 * sqrt(pca_sum - pca02)));
 }
 
 kernel void downsampleImageXYZ(texture2d<float> inputImage                  [[texture(0)]],
