@@ -113,7 +113,48 @@ void demosaicFile(RawConverter* rawConverter, std::filesystem::path input_path) 
     gls::tiff_metadata dng_metadata, exif_metadata;
     const auto rawImage =
     gls::image<gls::luma_pixel_16>::read_dng_file(input_path.string(), &dng_metadata, &exif_metadata);
-    auto demosaicParameters = unpackiPhone14TeleRawImage(*rawImage, rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
+
+    std::string make, model, lens_model;
+    if (!getValue(dng_metadata, TIFFTAG_MAKE, &make)) {
+        std::cout << "No make?" << std::endl;
+    }
+    if (!getValue(dng_metadata, TIFFTAG_MODEL, &model)) {
+        std::cout << "No Model?" << std::endl;
+    }
+    if (!getValue(exif_metadata, EXIFTAG_LENSMODEL, &lens_model)) {
+        std::cout << "No Focal Lenght?" << std::endl;
+    }
+
+    std::cout << "Make: " << make << ", model: " << model << ", Focal length: " << lens_model << std::endl;
+
+    std::unique_ptr<DemosaicParameters> demosaicParameters;
+    if (make == "Apple" && (model == "iPhone 14 Pro" || model == "iPhone 14 Pro Max")) {
+        const std::string tele = "iPhone 14 Pro back camera 9mm f/2.8";
+        const std::string wide = "iPhone 14 Pro back camera 6.86mm f/1.78";
+        const std::string ultraWide = "iPhone 14 Pro back camera 2.22mm f/2.2";
+        const std::string tele_max = "iPhone 14 Pro Max back camera 9mm f/2.8";
+        const std::string wide_max = "iPhone 14 Pro Max back camera 6.86mm f/1.78";
+        const std::string ultraWide_max = "iPhone 14 Pro Max back camera 2.22mm f/2.2";
+        const std::string selfie = "iPhone 14 Pro front camera 2.69mm f/1.9";
+        const std::string selfie_max = "iPhone 14 Pro front camera 2.69mm f/1.9";
+
+        if (lens_model == tele || lens_model == tele_max) {
+            demosaicParameters = unpackiPhone14TeleRawImage(*rawImage, rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
+        } else if (lens_model == wide || lens_model == wide_max) {
+            demosaicParameters = unpackiPhone14WideRawImage(*rawImage, rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
+        } else if (lens_model == ultraWide || lens_model == ultraWide_max) {
+            demosaicParameters = unpackiPhone14UltraWideRawImage(*rawImage, rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
+        } else if (lens_model == selfie || lens_model == selfie_max) {
+            demosaicParameters = unpackiPhone14SelfieRawImage(*rawImage, rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
+        } else {
+            std::cout << "Unknown Camera - " << "Make: " << make << ", model: " << model << ", Lens Model: " << lens_model << " - Using Wide" << std::endl;
+            demosaicParameters = unpackiPhone14WideRawImage(*rawImage, rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
+            // exit(-1);
+        }
+    } else {
+        std::cout << "Unknown Device - " << "Make: " << make << ", model: " << model << std::endl;
+        exit(-1);
+    }
 
     rawConverter->allocateTextures(rawImage->size());
 
@@ -125,10 +166,10 @@ void demosaicFile(RawConverter* rawConverter, std::filesystem::path input_path) 
     double elapsed_time_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();
 
     std::cout << "Metal Pipeline Execution Time: " << (int)elapsed_time_ms
-    << "ms for image of size: " << rawImage->width << " x " << rawImage->height << std::endl;
+              << "ms for image of size: " << rawImage->width << " x " << rawImage->height << std::endl;
 
-    const auto output_dir = input_path.parent_path().parent_path() / "Classic";
-    const auto filename = input_path.filename().replace_extension("_t_g3.tif");
+    const auto output_dir = input_path.parent_path(); // .parent_path() / "Classic";
+    const auto filename = input_path.filename().replace_extension("_t_g7.tif");
     const auto output_path = output_dir / filename;
 
     const auto srgbImageCpu = srgbImage->mapImage();
@@ -213,7 +254,7 @@ void fmenApplyToFile(RawConverter* rawConverter, std::filesystem::path input_pat
     // const auto output_path = input_path.replace_extension("_fmen_1072_ltm_sharp.png");
 
     const auto output_dir = input_path.parent_path().parent_path() / "Neuro";
-    const auto filename = input_path.filename().replace_extension("_b.tiff");
+    const auto filename = input_path.filename().replace_extension("_c_sharp.tiff");
     const auto output_path = output_dir / filename;
 
     auto srgbImage = rawConverter->postprocess(processedImage, demosaicParameters.get());
