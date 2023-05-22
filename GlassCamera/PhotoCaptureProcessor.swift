@@ -108,9 +108,11 @@ class PhotoCaptureProcessor: NSObject {
 
     // Select the image processing pipeline
     private let isNNProcessingOn: Bool
+    private var rawCount = AtomicCounter(0)
 
     // Save the location of captured photos
     var location: CLLocation?
+    let timestamp: String
 
     init(saveCollection: PhotoCollection,
          // with requestedPhotoSettings: AVCapturePhotoSettings,
@@ -127,40 +129,69 @@ class PhotoCaptureProcessor: NSObject {
         self.completionHandler = completionHandler
         self.photoCapturingHandler = photoCapturingHandler
         self.photoProcessingHandler = photoProcessingHandler
+
+
+        let dateFMT = DateFormatter()
+        dateFMT.locale = Locale(identifier: "en_US_POSIX")
+        dateFMT.dateFormat = "yyyy-MM-dd-HH-mm-ss-SSSS"
+
+        let now = Date()
+        timestamp = String(format: "%@", dateFMT.string(from: now))
     }
 
     func startRawProcessingTasks(photo: AVCapturePhoto) {
-        processRawDataTask = Task.detached(priority: .userInitiated) {
-            if let displayP3 = CGColorSpace(name: CGColorSpace.displayP3), let rawPixelBuffer = photo.pixelBuffer {
-                let rawMetadata = RawMetadata(from: photo.metadata)
+        let rawIndex = ++rawCount
 
-                let pixelBuffer = self.isNNProcessingOn
-                ? self.rawProcessor.nnProcessRawPixelBuffer(rawPixelBuffer, with: rawMetadata).takeRetainedValue()
-                : self.rawProcessor.convertRawPixelBuffer(rawPixelBuffer, with: rawMetadata).takeRetainedValue()
+        if rawIndex == 1 {
+            NSLog("FIRST RAW!")
+            processRawDataTask = Task.detached(priority: .userInitiated) {
+                if let displayP3 = CGColorSpace(name: CGColorSpace.displayP3), let rawPixelBuffer = photo.pixelBuffer {
+                    let rawMetadata = RawMetadata(from: photo.metadata)
+
+                    let pixelBuffer = self.isNNProcessingOn
+                    ? self.rawProcessor.nnProcessRawPixelBuffer(rawPixelBuffer, with: rawMetadata).takeRetainedValue()
+                    : self.rawProcessor.convertRawPixelBuffer(rawPixelBuffer, with: rawMetadata).takeRetainedValue()
 
 
-                let cgImage = pixelBuffer.createCGImage(colorSpace: displayP3)
+                    let cgImage = pixelBuffer.createCGImage(colorSpace: displayP3)
 
-                return encodeImageToHeif(CIImage(cgImage: cgImage!),
-                                                  compressionQuality: 0.8, colorSpace: displayP3,
-                                                  use10BitRepresentation: false /*cgImage!.bitsPerComponent > 8*/)
-            }
-            return nil
-        }
-
-        saveRawDataTask = Task.detached(priority: .userInitiated) {
-            self.dngFile = makeUniqueDNGFileURL()
-            do {
-                if let captureData = photo.fileDataRepresentation() {
-                    try captureData.write(to: self.dngFile!)
-                } else {
-                    return false
+                    return encodeImageToHeif(CIImage(cgImage: cgImage!),
+                                             compressionQuality: 0.8, colorSpace: displayP3,
+                                             use10BitRepresentation: false /*cgImage!.bitsPerComponent > 8*/)
                 }
-            } catch {
-                fatalError("Couldn't write DNG file to the URL.")
+                return nil
             }
 
-            return true
+            saveRawDataTask = Task.detached(priority: .userInitiated) {
+                self.dngFile = makeUniqueDNGFileURL()
+                do {
+                    if let captureData = photo.fileDataRepresentation() {
+                        try captureData.write(to: self.dngFile!)
+                    } else {
+                        return false
+                    }
+                } catch {
+                    fatalError("Couldn't write DNG file to the URL.")
+                }
+
+                return true
+            }
+        } else {
+            Task.detached(priority: .high) {
+                // TODO: Move this out of here!
+                do {
+                    if let captureData = photo.fileDataRepresentation() {
+                        // try captureData.write(to: self.dngFile!)
+                        try! await self.saveCollection.addImage(captureData, timestamp: self.timestamp, photoCategory: PhotoCategories.ISP, alternateResource: self.dngFile, location: self.location)
+                    } else {
+                        return false
+                    }
+                } catch {
+                    fatalError("Couldn't write DNG file to the URL.")
+                }
+
+                return true
+            }
         }
     }
 }
@@ -312,16 +343,9 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
         Task {
             let processedImage = await self.processRawDataTask?.value
 
-            let dateFMT = DateFormatter()
-            dateFMT.locale = Locale(identifier: "en_US_POSIX")
-            dateFMT.dateFormat = "yyyy-MM-dd-HH-mm-ss-SSSS"
-
-            let now = Date()
-            let timestamp = String(format: "%@", dateFMT.string(from: now))
-
             if let capturedImage = self.capturedImage {
-                try! await saveCollection.addImage(capturedImage, timestamp: timestamp, photoCategory: PhotoCategories.ISP, alternateResource: self.dngFile, location: self.location)
-                self.dngFile = nil
+                try! await saveCollection.addImage(capturedImage, timestamp: self.timestamp, photoCategory: PhotoCategories.ISP, alternateResource: self.dngFile, location: self.location)
+                // self.dngFile = nil
             }
 
             if let procesedImage = processedImage {
@@ -329,7 +353,7 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
                    let cgImage = CGImageSourceCreateImageAtIndex(cgImageSource, 0, nil),
                    let heicData = cgImage.heic(withMetadata: self.imageMetadata) {
 
-                    try! await saveCollection.addImage(heicData, timestamp: timestamp,
+                    try! await saveCollection.addImage(heicData, timestamp: self.timestamp,
                                                        photoCategory: isNNProcessingOn ? PhotoCategories.GlassNN : PhotoCategories.GlassTraditional,
                                                        alternateResource: nil, location: self.location)
                     self.imageMetadata = nil

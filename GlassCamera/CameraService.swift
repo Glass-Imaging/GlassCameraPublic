@@ -421,7 +421,6 @@ public class CameraService: NSObject, Identifiable {
 
                         self.session.addInput(videoDeviceInput)
                         self.videoDeviceInput = videoDeviceInput
-                        print("Unified AE Defualts?? \(self.videoDeviceInput.unifiedAutoExposureDefaultsEnabled)")
                         self.videoDeviceInput.unifiedAutoExposureDefaultsEnabled = true
 
                         self.cameraState.updateCameraDevice(device: self.videoDeviceInput.device)
@@ -563,6 +562,15 @@ public class CameraService: NSObject, Identifiable {
     }
 
     func preparePhotoSettings() {
+        let burst = false
+        if burst {
+            prepareBurstPhotoSettings()
+        } else {
+            prepareSingleShotPhotoSettings()
+        }
+    }
+
+    func prepareSingleShotPhotoSettings() {
         self.isCameraPrepared = Task(priority: .high) {
             let videoPreviewLayerOrientation = await AVCaptureVideoOrientation(deviceOrientation: UIDevice.current.orientation)
 
@@ -627,6 +635,75 @@ public class CameraService: NSObject, Identifiable {
 
                 photoSettings.photoQualityPrioritization = .quality
             }
+
+
+            do {
+                try await self.photoOutput.setPreparedPhotoSettingsArray([photoSettings])
+            } catch {
+                // TODO: Handle this better?
+                NSLog("DONE FAILED Preparing Photo Settings!")
+                return false
+            }
+
+            return true
+        }
+    }
+
+    func prepareBurstPhotoSettings() {
+        self.isCameraPrepared = Task(priority: .high) {
+            let videoPreviewLayerOrientation = await AVCaptureVideoOrientation(deviceOrientation: UIDevice.current.orientation)
+
+            if let photoOutputConnection = self.photoOutput.connection(with: .video) {
+                if let videoPreviewLayerOrientation = videoPreviewLayerOrientation {
+                    photoOutputConnection.videoOrientation = videoPreviewLayerOrientation
+                } else {
+                    photoOutputConnection.videoOrientation = .portrait
+                }
+            }
+
+            let query = self.photoOutput.isAppleProRAWEnabled ?
+            { !AVCapturePhotoOutput.isAppleProRAWPixelFormat($0) } :
+            { AVCapturePhotoOutput.isBayerRAWPixelFormat($0) }
+
+            // var photoSettings: AVCapturePhotoSettings
+            var photoSettings: AVCapturePhotoBracketSettings
+
+            // Retrieve the RAW format, favoring the Apple ProRAW format when it's in an enabled state.
+            guard let rawFormat = self.photoOutput.availableRawPhotoPixelFormatTypes.first(where: query) else {
+                print("DEVICE DOES NOT SUPPRT RAW CAPTURE!")
+                return false
+            }
+
+
+            let bracketSettings = cameraState.isCustomExposure
+                ? (0...3).map { _ in AVCaptureManualExposureBracketedStillImageSettings.manualExposureSettings(exposureDuration: self.cameraState.finalExposureDuration, iso: self.cameraState.finalISO) }
+                : (0...3).map { _ in AVCaptureManualExposureBracketedStillImageSettings.manualExposureSettings(exposureDuration: self.cameraState.finalExposureDuration, iso: self.cameraState.finalISO) }
+
+
+            // Capture a RAW format photo, along with a processed format photo.
+            let processedFormat = [AVVideoCodecKey: AVVideoCodecType.hevc]
+            photoSettings = AVCapturePhotoBracketSettings(rawPixelFormatType: rawFormat, processedFormat: processedFormat, bracketedSettings: bracketSettings)
+            photoSettings.isLensStabilizationEnabled = true
+
+            // Select the first available codec type, which is JPEG.
+            guard let thumbnailPhotoCodecType =
+                    photoSettings.availableRawEmbeddedThumbnailPhotoCodecTypes.first else {
+                // Handle the failure to find an available thumbnail photo codec type.
+                fatalError("Failed configuring RAW tumbnail.")
+            }
+
+            if self.videoDeviceInput.device.isFlashAvailable {
+                photoSettings.flashMode = self.cameraState.isFlashOn ? .on : .off
+            }
+
+            // Select the maximum photo dimensions as thumbnail dimensions if a full-size thumbnail is desired.
+            // The system clamps these dimensions to the photo dimensions if the capture produces a photo with smaller than maximum dimensions.
+            let dimensions = photoSettings.maxPhotoDimensions
+            photoSettings.rawEmbeddedThumbnailPhotoFormat = [
+                AVVideoCodecKey: thumbnailPhotoCodecType,
+                AVVideoWidthKey: dimensions.width,
+                AVVideoHeightKey: dimensions.height
+            ]
 
 
             do {

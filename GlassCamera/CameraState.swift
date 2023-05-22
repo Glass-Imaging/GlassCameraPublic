@@ -35,10 +35,10 @@ final class CameraState: ObservableObject {
     @Published var customISO: Float = 100
     @Published var customExposureBias: Float = 0
 
-    // Exposure params published to display
-    @Published var displayExposureDuration: CMTime = CMTime(seconds: 1/100, preferredTimescale: 1_000_000_000)
-    @Published var displayISO: Float = 100
-    @Published var displayExposureBias: Float = 0
+    // Exposure params published to display and to be used in some custom exposure requests
+    @Published var finalExposureDuration: CMTime = CMTime(seconds: 1/100, preferredTimescale: 1_000_000_000)
+    @Published var finalISO: Float = 100
+    @Published var finalExposureBias: Float = 0
 
     // User provided exposure params
     @Published var userExposureDuration: CMTime = CMTime(seconds: 1/100, preferredTimescale: 1_000_000_000)
@@ -100,7 +100,7 @@ final class CameraState: ObservableObject {
 
         $userExposureBias.sink { user in
             self.customExposureBias = self.isManualEVBias ? user : 0
-            self.displayExposureBias = self.customExposureBias
+            self.finalExposureBias = self.customExposureBias
         }.store(in: &self.subscriptions)
 
         $isManualExposureDuration.sink { isManual in
@@ -113,14 +113,14 @@ final class CameraState: ObservableObject {
 
         $isManualEVBias.sink { isManual in
             self.customExposureBias = isManual ? self.userExposureBias : 0
-            self.displayExposureBias = self.customExposureBias
+            self.finalExposureBias = self.customExposureBias
             self.calculateExposureParams()
         }.store(in: &self.subscriptions)
     }
 
     func calculateExposureParams() {
         DispatchQueue.main.async {
-            let exposureDuration = Float(self.meteredExposureDuration.seconds)
+            let exposureDuration = self.meteredExposureDuration
             let iso = self.meteredISO
             let exposureBias = self.meteredExposureBias
             let offset = self.meteredExposureOffset
@@ -141,8 +141,8 @@ final class CameraState: ObservableObject {
             }
 
             let scale: Double = 1_000_000
-            let currentRoundedExposure = (scale*self.displayExposureDuration.seconds).rounded(.down)
-            let currentRoundedISO = self.displayISO.rounded(.down)
+            let currentRoundedExposure = (scale*self.finalExposureDuration.seconds).rounded(.down)
+            let currentRoundedISO = self.finalISO.rounded(.down)
 
             self.isAtUpperTargetExposureDurationLimit = currentRoundedExposure == (scale*self.targetMaxExposureDuration.seconds).rounded(.down)
 
@@ -153,92 +153,81 @@ final class CameraState: ObservableObject {
             self.isAtUpperDeviceISOLimit = currentRoundedISO == self.deviceMaxISO
         }
     }
-    private func autoExposure(_ duration: Float, _ iso: Float) {
+    private func autoExposure(_ duration: CMTime, _ iso: Float) {
         self.isCustomExposure = false
-        self.displayExposureDuration = CMTime(seconds: Double(duration), preferredTimescale: self.targetMaxExposureDuration.timescale)
-        self.displayISO = iso
+        self.finalExposureDuration = duration
+        self.finalISO = iso
     }
 
-    private func calculateExposureParamsMinimizeISO(_ duration: Float, _ iso: Float, _ bias: Float, _ offset: Float) {
+    private func calculateExposureParamsMinimizeISO(_ duration: CMTime, _ iso: Float, _ bias: Float, _ offset: Float) {
         self.isCustomExposure = true
-        let meteredEVZero = iso * duration * pow(2, bias) * pow(2, -1 * offset)
+        let meteredEVZero = iso * duration.secondsF * pow(2, bias) * pow(2, -1 * offset)
 
-        var targetISO = deviceMinISO
+        self.customExposureDuration = CMTime(secondsF: meteredEVZero / (deviceMinISO * pow(2, bias))).clamp(lower: deviceMinExposureDuration, upper: targetMaxExposureDuration)
 
-        var targetExposureDuration = meteredEVZero / (targetISO * pow(2, bias))
-        targetExposureDuration = min(max(targetExposureDuration, Float(deviceMinExposureDuration.seconds)), Float(targetMaxExposureDuration.seconds))
+        let targetISO = meteredEVZero / (self.customExposureDuration.secondsF * pow(2, bias))
+        self.customISO = targetISO.clamp(lower: self.deviceMinISO, upper: self.deviceMaxISO).ifNotFinite(replacement: deviceMinISO)
 
-        targetISO = meteredEVZero / (targetExposureDuration * pow(2, bias))
-        targetISO = min(max(targetISO, self.deviceMinISO), self.deviceMaxISO)
-        targetISO = targetISO.isNaN ? deviceMinISO : targetISO
-
-        self.customExposureDuration = CMTime(seconds: Double(targetExposureDuration), preferredTimescale: /*self.targetMaxExposureDuration.timescale*/1_000_000_000)
-        self.customISO = targetISO
-
-        self.displayExposureDuration = self.customExposureDuration
-        self.displayISO = self.customISO
+        self.finalExposureDuration = self.customExposureDuration
+        self.finalISO = self.customISO
     }
 
     // TODO: CHANGE TO USE ActiveMaxExposureDuration
-    private func calculateExposureParamsAuto(_ duration: Float, _ iso: Float, _ bias: Float, _ offset: Float) {
-        let meteredEVZero = iso * duration * pow(2, bias) * pow(2, -1 * offset)
+    private func calculateExposureParamsAuto(_ duration: CMTime, _ iso: Float, _ bias: Float, _ offset: Float) {
+        let meteredEVZero = iso * duration.secondsF * pow(2, bias) * pow(2, -1 * offset)
 
-        let customExposure = (duration < Float(deviceMinExposureDuration.seconds)) || (duration > Float(targetMaxExposureDuration.seconds))
-        let targetExposureDuration = min(max(duration, Float(deviceMinExposureDuration.seconds)), Float(targetMaxExposureDuration.seconds))
-        var targetISO = meteredEVZero / (targetExposureDuration * pow(2, bias))
+        self.customExposureDuration = duration.clamp(lower: deviceMinExposureDuration, upper: targetMaxExposureDuration)
 
-        self.isCustomExposure = customExposure || (targetISO < deviceMinISO) || (targetISO > deviceMaxISO)
-        targetISO = min(max(targetISO, self.deviceMinISO), self.deviceMaxISO)
-        targetISO = targetISO.isNaN ? deviceMinISO : targetISO
+        let targetISO = meteredEVZero / (self.customExposureDuration.secondsF * pow(2, bias))
+        self.customISO = targetISO.clamp(lower: self.deviceMinISO, upper: self.deviceMaxISO).ifNotFinite(replacement: deviceMinISO)
 
-        self.customExposureDuration = CMTime(seconds: Double(targetExposureDuration), preferredTimescale: self.targetMaxExposureDuration.timescale)
-        self.customISO = targetISO
+        self.isCustomExposure = (duration < deviceMinExposureDuration)
+                                || (duration > targetMaxExposureDuration)
+                                || (targetISO < deviceMinISO)
+                                || (targetISO > deviceMaxISO)
 
-        self.displayExposureDuration = self.customExposureDuration
-        self.displayISO = self.customISO
+        self.finalExposureDuration = self.customExposureDuration
+        self.finalISO = self.customISO
     }
 
-    private func calculateExposureParamsManualISO(_ duration: Float, _ iso: Float, _ bias: Float, _ offset: Float) {
+    private func calculateExposureParamsManualISO(_ duration: CMTime, _ iso: Float, _ bias: Float, _ offset: Float) {
         self.isCustomExposure = true
-        let meteredEVZero = iso * duration * pow(2, bias) * pow(2, -1 * offset)
+        let meteredEVZero = iso * duration.secondsF * pow(2, bias) * pow(2, -1 * offset)
 
         let bias = isManualEVBias ? userExposureBias : 0
         // Should be able calculate required exposure duration. Any remaining EV will be set to calculated exposure bias
-        var targetExposureDuration = meteredEVZero / (userISO * pow(2, bias))
-        targetExposureDuration = min(max(targetExposureDuration, Float(deviceMinExposureDuration.seconds)), Float(targetMaxExposureDuration.seconds))
+        let targetExposureDuration = meteredEVZero / (userISO * pow(2, bias))
 
-        self.customExposureDuration = CMTime(seconds: Double(targetExposureDuration), preferredTimescale: self.targetMaxExposureDuration.timescale)
-        self.customISO = min(max(self.userISO, deviceMinISO), deviceMaxISO)
+        self.customExposureDuration = CMTime(secondsF: targetExposureDuration).clamp(lower: deviceMinExposureDuration, upper: targetMaxExposureDuration)
+        self.customISO = self.userISO.clamp(lower: deviceMinISO, upper: deviceMaxISO)
 
-        self.displayExposureDuration = self.customExposureDuration
-        self.displayISO = self.customISO
+        self.finalExposureDuration = self.customExposureDuration
+        self.finalISO = self.customISO
     }
 
-    private func calculateExposureParamsManualExposureDuration(_ duration: Float, _ iso: Float, _ bias: Float, _ offset: Float) {
+    private func calculateExposureParamsManualExposureDuration(_ duration: CMTime, _ iso: Float, _ bias: Float, _ offset: Float) {
         self.isCustomExposure = true
-        let meteredEVZero = iso * duration * pow(2, bias) * pow(2, -1 * offset)
+        let meteredEVZero = iso * duration.secondsF * pow(2, bias) * pow(2, -1 * offset)
 
         let bias = isManualEVBias ? userExposureBias : 0
         // Should be able calculate required exposure duration. Any remaining EV will be set to calculated exposure bias
-        var targetISO = meteredEVZero / (Float(userExposureDuration.seconds) * pow(2, bias))
-        targetISO = min(max(targetISO, deviceMinISO), deviceMaxISO)
+        var targetISO = meteredEVZero / (userExposureDuration.secondsF * pow(2, bias))
+        targetISO = targetISO.clamp(lower: deviceMinISO, upper: deviceMaxISO)
 
-        let targetExposureDuration = min(max(Float(self.userExposureDuration.seconds), Float(deviceMinExposureDuration.seconds)), Float(deviceMaxExposureDuration.seconds))
-
-        self.customExposureDuration = CMTime(seconds: Double(targetExposureDuration), preferredTimescale: self.targetMaxExposureDuration.timescale)
+        self.customExposureDuration = self.userExposureDuration.clamp(lower: deviceMinExposureDuration, upper: deviceMaxExposureDuration)
         self.customISO = targetISO
 
-        self.displayExposureDuration = self.customExposureDuration
-        self.displayISO = self.customISO
+        self.finalExposureDuration = self.customExposureDuration
+        self.finalISO = self.customISO
     }
 
-    private func calculateExposureParamsManual(_ duration: Float, _ iso: Float, _ bias: Float, _ offset: Float) {
+    private func calculateExposureParamsManual(_ duration: CMTime, _ iso: Float, _ bias: Float, _ offset: Float) {
         self.isCustomExposure = true
         self.customExposureDuration = self.userExposureDuration
         self.customISO = self.userISO
 
-        self.displayExposureDuration = self.customExposureDuration
-        self.displayISO = self.customISO
+        self.finalExposureDuration = self.customExposureDuration
+        self.finalISO = self.customISO
     }
 
     func updateCameraDevice(device: AVCaptureDevice) {
@@ -292,5 +281,31 @@ final class CameraState: ObservableObject {
                 self.deviceAperture = captureDevice.lensAperture
             }
         }
+    }
+}
+
+extension CMTime {
+    var secondsF: Float {
+        get {
+            return Float(self.seconds)
+        }
+    }
+
+    init(secondsF: Float) {
+        self.init(seconds: Double(secondsF), preferredTimescale: 1_000_000_000)
+    }
+
+    func clamp(lower: CMTime, upper: CMTime) -> CMTime {
+        return CMTime(secondsF: self.secondsF.clamp(lower: lower.secondsF, upper: upper.secondsF))
+    }
+}
+
+extension Float {
+    func clamp(lower: Float, upper: Float) -> Float {
+        return min(max(self, lower), upper)
+    }
+
+    func ifNotFinite(replacement: Float) -> Float {
+        return self.isFinite ? self : replacement
     }
 }
