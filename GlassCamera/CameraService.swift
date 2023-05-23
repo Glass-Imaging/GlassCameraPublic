@@ -59,6 +59,7 @@ public class CameraService: NSObject, Identifiable {
 
     private var cameraState: CameraState
     private var isCameraPrepared: Task<Bool, Never>? = nil
+    private var lockPreparedSettings = false
 
     @Published public var shouldShowAlertView = false
     @Published public var shouldShowSpinner = false
@@ -162,6 +163,29 @@ public class CameraService: NSObject, Identifiable {
                 self.videoDeviceInput.device.setExposureModeCustom(duration: newExposureDuration, iso: newISO) {_ in }
                 self.videoDeviceInput.device.unlockForConfiguration()
             }.store(in: &self.subscriptions)
+
+        /*
+        cameraState.$finalExposureDuration.combineLatest(cameraState.$finalISO)
+            .filter { newExposureDuration, newISO in
+                return self.videoDeviceInput != nil
+                && (newExposureDuration.seconds <= self.videoDeviceInput.device.activeFormat.maxExposureDuration.seconds)
+                && (newExposureDuration.seconds > self.videoDeviceInput.device.activeFormat.minExposureDuration.seconds)
+                && (newISO <= self.videoDeviceInput.device.activeFormat.maxISO)
+                && (newISO >= self.videoDeviceInput.device.activeFormat.minISO)
+            }
+            // This works at 1000 milliseconds, but seems to crash at 500
+            .throttle(for: .milliseconds(1000), scheduler: DispatchQueue.main, latest: true)
+            .sink { newExposureDuration, newISO in
+                // NOTE: This is a little expensive, but it reduces latency when triggering an exposure
+                self.preparePhotoSettings(exposureDuration: newExposureDuration, iso: newISO)
+            }.store(in: &self.subscriptions)
+
+        cameraState.$isBurstCaptureOn
+            .filter { _ in self.videoDeviceInput != nil }
+            .sink { _ in
+            self.preparePhotoSettings(exposureDuration: self.cameraState.finalExposureDuration, iso: self.cameraState.finalISO)
+        }.store(in: &self.subscriptions)
+         */
 
 
         cameraState.$isCustomExposure
@@ -334,11 +358,6 @@ public class CameraService: NSObject, Identifiable {
             return
         }
 
-
-        print("PREPARING PHOTO SETTINGS CONFIG")
-        self.preparePhotoSettings()
-
-
         session.commitConfiguration()
         self.isConfigured = true
 
@@ -435,9 +454,6 @@ public class CameraService: NSObject, Identifiable {
                     }
 
                     self.photoOutput.maxPhotoQualityPrioritization = .quality
-
-                    print("PREPARING PHOTO SETTINGS CHANGE CAM")
-                    self.preparePhotoSettings()
 
                     self.session.commitConfiguration()
                 } catch {
@@ -561,16 +577,20 @@ public class CameraService: NSObject, Identifiable {
         }
     }
 
-    func preparePhotoSettings() {
-        let burst = false
-        if burst {
-            prepareBurstPhotoSettings()
+    func preparePhotoSettings(exposureDuration: CMTime, iso: Float) {
+        if lockPreparedSettings {
+            print("Cannot prepare settings, settings locked")
+            return
+        }
+
+        if cameraState.isBurstCaptureOn {
+            prepareBurstPhotoSettings(exposureCount: 4, exposureDuration: exposureDuration, iso: iso)
         } else {
-            prepareSingleShotPhotoSettings()
+            prepareBurstPhotoSettings(exposureCount: 1, exposureDuration: exposureDuration, iso: iso)
         }
     }
 
-    func prepareSingleShotPhotoSettings() {
+    func prepareBurstPhotoSettings(exposureCount: Int, exposureDuration: CMTime, iso: Float) {
         self.isCameraPrepared = Task(priority: .high) {
             let videoPreviewLayerOrientation = await AVCaptureVideoOrientation(deviceOrientation: UIDevice.current.orientation)
 
@@ -582,90 +602,8 @@ public class CameraService: NSObject, Identifiable {
                 }
             }
 
-            let query = self.photoOutput.isAppleProRAWEnabled ?
-            { !AVCapturePhotoOutput.isAppleProRAWPixelFormat($0) } :
-            { AVCapturePhotoOutput.isBayerRAWPixelFormat($0) }
+            let query = self.photoOutput.isAppleProRAWEnabled ? { !AVCapturePhotoOutput.isAppleProRAWPixelFormat($0) } : { AVCapturePhotoOutput.isBayerRAWPixelFormat($0) }
 
-            var photoSettings: AVCapturePhotoSettings
-
-            // Retrieve the RAW format, favoring the Apple ProRAW format when it's in an enabled state.
-            if let rawFormat = self.photoOutput.availableRawPhotoPixelFormatTypes.first(where: query) {
-                // Capture a RAW format photo, along with a processed format photo.
-                let processedFormat = [AVVideoCodecKey: AVVideoCodecType.hevc]
-                photoSettings = AVCapturePhotoSettings(rawPixelFormatType: rawFormat,
-                                                       processedFormat: processedFormat)
-
-                // Select the first available codec type, which is JPEG.
-                guard let thumbnailPhotoCodecType =
-                        photoSettings.availableRawEmbeddedThumbnailPhotoCodecTypes.first else {
-                    // Handle the failure to find an available thumbnail photo codec type.
-                    fatalError("Failed configuring RAW tumbnail.")
-                }
-
-                if self.videoDeviceInput.device.isFlashAvailable {
-                    photoSettings.flashMode = self.cameraState.isFlashOn ? .on : .off
-                }
-
-                // Select the maximum photo dimensions as thumbnail dimensions if a full-size thumbnail is desired.
-                // The system clamps these dimensions to the photo dimensions if the capture produces a photo with smaller than maximum dimensions.
-                let dimensions = photoSettings.maxPhotoDimensions
-                photoSettings.rawEmbeddedThumbnailPhotoFormat = [
-                    AVVideoCodecKey: thumbnailPhotoCodecType,
-                    AVVideoWidthKey: dimensions.width,
-                    AVVideoHeightKey: dimensions.height
-                ]
-            } else {
-                print("RAW Not available, defaulting to compressed images.")
-
-                photoSettings = AVCapturePhotoSettings()
-
-                // Capture HEIF photos when supported. Enable according to user settings and high-resolution photos.
-                if self.photoOutput.availablePhotoCodecTypes.contains(.hevc) {
-                    photoSettings = AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.hevc])
-                }
-
-                if self.videoDeviceInput.device.isFlashAvailable {
-                    photoSettings.flashMode = self.cameraState.isFlashOn ? .on : .off
-                }
-
-                // photoSettings.isHighResolutionPhotoEnabled = true
-                if !photoSettings.__availablePreviewPhotoPixelFormatTypes.isEmpty {
-                    photoSettings.previewPhotoFormat = [kCVPixelBufferPixelFormatTypeKey as String: photoSettings.__availablePreviewPhotoPixelFormatTypes.first!]
-                }
-
-                photoSettings.photoQualityPrioritization = .quality
-            }
-
-
-            do {
-                try await self.photoOutput.setPreparedPhotoSettingsArray([photoSettings])
-            } catch {
-                // TODO: Handle this better?
-                NSLog("DONE FAILED Preparing Photo Settings!")
-                return false
-            }
-
-            return true
-        }
-    }
-
-    func prepareBurstPhotoSettings() {
-        self.isCameraPrepared = Task(priority: .high) {
-            let videoPreviewLayerOrientation = await AVCaptureVideoOrientation(deviceOrientation: UIDevice.current.orientation)
-
-            if let photoOutputConnection = self.photoOutput.connection(with: .video) {
-                if let videoPreviewLayerOrientation = videoPreviewLayerOrientation {
-                    photoOutputConnection.videoOrientation = videoPreviewLayerOrientation
-                } else {
-                    photoOutputConnection.videoOrientation = .portrait
-                }
-            }
-
-            let query = self.photoOutput.isAppleProRAWEnabled ?
-            { !AVCapturePhotoOutput.isAppleProRAWPixelFormat($0) } :
-            { AVCapturePhotoOutput.isBayerRAWPixelFormat($0) }
-
-            // var photoSettings: AVCapturePhotoSettings
             var photoSettings: AVCapturePhotoBracketSettings
 
             // Retrieve the RAW format, favoring the Apple ProRAW format when it's in an enabled state.
@@ -674,11 +612,7 @@ public class CameraService: NSObject, Identifiable {
                 return false
             }
 
-
-            let bracketSettings = cameraState.isCustomExposure
-                ? (0...3).map { _ in AVCaptureManualExposureBracketedStillImageSettings.manualExposureSettings(exposureDuration: self.cameraState.finalExposureDuration, iso: self.cameraState.finalISO) }
-                : (0...3).map { _ in AVCaptureManualExposureBracketedStillImageSettings.manualExposureSettings(exposureDuration: self.cameraState.finalExposureDuration, iso: self.cameraState.finalISO) }
-
+            let bracketSettings = stride(from: 0, to: exposureCount, by: 1).map { _ in AVCaptureManualExposureBracketedStillImageSettings.manualExposureSettings(exposureDuration: exposureDuration, iso: iso) }
 
             // Capture a RAW format photo, along with a processed format photo.
             let processedFormat = [AVVideoCodecKey: AVVideoCodecType.hevc]
@@ -729,6 +663,8 @@ public class CameraService: NSObject, Identifiable {
         if self.setupResult != .configurationFailed {
             self.isCameraButtonDisabled = true
 
+            self.preparePhotoSettings(exposureDuration: self.cameraState.finalExposureDuration, iso: self.cameraState.finalISO)
+
             let photoCaptureProcessor = PhotoCaptureProcessor(saveCollection: saveCollection,
                                                               id: ++self.processingID,
                                                               isNNProcessingOn: self.cameraState.isNNProcessingOn,
@@ -746,7 +682,10 @@ public class CameraService: NSObject, Identifiable {
                 }
 
                 self.isCameraButtonDisabled = false
+                self.lockPreparedSettings = false
                 self.inProgressPhotoCaptureDelegates[photoCaptureProcessor.id] = nil
+                // Create new photo settings!
+                // self.preparePhotoSettings(exposureDuration: self.cameraState.finalExposureDuration, iso: self.cameraState.finalISO)
             }, photoCapturingHandler: { isCapturing in self.isPhotoCapturing = isCapturing
             }, photoProcessingHandler: { isProcessing in self.shouldShowSpinner = isProcessing })
 
@@ -758,13 +697,19 @@ public class CameraService: NSObject, Identifiable {
 
 
             Task(priority: .userInitiated) {
-                if await self.isCameraPrepared!.value {
-                    self.photoOutput.capturePhoto(with: self.photoOutput.preparedPhotoSettingsArray.first!, delegate: photoCaptureProcessor)
-                    print("PREPARING PHOTO SETTINGS AGAIN")
-                    self.preparePhotoSettings()
+                // TODO: Handle locked settings better. Might be nice to allow capture to wait for previous one to be done
+                if !self.lockPreparedSettings {
+                    if let isCameraPrepared = self.isCameraPrepared {
+                        self.lockPreparedSettings = true
+                        let _ = await isCameraPrepared.value
+                        self.photoOutput.capturePhoto(with: self.photoOutput.preparedPhotoSettingsArray.first!, delegate: photoCaptureProcessor)
+                    } else {
+                        print("Camera not Prepared! Skipping")
+                    }
+                } else {
+                    print("Camera Prep is locked! Skipping")
                 }
             }
-
         }
     }
 
@@ -840,15 +785,8 @@ public class CameraService: NSObject, Identifiable {
                 if self.isSessionRunning {
                     self.session.startRunning()
                     self.isSessionRunning = self.session.isRunning
-                } else {
-                    DispatchQueue.main.async {
-                        // TODO: Fixme
-                        // self.resumeButton.isHidden = false
-                    }
                 }
             }
-        } else {
-            // resumeButton.isHidden = false
         }
     }
 

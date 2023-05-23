@@ -100,7 +100,7 @@ class PhotoCollection: NSObject, ObservableObject {
         }
     }
     
-    func addImage(_ imageData: Data, timestamp: String, photoCategory: PhotoCategory, alternateResource: URL?, location: CLLocation?) async throws {
+    func addImage(_ imageData: Data, timestamp: String, photoCategory: PhotoCategory, alternateResource: URL?, location: CLLocation?, index: Int? = nil) async throws {
         guard let assetCollection = self.assetCollection else {
             throw PhotoCollectionError.missingAssetCollection
         }
@@ -114,7 +114,10 @@ class PhotoCollection: NSObject, ObservableObject {
                 
                 if let assetPlaceholder = creationRequest.placeholderForCreatedAsset {
                     let options = PHAssetResourceCreationOptions()
-                    options.originalFilename = "\(timestamp)\(photoCategory.suffix)"
+
+                    var indexStr = ""
+                    if let index = index { indexStr = "_\(index)" }
+                    options.originalFilename = "\(timestamp)\(indexStr)\(photoCategory.suffix)"
                         
                     creationRequest.addResource(with: .photo, data: imageData, options: options)
                     

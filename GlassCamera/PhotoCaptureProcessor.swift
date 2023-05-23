@@ -101,7 +101,7 @@ class PhotoCaptureProcessor: NSObject {
     private var maxPhotoProcessingTime: CMTime?
 
     private let rawProcessor = RawProcessor()
-    private var saveRawDataTask: Task<Bool, Never>? = nil
+    private var saveRawDataTasks = [Task<Bool, Never>]()
     private var processRawDataTask: Task<Data?, Never>? = nil
 
     private let saveCollection: PhotoCollection
@@ -143,8 +143,7 @@ class PhotoCaptureProcessor: NSObject {
         let rawIndex = ++rawCount
 
         if rawIndex == 1 {
-            NSLog("FIRST RAW!")
-            processRawDataTask = Task.detached(priority: .userInitiated) {
+            processRawDataTask = Task(priority: .userInitiated) {
                 if let displayP3 = CGColorSpace(name: CGColorSpace.displayP3), let rawPixelBuffer = photo.pixelBuffer {
                     let rawMetadata = RawMetadata(from: photo.metadata)
 
@@ -162,7 +161,9 @@ class PhotoCaptureProcessor: NSObject {
                 return nil
             }
 
-            saveRawDataTask = Task.detached(priority: .userInitiated) {
+
+            // saveRawDataTask = Task(priority: .userInitiated) {
+            saveRawDataTasks.append(Task(priority: .userInitiated) {
                 self.dngFile = makeUniqueDNGFileURL()
                 do {
                     if let captureData = photo.fileDataRepresentation() {
@@ -175,14 +176,15 @@ class PhotoCaptureProcessor: NSObject {
                 }
 
                 return true
-            }
+            })
         } else {
-            Task.detached(priority: .high) {
+            saveRawDataTasks.append(Task(priority: .userInitiated) {
                 // TODO: Move this out of here!
+                let file = makeUniqueDNGFileURL()
                 do {
                     if let captureData = photo.fileDataRepresentation() {
-                        // try captureData.write(to: self.dngFile!)
-                        try! await self.saveCollection.addImage(captureData, timestamp: self.timestamp, photoCategory: PhotoCategories.ISP, alternateResource: self.dngFile, location: self.location)
+                        try captureData.write(to: file)
+                        try! await self.saveCollection.addImage(captureData, timestamp: self.timestamp, photoCategory: PhotoCategories.GlassRawBurst, alternateResource: nil, location: self.location, index: rawIndex)
                     } else {
                         return false
                     }
@@ -191,7 +193,7 @@ class PhotoCaptureProcessor: NSObject {
                 }
 
                 return true
-            }
+            })
         }
     }
 }
@@ -339,16 +341,12 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
     // MARK: Saves capture to photo library
     func saveToPhotoLibrary() {
         // Wait for RAW data to be processed
-        // rawProcessingQueue.waitUntilAllOperationsAreFinished();
         Task {
-            let processedImage = await self.processRawDataTask?.value
-
             if let capturedImage = self.capturedImage {
                 try! await saveCollection.addImage(capturedImage, timestamp: self.timestamp, photoCategory: PhotoCategories.ISP, alternateResource: self.dngFile, location: self.location)
-                // self.dngFile = nil
             }
 
-            if let procesedImage = processedImage {
+            if let procesedImage = await self.processRawDataTask?.value {
                 if let cgImageSource = CGImageSourceCreateWithData(procesedImage as CFData, nil),
                    let cgImage = CGImageSourceCreateImageAtIndex(cgImageSource, 0, nil),
                    let heicData = cgImage.heic(withMetadata: self.imageMetadata) {
@@ -360,8 +358,7 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
                 }
             }
 
-
-            let _ = await self.saveRawDataTask?.value
+            for t in saveRawDataTasks { await t.value }
             self.completionHandler(self)
         }
     }

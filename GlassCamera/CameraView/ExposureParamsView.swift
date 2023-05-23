@@ -111,16 +111,16 @@ struct ExposureParams: View {
                     cameraState.targetMaxExposureDuration = cameraState.deviceMaxExposureDuration
                     cameraState.calculateExposureParams()
                 }
-                Button("Still - Max 1/40s") {
-                    cameraState.targetMaxExposureDuration = CMTime(secondsF: 1/40)
+                Button("Still - Max 1/15s") {
+                    cameraState.targetMaxExposureDuration = CMTime(secondsF: 1/15)
                     cameraState.calculateExposureParams()
                 }
-                Button("Default - Max 1/80s") {
-                    cameraState.targetMaxExposureDuration = CMTime(secondsF: 1/80)
+                Button("Default - Max 1/30s") {
+                    cameraState.targetMaxExposureDuration = CMTime(secondsF: 1/30)
                     cameraState.calculateExposureParams()
                 }
-                Button("Motion - Max 1/160s") {
-                    cameraState.targetMaxExposureDuration = CMTime(secondsF: 1/160)
+                Button("Motion - Max 1/120s") {
+                    cameraState.targetMaxExposureDuration = CMTime(secondsF: 1/120)
                     cameraState.calculateExposureParams()
                 }
             }
@@ -182,8 +182,8 @@ struct ExposureParams: View {
                     }
                 } else {
                     Text("Auto ISO Mode").font(.system(.title))
-                    // Button("Minimize ISO") {}
-                    // Button("Balanced ISO & SS") {}
+                    Button("Minimize ISO") { self.cameraState.autoExposureMinimizeIso = true }
+                    // Button("Balanced") { self.cameraState.autoExposureMinimizeIso = false }
                 }
             }
     }

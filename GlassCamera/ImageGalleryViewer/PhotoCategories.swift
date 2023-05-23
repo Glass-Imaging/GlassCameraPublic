@@ -24,12 +24,14 @@ struct PhotoCategories {
     
     static let GlassNN =  PhotoCategory(name: "GlassNN", suffix: "_GLS", company: glass)
     static let GlassTraditional = PhotoCategory(name: "Glass Traditional", suffix: "_GLST", company: glass)
+    static let GlassRawBurst = PhotoCategory(name: "Glass Raw Burst", suffix: "_GLSR", company: glass)
     static let ISP =  PhotoCategory(name: "ISP", suffix: "_ISP", company: "Apple")
     static let Other = PhotoCategory(name: "Other", suffix: "", company: "Unknown")
     
     static func getPhotoCategory(photoName: String) -> PhotoCategory {
         if photoName.hasSuffix(GlassNN.suffix) { return GlassNN }
         if photoName.hasSuffix(GlassTraditional.suffix) { return GlassTraditional }
+        if photoName.hasSuffix(GlassRawBurst.suffix) { return GlassRawBurst }
         if photoName.hasSuffix(ISP.suffix) { return ISP }
         return Other
     }

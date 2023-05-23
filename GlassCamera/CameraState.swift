@@ -17,41 +17,43 @@ final class CameraState: ObservableObject {
 
     // Unchanging per camera
     @Published var deviceAperture: Float = 0
-    @Published var deviceMaxExposureDuration: CMTime = CMTime(seconds: 1/100, preferredTimescale: 1_000_000)
-    @Published var deviceMinExposureDuration: CMTime = CMTime(seconds: 1/100, preferredTimescale: 1_000_000)
+    @Published var deviceMaxExposureDuration: CMTime = CMTime(secondsF: 1/100)
+    @Published var deviceMinExposureDuration: CMTime = CMTime(secondsF: 1/100)
     @Published var deviceMaxISO: Float = 100
     @Published var deviceMinISO: Float = 100
     @Published var deviceMinExposureBias: Float = 0
     @Published var deviceMaxExposureBias: Float = 0
 
     // Exposure params as metered by default
-    @Published var meteredExposureDuration: CMTime = CMTime(seconds: 1/100, preferredTimescale: 1_000_000_000)
+    @Published var meteredExposureDuration: CMTime = CMTime(secondsF: 1/100)
     @Published var meteredISO: Float = 100
     @Published var meteredExposureBias: Float = 0
     @Published var meteredExposureOffset: Float = 0
 
     // Exposure params as modified according to user settings
-    @Published var customExposureDuration: CMTime = CMTime(seconds: 1/100, preferredTimescale: 1_000_000_000)
+    @Published var customExposureDuration: CMTime = CMTime(secondsF: 1/100)
     @Published var customISO: Float = 100
     @Published var customExposureBias: Float = 0
 
     // Exposure params published to display and to be used in some custom exposure requests
-    @Published var finalExposureDuration: CMTime = CMTime(seconds: 1/100, preferredTimescale: 1_000_000_000)
+    @Published var finalExposureDuration: CMTime = CMTime(secondsF: 1/100)
     @Published var finalISO: Float = 100
     @Published var finalExposureBias: Float = 0
 
     // User provided exposure params
-    @Published var userExposureDuration: CMTime = CMTime(seconds: 1/100, preferredTimescale: 1_000_000_000)
+    @Published var userExposureDuration: CMTime = CMTime(secondsF: 1/100)
     @Published var userISO: Float = 100
     @Published var userExposureBias: Float = 0
 
     // Exposure param limits as specified by user settings
-    @Published var targetMaxExposureDuration: CMTime = CMTime(seconds: 1.0/80, preferredTimescale: 1_000_000_000)
+    @Published var targetMaxExposureDuration: CMTime = CMTime(secondsF: 1/30)
 
     // User Options
     @Published public var isFlashOn  = false
     @Published public var isNNProcessingOn = true
     @Published public var isShutterDelayOn = false
+    @Published public var isBurstCaptureOn = false
+    @Published public var autoExposureMinimizeIso = true
 
     @Published public var isManualExposureDuration = false
     @Published public var isManualISO = false
@@ -132,24 +134,24 @@ final class CameraState: ObservableObject {
             } else if (self.isManualISO) {
                 self.calculateExposureParamsManualISO(exposureDuration, iso, exposureBias, offset)
             } else {
-                if self.targetMaxExposureDuration.seconds > 1/16 {
-                    // Apple wont ever use an exposure slower than 1/15 so we need to use a custom exposure mode
+                if (self.autoExposureMinimizeIso) || (self.isCustomExposure) {
                     self.calculateExposureParamsMinimizeISO(exposureDuration, iso, exposureBias, offset)
                 } else {
+                    // Currently isnt used
                     self.autoExposure(exposureDuration, iso)
                 }
             }
 
-            let scale: Double = 1_000_000
-            let currentRoundedExposure = (scale*self.finalExposureDuration.seconds).rounded(.down)
+            let currentRoundedExposure = Int((1 / self.finalExposureDuration.seconds).rounded())
             let currentRoundedISO = self.finalISO.rounded(.down)
 
-            self.isAtUpperTargetExposureDurationLimit = currentRoundedExposure == (scale*self.targetMaxExposureDuration.seconds).rounded(.down)
 
-            self.isAtLowerDeviceExposureDurationLimit = currentRoundedExposure == (scale*self.deviceMinExposureDuration.seconds).rounded(.down)
+            self.isAtUpperTargetExposureDurationLimit = currentRoundedExposure == Int((1 / self.targetMaxExposureDuration.seconds).rounded())
+
+            self.isAtLowerDeviceExposureDurationLimit = currentRoundedExposure == Int((1 / self.deviceMinExposureDuration.seconds).rounded())
             self.isAtLowerDeviceISOLimit = currentRoundedISO == self.deviceMinISO
 
-            self.isAtUpperDeviceExposureDurationLimit = currentRoundedExposure == (scale*self.deviceMaxExposureDuration.seconds).rounded(.down)
+            self.isAtUpperDeviceExposureDurationLimit = currentRoundedExposure == Int((1 / self.deviceMaxExposureDuration.seconds).rounded())
             self.isAtUpperDeviceISOLimit = currentRoundedISO == self.deviceMaxISO
         }
     }

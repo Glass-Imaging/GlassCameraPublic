@@ -149,14 +149,14 @@ struct CameraView: View {
             model.capturePhoto()
         }, label: {
             Circle()
-                .foregroundColor(.white)
+                .foregroundColor(model.service.isCameraButtonDisabled ? .gray : .white)
                 .frame(width: 80, height: 80, alignment: .center)
                 .overlay(
                     Circle()
                         .stroke(Color.black.opacity(0.8), lineWidth: 2)
                         .frame(width: 65, height: 65, alignment: .center)
                 )
-        })
+        }).disabled(model.service.isCameraButtonDisabled)
     }
 
     var flipCameraButton: some View {
@@ -188,6 +188,16 @@ struct CameraView: View {
 
     var topControlBar: some View {
         HStack {
+            Spacer()
+
+            Button(action: {
+                self.cameraState.isBurstCaptureOn.toggle()
+            }, label: {
+                Image(systemName: "square.3.layers.3d.down.right"/*"photo.stack"*/)
+                    .font(.system(size: 20, weight: .medium, design: .default))
+            })
+            .accentColor(self.cameraState.isBurstCaptureOn ? .yellow : .white)
+
             Spacer()
 
             Button(action: {
