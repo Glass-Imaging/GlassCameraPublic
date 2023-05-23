@@ -73,6 +73,7 @@ void dumpGradientImage(const gls::mtl_image_2d<T>& image, const std::string& pat
 
 template <typename pixel_type>
 void saveImage(const gls::image<gls::rgba_pixel_float>& image, const std::string& path,
+               gls::tiff_metadata* metadata,
                const std::vector<uint8_t>* icc_profile_data, float exposure_multiplier = 1.0) {
     gls::image<pixel_type> saveImage(image.width, image.height);
     saveImage.apply([&](pixel_type* p, int x, int y) {
@@ -85,7 +86,8 @@ void saveImage(const gls::image<gls::rgba_pixel_float>& image, const std::string
             (uint8_t) std::clamp(scale * exposure_multiplier * pi.blue, 0.0f, scale)
         };
     });
-    saveImage.write_png_file(path, /*skip_alpha=*/true, icc_profile_data);
+    // saveImage.write_png_file(path, /*skip_alpha=*/true, icc_profile_data);
+    saveImage.write_tiff_file(path, gls::tiff_compression::NONE, metadata, icc_profile_data);
 }
 
 static std::vector<unsigned char> read_binary_file(const std::string filename) {
@@ -111,7 +113,48 @@ void demosaicFile(RawConverter* rawConverter, std::filesystem::path input_path) 
     gls::tiff_metadata dng_metadata, exif_metadata;
     const auto rawImage =
     gls::image<gls::luma_pixel_16>::read_dng_file(input_path.string(), &dng_metadata, &exif_metadata);
-    auto demosaicParameters = unpackiPhone14WideRawImage(*rawImage, rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
+
+    std::string make, model, lens_model;
+    if (!getValue(dng_metadata, TIFFTAG_MAKE, &make)) {
+        std::cout << "No make?" << std::endl;
+    }
+    if (!getValue(dng_metadata, TIFFTAG_MODEL, &model)) {
+        std::cout << "No Model?" << std::endl;
+    }
+    if (!getValue(exif_metadata, EXIFTAG_LENSMODEL, &lens_model)) {
+        std::cout << "No Focal Lenght?" << std::endl;
+    }
+
+    std::cout << "Make: " << make << ", model: " << model << ", Focal length: " << lens_model << std::endl;
+
+    std::unique_ptr<DemosaicParameters> demosaicParameters;
+    if (make == "Apple" && (model == "iPhone 14 Pro" || model == "iPhone 14 Pro Max")) {
+        const std::string tele = "iPhone 14 Pro back camera 9mm f/2.8";
+        const std::string wide = "iPhone 14 Pro back camera 6.86mm f/1.78";
+        const std::string ultraWide = "iPhone 14 Pro back camera 2.22mm f/2.2";
+        const std::string tele_max = "iPhone 14 Pro Max back camera 9mm f/2.8";
+        const std::string wide_max = "iPhone 14 Pro Max back camera 6.86mm f/1.78";
+        const std::string ultraWide_max = "iPhone 14 Pro Max back camera 2.22mm f/2.2";
+        const std::string selfie = "iPhone 14 Pro front camera 2.69mm f/1.9";
+        const std::string selfie_max = "iPhone 14 Pro front camera 2.69mm f/1.9";
+
+        if (lens_model == tele || lens_model == tele_max) {
+            demosaicParameters = unpackiPhone14TeleRawImage(*rawImage, rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
+        } else if (lens_model == wide || lens_model == wide_max) {
+            demosaicParameters = unpackiPhone14WideRawImage(*rawImage, rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
+        } else if (lens_model == ultraWide || lens_model == ultraWide_max) {
+            demosaicParameters = unpackiPhone14UltraWideRawImage(*rawImage, rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
+        } else if (lens_model == selfie || lens_model == selfie_max) {
+            demosaicParameters = unpackiPhone14SelfieRawImage(*rawImage, rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
+        } else {
+            std::cout << "Unknown Camera - " << "Make: " << make << ", model: " << model << ", Lens Model: " << lens_model << " - Using Wide" << std::endl;
+            demosaicParameters = unpackiPhone14WideRawImage(*rawImage, rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
+            // exit(-1);
+        }
+    } else {
+        std::cout << "Unknown Device - " << "Make: " << make << ", model: " << model << std::endl;
+        exit(-1);
+    }
 
     rawConverter->allocateTextures(rawImage->size());
 
@@ -123,12 +166,14 @@ void demosaicFile(RawConverter* rawConverter, std::filesystem::path input_path) 
     double elapsed_time_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();
 
     std::cout << "Metal Pipeline Execution Time: " << (int)elapsed_time_ms
-    << "ms for image of size: " << rawImage->width << " x " << rawImage->height << std::endl;
+              << "ms for image of size: " << rawImage->width << " x " << rawImage->height << std::endl;
 
-    const auto output_path = input_path.replace_extension("_s_ltm_raw_denoise.png");
+    const auto output_dir = input_path.parent_path(); // .parent_path() / "Classic";
+    const auto filename = input_path.filename().replace_extension("_t_g7.tif");
+    const auto output_path = output_dir / filename;
 
     const auto srgbImageCpu = srgbImage->mapImage();
-    saveImage<gls::rgb_pixel_16>(*srgbImageCpu, output_path.string(), rawConverter->icc_profile_data());
+    saveImage<gls::rgb_pixel_16>(*srgbImageCpu, output_path.string(), &dng_metadata, rawConverter->icc_profile_data());
 
     auto histogramData = rawConverter->histogramData();
 //    plotHistogram(histogramData->histogram, input_path.filename().string());
@@ -206,11 +251,15 @@ void fmenApplyToFile(RawConverter* rawConverter, std::filesystem::path input_pat
     // Apply model to image
     fmenApplyToImage(*rawImage, /*whiteLevel*/ demosaicParameters->white_level, &processedImage);
 
-    const auto output_path = input_path.replace_extension("_fmen_1072_ltm_sharp.png");
+    // const auto output_path = input_path.replace_extension("_fmen_1072_ltm_sharp.png");
+
+    const auto output_dir = input_path.parent_path().parent_path() / "Neuro";
+    const auto filename = input_path.filename().replace_extension("_c_sharp.tiff");
+    const auto output_path = output_dir / filename;
 
     auto srgbImage = rawConverter->postprocess(processedImage, demosaicParameters.get());
     const auto srgbImageCpu = srgbImage->mapImage();
-    saveImage<gls::rgb_pixel_16>(*srgbImageCpu, output_path.string(), rawConverter->icc_profile_data());
+    saveImage<gls::rgb_pixel_16>(*srgbImageCpu, output_path.string(), &dng_metadata, rawConverter->icc_profile_data());
 
     auto histogramData = rawConverter->histogramData();
     int imageSize = rawImage->width * rawImage->height / 64;
@@ -260,6 +309,7 @@ int main(int argc, const char * argv[]) {
     auto allMetalDevices = NS::TransferPtr(MTL::CopyAllDevices());
     auto metalDevice = NS::RetainPtr(allMetalDevices->object<MTL::Device>(0));
 
+    // FIXME: the address sanitizer doesn't like the profile data.
     RawConverter rawConverter(metalDevice, &icc_profile_data, /*calibrateFromImage=*/ false);
 
     if (argc > 1) {

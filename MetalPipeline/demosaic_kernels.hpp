@@ -25,6 +25,8 @@
 #include "gls_mtl_image.hpp"
 #include "gls_mtl.hpp"
 
+#include "SimplexNoise.hpp"
+
 struct scaleRawDataKernel {
     Kernel<MTL::Texture*,     // rawImage
            MTL::Texture*,     // scaledRawImage
@@ -290,32 +292,6 @@ struct transformImageKernel {
 
 };
 
-struct convertTosRGBKernel {
-    Kernel<MTL::Texture*,           // linearImage
-           MTL::Texture*,           // ltmMaskImage
-           MTL::Texture*,           // rgbImage
-           Matrix3x3,               // transform
-           RGBConversionParameters, // demosaicParameters
-           MTL::Buffer*             // histogramBuffer
-    > kernel;
-
-    convertTosRGBKernel(MetalContext* context) : kernel(context, "convertTosRGB") { }
-
-    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& linearImage,
-                     const gls::mtl_image_2d<gls::luma_pixel_float>& ltmMaskImage,
-                     const DemosaicParameters& demosaicParameters, MTL::Buffer* histogramBuffer,
-                     gls::mtl_image_2d<gls::rgba_pixel_float>* rgbImage) {
-        const auto& transform = demosaicParameters.rgb_cam;
-
-        Matrix3x3 mtlTransform = {{{transform[0][0], transform[0][1], transform[0][2]},
-                                   {transform[1][0], transform[1][1], transform[1][2]},
-                                   {transform[2][0], transform[2][1], transform[2][2]}}};
-
-        kernel(context, /*gridSize=*/ MTL::Size(rgbImage->width, rgbImage->height, 1), linearImage.texture(),
-               ltmMaskImage.texture(), rgbImage->texture(), mtlTransform, demosaicParameters.rgbConversionParameters, histogramBuffer);
-    }
-};
-
 struct despeckleImageKernel {
     Kernel<MTL::Texture*,  // inputImage
            simd::float3,   // var_a
@@ -373,6 +349,7 @@ struct blockMatchingDenoiseImageKernel {
            simd::float3,   // thresholdMultipliers
            float,          // chromaBoost
            float,          // gradientBoost
+           float,          // gradientThreshold
            MTL::Texture*   // outputImage
     > kernel;
 
@@ -382,7 +359,7 @@ struct blockMatchingDenoiseImageKernel {
                      const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& gradientImage,
                      const gls::mtl_image_2d<gls::pixel<uint32_t, 4>>& patchImage, const gls::Vector<3>& var_a,
                      const gls::Vector<3>& var_b, const gls::Vector<3> thresholdMultipliers,
-                     float chromaBoost, float gradientBoost,
+                     float chromaBoost, float gradientBoost, float gradientThreshold,
                      gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage) {
 
         kernel(context, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
@@ -390,7 +367,7 @@ struct blockMatchingDenoiseImageKernel {
                simd::float3 { var_a[0], var_a[1], var_a[2] },
                simd::float3 { var_b[0], var_b[1], var_b[2] },
                simd::float3 { thresholdMultipliers[0], thresholdMultipliers[1], thresholdMultipliers[2] },
-               chromaBoost, gradientBoost, outputImage->texture());
+               chromaBoost, gradientBoost, gradientThreshold, outputImage->texture());
     }
 };
 
@@ -505,26 +482,52 @@ struct resampleImageKernel {
 struct histogramImageKernel {
     Kernel<MTL::Texture*,  // inputImage
            MTL::Buffer*    // histogramBuffer
-    > kernel;
+    > histogramImage;
 
-    histogramImageKernel(MetalContext* context) : kernel(context, "histogramImage") { }
-
-    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage, MTL::Buffer* histogramBuffer) {
-     kernel(context, /*gridSize=*/ MTL::Size(inputImage.width, inputImage.height, 1),
-            inputImage.texture(), histogramBuffer);
-    }
-};
-
-struct histogramStatisticsKernel {
     Kernel<MTL::Buffer*,  // histogramBuffer
            simd::uint2    // imageDimensions
-    > kernel;
+    > histogramStatistics;
 
-    histogramStatisticsKernel(MetalContext* context) : kernel(context, "histogramStatistics") { }
+    struct histogram_data {
+        std::array<uint32_t, 256> histogram;
+        std::array<uint32_t, 8> bands;
+        float black_level;
+        float white_level;
+        float shadows;
+        float highlights;
+        float mean;
+        float median;
+    };
 
-    void operator() (MetalContext* context, MTL::Buffer* histogramBuffer, const gls::size& imageDimensions) {
-        kernel(context, /*gridSize=*/ MTL::Size(1, 1, 1),
-               histogramBuffer, simd::uint2 {(unsigned) imageDimensions.width, (unsigned) imageDimensions.height});
+    gls::Buffer<histogram_data> histogramBuffer;
+
+    void reset() {
+        bzero(histogramBuffer.data(), sizeof(histogram_data));
+    }
+
+    histogram_data* histogramData() const {
+        return histogramBuffer.data();
+    }
+
+    MTL::Buffer* buffer() {
+        return histogramBuffer.buffer();
+    }
+
+    histogramImageKernel(MetalContext* context) :
+        histogramImage(context, "histogramImage"),
+        histogramStatistics(context, "histogramStatistics"),
+        histogramBuffer(context->device(), 1)
+        { }
+
+    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage) {
+        histogramImage(context, /*gridSize=*/ MTL::Size(inputImage.width, inputImage.height, 1),
+               inputImage.texture(), histogramBuffer.buffer());
+    }
+
+    void statistics(MetalContext* context, const gls::size& imageDimensions) {
+        histogramStatistics(context, /*gridSize=*/ MTL::Size(1, 1, 1),
+                            histogramBuffer.buffer(),
+                            simd::uint2 { (unsigned) imageDimensions.width, (unsigned) imageDimensions.height });
     }
 };
 
@@ -539,6 +542,7 @@ struct localToneMappingMaskKernel {
     > BoxFilterGFImage;
 
     Kernel<MTL::Texture*,  // inputImage
+           MTL::Texture*,  // gradientImage
            MTL::Texture*,  // lfAbImage
            MTL::Texture*,  // mfAbImage
            MTL::Texture*,  // hfAbImage
@@ -555,6 +559,7 @@ struct localToneMappingMaskKernel {
         { }
 
     void operator() (MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
+                     const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& gradientImage,
                      const std::array<const gls::mtl_image_2d<gls::rgba_pixel_float>*, 3>& guideImage,
                      const std::array<const gls::mtl_image_2d<gls::luma_alpha_pixel_float>*, 3>& abImage,
                      const std::array<const gls::mtl_image_2d<gls::luma_alpha_pixel_float>*, 3>& abMeanImage,
@@ -566,18 +571,103 @@ struct localToneMappingMaskKernel {
         }
 
         for (int i = 0; i < 3; i++) {
-            if (i == 0 || ltmParameters.detail[i] != 1) {
-                GuidedFilterABImage(context, /*gridSize=*/ MTL::Size(guideImage[i]->width, guideImage[i]->height, 1),
-                         guideImage[i]->texture(), abImage[i]->texture(), ltmParameters.eps);
+            GuidedFilterABImage(context, /*gridSize=*/ MTL::Size(guideImage[i]->width, guideImage[i]->height, 1),
+                     guideImage[i]->texture(), abImage[i]->texture(), ltmParameters.eps);
 
-                BoxFilterGFImage(context, /*gridSize=*/ MTL::Size(abImage[i]->width, abImage[i]->height, 1),
-                             abImage[i]->texture(), abMeanImage[i]->texture());
-            }
+            BoxFilterGFImage(context, /*gridSize=*/ MTL::Size(abImage[i]->width, abImage[i]->height, 1),
+                         abImage[i]->texture(), abMeanImage[i]->texture());
         }
 
-        localToneMappingMaskImage(context, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1), inputImage.texture(),
-                  abMeanImage[0]->texture(), abMeanImage[1]->texture(), abMeanImage[2]->texture(),
-                  outputImage->texture(), ltmParameters, simd::float2 { nlf[0], nlf[1] }, histogramBuffer);
+        localToneMappingMaskImage(context, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
+                                  inputImage.texture(), gradientImage.texture(),
+                                  abMeanImage[0]->texture(), abMeanImage[1]->texture(), abMeanImage[2]->texture(),
+                                  outputImage->texture(), ltmParameters, simd::float2 { nlf[0], nlf[1] }, histogramBuffer);
+    }
+};
+
+struct simplexNoiseKernel {
+    Kernel<MTL::Texture*,   // inputImage
+           MTL::Buffer*,    // permutation
+           MTL::Buffer*,    // gradient
+           simd::float2,    // lumaVariance
+           MTL::Texture*    // outputImage
+    > kernel;
+
+    gls::Buffer<std::array<int, Noise2D::arraySize>> permBuffer;
+    gls::Buffer<std::array<std::array<float, 2>, Noise2D::arraySize>> gradBuffer;
+
+    void randomSeed(unsigned seed) {
+        Noise2D::randomSeed(seed);
+    }
+
+    void initGradients() {
+        auto& perm = *permBuffer.data();
+        auto& grad = *gradBuffer.data();
+
+        Noise2D::initGradients(&perm, &grad);
+    }
+
+    simplexNoiseKernel(MetalContext* context) :
+        kernel(context, "simplex_noise"),
+        permBuffer(context->device(), 1),
+        gradBuffer(context->device(), 1)
+    {
+        initGradients();
+    }
+
+    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
+                     const gls::Vector<2>& luma_nlf, gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage) {
+        kernel(context, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
+               inputImage.texture(), permBuffer.buffer(), gradBuffer.buffer(), simd::float2 { luma_nlf[0], luma_nlf[1] },
+               outputImage->texture());
+    }
+};
+
+struct convertTosRGBKernel {
+    Kernel<MTL::Texture*,           // linearImage
+           MTL::Texture*,           // ltmMaskImage
+           MTL::Texture*,           // rgbImage
+           Matrix3x3,               // transform
+           RGBConversionParameters, // demosaicParameters
+           MTL::Buffer*,            // histogramBuffer
+           simd::float2,            // lumaVariance
+           MTL::Buffer*,            // noisePermutation
+           MTL::Buffer*             // noiseGradient
+    > kernel;
+
+    gls::Buffer<std::array<int, Noise2D::arraySize>> permBuffer;
+    gls::Buffer<std::array<std::array<float, 2>, Noise2D::arraySize>> gradBuffer;
+
+    void randomSeed(unsigned seed) {
+        Noise2D::randomSeed(seed);
+    }
+
+    void initGradients() {
+        auto& perm = *permBuffer.data();
+        auto& grad = *gradBuffer.data();
+
+        Noise2D::initGradients(&perm, &grad);
+    }
+
+    convertTosRGBKernel(MetalContext* context) : kernel(context, "convertTosRGB"),
+        permBuffer(context->device(), 1),
+        gradBuffer(context->device(), 1)
+        { }
+
+    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& linearImage,
+                     const gls::mtl_image_2d<gls::luma_pixel_float>& ltmMaskImage,
+                     const DemosaicParameters& demosaicParameters, MTL::Buffer* histogramBuffer,
+                     const gls::Vector<2>& luma_nlf,
+                     gls::mtl_image_2d<gls::rgba_pixel_float>* rgbImage) {
+        const auto& transform = demosaicParameters.rgb_cam;
+
+        Matrix3x3 mtlTransform = {{{transform[0][0], transform[0][1], transform[0][2]},
+                                   {transform[1][0], transform[1][1], transform[1][2]},
+                                   {transform[2][0], transform[2][1], transform[2][2]}}};
+
+        kernel(context, /*gridSize=*/ MTL::Size(rgbImage->width, rgbImage->height, 1), linearImage.texture(),
+               ltmMaskImage.texture(), rgbImage->texture(), mtlTransform, demosaicParameters.rgbConversionParameters, histogramBuffer,
+               simd::float2 { luma_nlf[0], luma_nlf[1] },permBuffer.buffer(), gradBuffer.buffer());
     }
 };
 

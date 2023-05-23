@@ -89,11 +89,7 @@ half gaussian(half x) {
 }
 
 half lensShading(half lensShadingCorrection, half distance_from_center) {
-    // New iPhones
-    return 0.8 + lensShadingCorrection * distance_from_center * distance_from_center;
-    // Old iPhones
-    // return 1 + distance_from_center * distance_from_center;
-    // return 1;
+    return 1 + lensShadingCorrection * distance_from_center * distance_from_center;
 }
 
 // Work on one Quad (2x2) at a time
@@ -589,8 +585,8 @@ float3 sharpen(float3 pixel_value, float amount, float radius, texture2d<float> 
 
     // Smart sharpening
     float3 sharpening = amount * smoothstep(0.0, 0.03, length(dx) + length(dy))     // Gradient magnitude thresholding
-                               * (1.0 - smoothstep(0.95, 1.0, pixel_value))         // Highlight ringing protection
-                               * (0.6 + 0.4 * smoothstep(0.0, 0.1, pixel_value));   // Shadows ringing protection
+                               * (1.0 - smoothstep(0.95, 1.0, pixel_value))         // Highlights ringing protection
+                               * smoothstep(0.05, 0.1, pixel_value);                // Shadows ringing protection
 
     float3 blurred_pixel = gaussianBlur(radius, inputImage, imageCoordinates);
 
@@ -800,6 +796,14 @@ kernel void pcaProjection(texture2d<half> inputImage                        [[te
     write_imageui(projectedImage, imageCoordinates, uint4(v_result));
 }
 
+// Steering Kernel
+half steer(half x, half y, half angle, half s1, half s2) {
+    half cos, sin = sincos(angle, cos);
+    half a = x * cos + y * sin;
+    half b = -x * cos + y * sin;
+    return exp(-((a * a) / s1 + (b * b) / s2));
+}
+
 kernel void blockMatchingDenoiseImage(texture2d<half> inputImage                     [[texture(0)]],
                                       texture2d<half> gradientImage                  [[texture(1)]],
                                       texture2d<uint> pcaImage                       [[texture(2)]],
@@ -808,23 +812,35 @@ kernel void blockMatchingDenoiseImage(texture2d<half> inputImage                
                                       constant float3& thresholdMultipliers          [[buffer(5)]],
                                       constant float& chromaBoost                    [[buffer(6)]],
                                       constant float& gradientBoost                  [[buffer(7)]],
-                                      texture2d<half, access::write> denoisedImage   [[texture(8)]],
+                                      constant float& gradientThreshold              [[buffer(8)]],
+                                      texture2d<half, access::write> denoisedImage   [[texture(9)]],
                                       uint2 index                                    [[thread_position_in_grid]]) {
     const int2 imageCoordinates = (int2) index;
 
     const half3 inputYCC = read_imageh(inputImage, imageCoordinates).xyz;
     const _half8 inputPCA = _half8(read_imageui(pcaImage, imageCoordinates));
 
-//    float2 imageCenter = float2(get_image_dim(inputImage) / 2);
-//    float distance_from_center = length(float2(imageCoordinates) - imageCenter) / length(imageCenter);
-
-    /* FIXME: add lensShadingCorrection */
+    // FIXME: add lensShadingCorrection
     half3 sigma = half3(sqrt(var_a + var_b * inputYCC.x));
     half3 diffMultiplier = 1 / (half3(thresholdMultipliers) * sigma);
 
     half2 gradient = read_imageh(gradientImage, imageCoordinates).xy;
+    half angle = atan2(gradient.y, gradient.x);
     half magnitude = length(gradient);
-    half edge = smoothstep(2, 8, magnitude / sigma.x);
+    half edge = smoothstep(2, 16, gradientThreshold * magnitude / sigma.x);
+
+    // Dynamic PCA components
+    int pcaComponents = 1;
+    half pca02 = inputPCA.v[0] * inputPCA.v[0];
+    half pca_sum = pca02;
+    half sigma2_pca = 4 * sigma.x * sigma.x * pca02;
+    for (int i = 1; i < 8; i++) {
+        half previous = pca_sum;
+        pca_sum += inputPCA.v[i] * inputPCA.v[i];
+        if (pca_sum - previous > sigma2_pca) {
+            pcaComponents = i;
+        }
+    }
 
     const int size = 10;
 
@@ -836,23 +852,14 @@ kernel void blockMatchingDenoiseImage(texture2d<half> inputImage                
             half3 inputSampleYCC = read_imageh(inputImage, imageCoordinates + int2(x, y)).xyz;
             _half8 samplePCA = _half8(read_imageui(pcaImage, imageCoordinates + int2(x, y)));
 
-            // TODO: is 6 better than 8?
-            half pcaDiff = length(samplePCA - inputPCA, 8);
-
+            half pcaDiff = length(samplePCA - inputPCA, pcaComponents) * diffMultiplier.x;
             half2 inputChromaDiff = (inputSampleYCC.yz - inputYCC.yz) * diffMultiplier.yz;
 
-            // half directionWeight = mix(1, tunnel(x, y, angle, (half) 0.25), edge);
+            half lumaWeight = gaussian(pcaDiff / (1 + gradientBoost * edge));
+            half chromaWeight = gaussian(length(half3(lumaWeight, inputChromaDiff / chromaBoost)));
+            half directionWeight = steer(x, y, angle, mix(2 * size, 1, edge), 2 * size);
 
-            half pcaMultDiff = pcaDiff * diffMultiplier.x;
-            // half lumaWeight = 1 - step(1 + (half) gradientBoost * edge, pcaMultDiff);
-            half lumaWeight = gaussian(pcaMultDiff / (1 + (half) gradientBoost * edge));
-
-            // half chromaWeight = 1 - step((half) chromaBoost, length(half3(pcaMultDiff, inputChromaDiff)));
-            half chromaWeight = gaussian(length(half3(pcaMultDiff, inputChromaDiff)) / (half) chromaBoost);
-
-            half distanceWeight = gaussian(0.1 * length(float2(x, y)));
-
-            half3 sampleWeight = distanceWeight * half3(/*directionWeight * */ lumaWeight, chromaWeight, chromaWeight);
+            half3 sampleWeight = directionWeight * half3(lumaWeight, chromaWeight, chromaWeight);
 
             filtered_pixel += float3(sampleWeight * inputSampleYCC);
             kernel_norm += float3(sampleWeight);
@@ -860,7 +867,7 @@ kernel void blockMatchingDenoiseImage(texture2d<half> inputImage                
     }
     half3 denoisedPixel = half3(filtered_pixel / kernel_norm);
 
-    write_imageh(denoisedImage, imageCoordinates, half4(denoisedPixel, (half) kernel_norm.x));
+    write_imageh(denoisedImage, imageCoordinates, half4(denoisedPixel, kernel_norm.x));
 }
 
 kernel void downsampleImageXYZ(texture2d<float> inputImage                  [[texture(0)]],
@@ -923,11 +930,11 @@ kernel void subtractNoiseImage(texture2d<float> inputImage                      
 
     float alpha = sharpening;
     if (alpha > 1.0) {
-        float2 gradient = read_imagef(gradientImage, output_pos).xy;
+        float gradient = length(read_imagef(gradientImage, output_pos).xy);
         float sigma = sqrt(nlf.x + nlf.y * inputPixelDenoised1.x);
-        float detail = smoothstep(sigma, 4 * sigma, length(gradient))
-                       * (1.0 - smoothstep(0.95, 1.0, denoisedPixel.x))          // Highlights ringing protection
-                       * (0.6 + 0.4 * smoothstep(0.0, 0.1, denoisedPixel.x));    // Shadows ringing protection
+        float detail = smoothstep(sigma, 4 * sigma, gradient)
+                       * (1.0 - smoothstep(0.75, 0.95, inputPixelDenoised1.x))        // Highlights ringing protection
+                       * smoothstep(0.05, 0.1, inputPixelDenoised1.x);                // Shadows ringing protection
         alpha = 1 + (alpha - 1) * detail;
     }
 
@@ -1335,31 +1342,7 @@ kernel void BoxFilterGFImage(texture2d<float> inputImage                    [[te
     write_imagef(outputImage, imageCoordinates, float4(meanAB, 0, 0));
 }
 
-constant constexpr float kLtmMidtones = 0.22;
-
-float computeLtmMultiplier(float3 input, float2 gfAb, float eps, float shadows, float highlights, float detail) {
-    // The filtered image is an estimate of the illuminance
-    const float illuminance = gfAb.x * input.x + gfAb.y;
-    const float reflectance = input.x / illuminance;
-
-    // LTM curve computed in Log space
-    float adjusted_illuminance =
-        // Shadows adjustment
-        illuminance <= kLtmMidtones ? kLtmMidtones * pow(illuminance / kLtmMidtones, shadows) :
-        // Highlights adjustment
-        (1 - kLtmMidtones) * pow((illuminance - kLtmMidtones) / (1 - kLtmMidtones), highlights) + kLtmMidtones;
-
-    return adjusted_illuminance * pow(reflectance, detail) / input.x;
-}
-
-typedef struct LTMParameters {
-    float eps;
-    float shadows;
-    float highlights;
-    float detail[3];
-} LTMParameters;
-
-constant int histogramSize = 0x100;
+constant int histogramSize = 256;
 
 struct histogram_data {
     array<atomic<uint32_t>, histogramSize> histogram;
@@ -1372,60 +1355,11 @@ struct histogram_data {
     float median;
 };
 
-kernel void localToneMappingMaskImage(texture2d<float> inputImage                   [[texture(0)]],
-                                      texture2d<float> lfAbImage                    [[texture(1)]],
-                                      texture2d<float> mfAbImage                    [[texture(2)]],
-                                      texture2d<float> hfAbImage                    [[texture(3)]],
-                                      texture2d<float, access::write> ltmMaskImage  [[texture(4)]],
-                                      constant LTMParameters& ltmParameters         [[buffer(5)]],
-                                      constant float2& nlf                          [[buffer(6)]],
-                                      constant histogram_data& histogram_data       [[buffer(7)]],
-                                      uint2 index                                   [[thread_position_in_grid]]) {
-    const int2 imageCoordinates = (int2) index;
-    const float2 inputNorm = 1.0 / float2(get_image_dim(ltmMaskImage));
-    const float2 pos = float2(imageCoordinates) * inputNorm;
-
-    constexpr sampler linear_sampler(filter::linear);
-
-    float3 input = read_imagef(inputImage, imageCoordinates).xyz;
-    float2 lfAbSample = read_imagef(lfAbImage, linear_sampler, pos + 0.5f * inputNorm).xy;
-
-    float ltmMultiplier = computeLtmMultiplier(input, lfAbSample, ltmParameters.eps,
-                                               histogram_data.shadows, histogram_data.highlights,
-                                               ltmParameters.detail[0]);
-
-    if (ltmParameters.detail[1] != 1) {
-        float2 mfAbSample = read_imagef(mfAbImage, linear_sampler, pos + 0.5f * inputNorm).xy;
-        ltmMultiplier *= computeLtmMultiplier(input, mfAbSample, ltmParameters.eps,
-                                              histogram_data.shadows, 1, ltmParameters.detail[1]);
-    }
-
-    if (ltmParameters.detail[2] != 1) {
-        float detail = ltmParameters.detail[2];
-
-        if (detail > 1.0) {
-            float dx = (read_imagef(inputImage, imageCoordinates + int2(1, 0)).x -
-                        read_imagef(inputImage, imageCoordinates - int2(1, 0)).x) / 2;
-            float dy = (read_imagef(inputImage, imageCoordinates + int2(0, 1)).x -
-                        read_imagef(inputImage, imageCoordinates - int2(0, 1)).x) / 2;
-
-            float noiseThreshold = sqrt(nlf.x + nlf.y * input.x);
-            detail = 1 + (detail - 1) * smoothstep(0.5 * noiseThreshold, 2 * noiseThreshold, length(float2(dx, dy)));
-        }
-
-        float2 hfAbSample = read_imagef(hfAbImage, linear_sampler, pos + 0.5f * inputNorm).xy;
-        ltmMultiplier *= computeLtmMultiplier(input, hfAbSample, ltmParameters.eps,
-                                              histogram_data.shadows, 1, detail);
-    }
-
-    write_imagef(ltmMaskImage, imageCoordinates, float4(ltmMultiplier, 0, 0, 0));
-}
-
 constant constexpr float kHistogramScale = 2;
 
-kernel void histogramImage(texture2d<float> inputImage          [[texture(0)]],
-                           device histogram_data& histogram_data [[buffer(1)]],
-                           uint2 index                          [[thread_position_in_grid]]) {
+kernel void histogramImage(texture2d<float> inputImage              [[texture(0)]],
+                           device histogram_data& histogram_data    [[buffer(1)]],
+                           uint2 index                              [[thread_position_in_grid]]) {
     const int2 imageCoordinates = (int2) index;
 
     float3 pixelValue = read_imagef(inputImage, imageCoordinates).xyz;
@@ -1443,6 +1377,8 @@ kernel void histogramStatistics(device histogram_data& histogram_data [[buffer(0
 
         const uint32_t image_size = image_dimensions.x * image_dimensions.y;
 
+        const int band_width = histogram_data.histogram.size() / histogram_data.bands.size();
+
         float mean = 0;
         bool found_median = false;
         bool found_black = false;
@@ -1451,40 +1387,45 @@ kernel void histogramStatistics(device histogram_data& histogram_data [[buffer(0
         int black_index = 0;
         int white_index = 0;
         uint32_t sum = 0;
-        for (int i = 0; i < histogramSize; i++) {
-            const uint32_t entry = (*plain_histogram)[i];
+        for (int band = 0; band < 8; band++) {
+            for (int i = 0; i < band_width; i++) {
+                int index = band * band_width + i;
+                const uint32_t entry = (*plain_histogram)[index];
+                histogram_data.bands[band] += entry;
 
-            // Compute subsampled (8 bands) histogram
-            histogram_data.bands[i / 32] += entry;
+                // Compute average image value
+                mean += entry * (index + 1) / (float) histogramSize;
 
-            // Compute average image value
-            mean += entry * (i + 1) / (float) histogramSize;
-
-            // Compute cumulative function statistics
-            sum += entry;
-            if (!found_median && (sum >= (image_size + 1) / 2)) {
-                median_index = i;
-                found_median = true;
-            }
-            if (!found_black && sum >= 0.001 * image_size) {
-                black_index = i;
-                found_black = true;
-            }
-            if (!found_white && sum >= 0.999 * image_size) {
-                white_index = i;
-                found_white = true;
+                // Compute cumulative function statistics
+                sum += entry;
+                if (!found_median && (sum >= (image_size + 1) / 2)) {
+                    median_index = index;
+                    found_median = true;
+                }
+                if (!found_black && sum >= 0.001 * image_size) {
+                    black_index = index;
+                    found_black = true;
+                }
+                if (!found_white && sum >= 0.999 * image_size) {
+                    white_index = index;
+                    found_white = true;
+                }
             }
         }
         mean /= image_size;
 
+        // Black Level
         {
             float v = (black_index - 1) / (float) (histogramSize - 1);
             histogram_data.black_level = kHistogramScale * v * v;
         }
+
+        // White Level
         {
             float v = white_index / (float) (histogramSize - 1);
             histogram_data.white_level = kHistogramScale * v * v;
         }
+
         histogram_data.median = median_index / (float) (histogramSize - 1) - histogram_data.black_level;
         histogram_data.mean = mean - histogram_data.black_level;
 
@@ -1500,12 +1441,179 @@ kernel void histogramStatistics(device histogram_data& histogram_data [[buffer(0
     }
 }
 
+float computeLtmMultiplier(float3 input, float illuminance, float shadows, float highlights, float detail) {
+    // Midtones point to split shadows and highlights adjystments
+    const float kLtmMidtones = 0.22;
+
+    const float reflectance = input.x / illuminance;
+
+    // LTM curve computed in Log space
+    float adjusted_illuminance =
+        // Shadows adjustment
+        illuminance <= kLtmMidtones ? kLtmMidtones * pow(illuminance / kLtmMidtones, shadows) :
+        // Highlights adjustment
+        (1 - kLtmMidtones) * pow((illuminance - kLtmMidtones) / (1 - kLtmMidtones), highlights) + kLtmMidtones;
+
+    // Detail is an amplification factor (in log space) for the reflectance
+    return adjusted_illuminance * pow(reflectance, detail) / input.x;
+}
+
+typedef struct LTMParameters {
+    float eps;
+    float shadows;
+    float highlights;
+    float detail[3];
+} LTMParameters;
+
+kernel void localToneMappingMaskImage(texture2d<float> inputImage                   [[texture(0)]],
+                                      texture2d<float> gradientImage                [[texture(1)]],
+                                      texture2d<float> lfAbImage                    [[texture(2)]],
+                                      texture2d<float> mfAbImage                    [[texture(3)]],
+                                      texture2d<float> hfAbImage                    [[texture(4)]],
+                                      texture2d<float, access::write> ltmMaskImage  [[texture(5)]],
+                                      constant LTMParameters& ltmParameters         [[buffer(6)]],
+                                      constant float2& nlf                          [[buffer(7)]],
+                                      constant histogram_data& histogram_data       [[buffer(8)]],
+                                      uint2 index                                   [[thread_position_in_grid]]) {
+    const int2 imageCoordinates = (int2) index;
+    const float2 inputNorm = 1.0 / float2(get_image_dim(ltmMaskImage));
+    const float2 pos = float2(imageCoordinates) * inputNorm;
+
+    constexpr sampler linear_sampler(filter::linear);
+
+    const float3 input = read_imagef(inputImage, imageCoordinates).xyz;
+
+    // Low Frequency Band - this is where shadows and highlights are adjusted
+
+    float2 lfAbSample = read_imagef(lfAbImage, linear_sampler, pos + 0.5f * inputNorm).xy;
+    // The filtered image is an estimate of the illuminance
+    float lfIlluminance = lfAbSample.x * input.x + lfAbSample.y;
+
+    float lfDetail = ltmParameters.detail[0];
+    if (lfDetail > 1.0) {
+        float detail = (1.0 - smoothstep(0.75, 0.95, lfIlluminance))        // Highlights ringing protection
+                       * smoothstep(0.05, 0.1, lfIlluminance);              // Shadows ringing protection
+        lfDetail = 1 + (lfDetail - 1) * detail;
+    }
+    float ltmMultiplier = computeLtmMultiplier(input, lfIlluminance, histogram_data.shadows, histogram_data.highlights, lfDetail);
+
+    // Medium Frequency Band - only detail and shadows adjustment
+
+    float2 mfAbSample = read_imagef(mfAbImage, linear_sampler, pos + 0.5f * inputNorm).xy;
+    // The filtered image is an estimate of the illuminance
+    float mfIlluminance = mfAbSample.x * input.x + mfAbSample.y;
+
+    float mfDetail = ltmParameters.detail[1];
+    if (mfDetail > 1.0) {
+        float detail = (1.0 - smoothstep(0.75, 0.95, mfIlluminance))        // Highlights ringing protection
+                       * smoothstep(0.05, 0.1, mfIlluminance);              // Shadows ringing protection
+        mfDetail = 1 + (mfDetail - 1) * detail;
+    }
+    ltmMultiplier *= computeLtmMultiplier(input, mfIlluminance, histogram_data.shadows, /*highlights=*/ 1, mfDetail);
+
+    // High Frequency Band - only detail and shadows adjustment
+
+    float2 hfAbSample = read_imagef(hfAbImage, linear_sampler, pos + 0.5f * inputNorm).xy;
+    // The filtered image is an estimate of the illuminance
+    float hfIlluminance = hfAbSample.x * input.x + hfAbSample.y;
+
+    float hfDetail = ltmParameters.detail[2];
+    if (hfDetail > 1.0) {
+        float gradient = length(read_imagef(gradientImage, imageCoordinates).xy);
+
+        float sigma = sqrt(nlf.x + nlf.y * hfIlluminance);
+        float detail = smoothstep(2 * sigma, 8 * sigma, gradient)                   // Don't sharpen noise
+                       * (1 - smoothstep(32 * sigma, 128 * sigma, gradient))        // Don't sharpen high gradients
+                       * (1.0 - smoothstep(0.75, 0.95, hfIlluminance))              // Highlights ringing protection
+                       * smoothstep(0.05, 0.1, hfIlluminance);                      // Shadows ringing protection
+        hfDetail = 1 + (hfDetail - 1) * detail;
+    }
+    ltmMultiplier *= computeLtmMultiplier(input, hfIlluminance, histogram_data.shadows, /*highlights=*/ 1, hfDetail);
+
+    write_imagef(ltmMaskImage, imageCoordinates, float4(ltmMultiplier, 0, 0, 0));
+}
+
+static inline float2 s_curve(float2 t) {
+    return t * t * (3. - 2. * t);
+}
+
+static constant int noiseGradSize = 514;
+
+float noise(float2 pos, constant array<int, noiseGradSize>& p, constant array<float2, noiseGradSize>& g2) {
+    // setup
+    const int BM = 0xff;
+    const int N = 0x1000;
+
+    float2 t = pos + N;
+    int2 b0 = int2(t) & BM;
+    int2 b1 = (b0 + 1) & BM;
+    float2 r0 = fract(t);
+    float2 r1 = r0 - 1;
+
+    int i = p[b0.x];
+    int j = p[b1.x];
+
+    int b00 = p[i + b0.y];
+    int b10 = p[j + b0.y];
+    int b01 = p[i + b1.y];
+    int b11 = p[j + b1.y];
+
+    float2 s = s_curve(r0);
+
+    float u = dot(g2[b00], r0);
+    float v = dot(g2[b10], float2(r1.x, r0.y));
+    float a = mix(u, v, s.x);
+
+    u = dot(g2[b01], float2(r0.x, r1.y));
+    v = dot(g2[b11], r1);
+    float b = mix(u, v, s.x);
+
+    return mix(a, b, s.y);
+}
+
+float octaveNoise(float2 pos, int octaves, float persistence, float lacunarity,
+                  constant array<int, noiseGradSize>& p, constant array<float2, noiseGradSize>& g2) {
+    float freq = 1.0f;
+    float amp = 1.0f;
+    float norm = 1.0f;
+    float sum = noise(pos, p, g2);
+    int i;
+
+    for (i = 1; i < octaves; ++i) {
+        freq *= lacunarity;
+        amp *= persistence;
+        norm += amp;
+        sum += noise(pos * freq, p, g2) * amp;
+    }
+    return sum / norm;
+}
+
+kernel void simplex_noise(texture2d<float> inputImage                   [[texture(0)]],
+                          constant array<int, noiseGradSize>& p         [[buffer(1)]],
+                          constant array<float2, noiseGradSize>& g2     [[buffer(2)]],
+                          constant float2& variance                     [[buffer(3)]],
+                          texture2d<float, access::write> outputImage   [[texture(4)]],
+                          uint2 index                                   [[thread_position_in_grid]])
+{
+    const int2 imageCoordinates = (int2) index;
+
+    float noise = octaveNoise(0.5 * float2(imageCoordinates), 4, 0.5, 0.5, p, g2);
+
+    float4 pixel = read_imagef(inputImage, imageCoordinates);
+    float sigma = sqrt(variance.x + variance.y * pixel.x);
+    pixel.x += sigma * noise;
+    write_imagef(outputImage, imageCoordinates, pixel);
+}
+
 kernel void convertTosRGB(texture2d<float> linearImage                  [[texture(0)]],
                           texture2d<float> ltmMaskImage                 [[texture(1)]],
                           texture2d<float, access::write> rgbImage      [[texture(2)]],
                           constant Matrix3x3& transform                 [[buffer(3)]],
                           constant RGBConversionParameters& parameters  [[buffer(4)]],
                           constant histogram_data& histogram_data       [[buffer(5)]],
+                          constant float2& lumaVariance                 [[buffer(6)]],
+                          constant array<int, noiseGradSize>& p         [[buffer(7)]],
+                          constant array<float2, noiseGradSize>& g2     [[buffer(8)]],
                           uint2 index                                   [[thread_position_in_grid]])
 {
     const int2 imageCoordinates = (int2) index;
@@ -1519,7 +1627,9 @@ kernel void convertTosRGB(texture2d<float> linearImage                  [[textur
     }
 
     // FIXME: Compute the black and white levels dynamically
-    float3 pixel_value = brightening * max(read_imagef(linearImage, imageCoordinates).xyz - black_level, 0) / (white_level - black_level);
+    float3 inputPixel = read_imagef(linearImage, imageCoordinates).xyz;
+
+    float3 pixel_value = brightening * max(inputPixel - black_level, 0) / (white_level - black_level);
 
     // Exposure Bias
     pixel_value *= parameters.exposureBias != 0 ? powr(2.0, parameters.exposureBias) : 1;
@@ -1537,6 +1647,9 @@ kernel void convertTosRGB(texture2d<float> linearImage                  [[textur
         dot(transform.m[2], pixel_value)
     ), 0);
 
+    // Sigma of perlin noise to add to the image
+    float lumaSigma = 0;
+
     // Local Tone Mapping
     if (parameters.localToneMapping) {
         float ltmBoost = read_imagef(ltmMaskImage, imageCoordinates).x;
@@ -1551,6 +1664,20 @@ kernel void convertTosRGB(texture2d<float> linearImage                  [[textur
         } else if (ltmBoost < 1) {
             rgb *= ltmBoost;
         }
+
+        if (any(lumaVariance != 0)) {
+            lumaSigma = sqrt(lumaVariance.x + lumaVariance.y * ltmBoost * inputPixel.y);
+        }
+    } else {
+        if (any(lumaVariance != 0)) {
+            lumaSigma = sqrt(lumaVariance.x + lumaVariance.y * inputPixel.y);
+        }
+    }
+
+    // Add back some good looking noise
+    if (lumaSigma > 0) {
+        float noise = octaveNoise(0.5 * float2(imageCoordinates), 4, 0.5, 0.5, p, g2);
+        rgb += lumaSigma * noise;
     }
 
     // Tone Curve

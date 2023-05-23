@@ -154,6 +154,7 @@ typename PyramidProcessor<levels>::imageType* PyramidProcessor<levels>::denoise(
             _blockMatchingDenoiseImage(context, *layerImage, *gradientInput, *pcaImagePyramid[i],
                                        (*nlfParameters)[i].first, (*nlfParameters)[i].second, thresholdMultipliers[i],
                                        (*denoiseParameters)[i].chromaBoost, (*denoiseParameters)[i].gradientBoost,
+                                       (*denoiseParameters)[i].gradientThreshold,
                                        denoisedImagePyramid[i].get());
 
 //            context->waitForCompletion();

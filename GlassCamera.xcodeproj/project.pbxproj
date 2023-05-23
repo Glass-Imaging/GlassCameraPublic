@@ -35,12 +35,18 @@
 		E518E6D629F9D1D10056E6BF /* iPhone14WideCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E518E6D429F9D1D10056E6BF /* iPhone14WideCalibration.cpp */; };
 		E518E6DB29FC50D60056E6BF /* iPhone14TeleFMENCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E518E6DA29FC50D60056E6BF /* iPhone14TeleFMENCalibration.cpp */; };
 		E518E6DC29FC50D60056E6BF /* iPhone14TeleFMENCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E518E6DA29FC50D60056E6BF /* iPhone14TeleFMENCalibration.cpp */; };
-		E518E6E72A00A4AB0056E6BF /* CanonR6IICalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E518E6E62A00A4AB0056E6BF /* CanonR6IICalibration.cpp */; };
-		E518E6E82A00A4AB0056E6BF /* CanonR6IICalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E518E6E62A00A4AB0056E6BF /* CanonR6IICalibration.cpp */; };
+		E518E6E72A00A4AB0056E6BF /* CanonEOSR6IICalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E518E6E62A00A4AB0056E6BF /* CanonEOSR6IICalibration.cpp */; };
+		E518E6E82A00A4AB0056E6BF /* CanonEOSR6IICalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E518E6E62A00A4AB0056E6BF /* CanonEOSR6IICalibration.cpp */; };
 		E522296829CD646600D13A4F /* pyramid_processor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E522296629CD646600D13A4F /* pyramid_processor.cpp */; };
 		E522296929CD646600D13A4F /* pyramid_processor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E522296629CD646600D13A4F /* pyramid_processor.cpp */; };
 		E522296D29D026DA00D13A4F /* iPhoneCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E522296C29D026DA00D13A4F /* iPhoneCalibration.cpp */; };
 		E522296E29D026DA00D13A4F /* iPhoneCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E522296C29D026DA00D13A4F /* iPhoneCalibration.cpp */; };
+		E5C37E292A16D11800C6A689 /* CanonEOSRPCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C37E282A16D11800C6A689 /* CanonEOSRPCalibration.cpp */; };
+		E5C37E2A2A16D11800C6A689 /* CanonEOSRPCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C37E282A16D11800C6A689 /* CanonEOSRPCalibration.cpp */; };
+		E5C37E2C2A19C8D300C6A689 /* iPhone14UltraWideCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C37E2B2A19C8D300C6A689 /* iPhone14UltraWideCalibration.cpp */; };
+		E5C37E2D2A19C8D300C6A689 /* iPhone14UltraWideCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C37E2B2A19C8D300C6A689 /* iPhone14UltraWideCalibration.cpp */; };
+		E5C37E322A1C1B0C00C6A689 /* iPhone14SelfieCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C37E312A1C1B0C00C6A689 /* iPhone14SelfieCalibration.cpp */; };
+		E5C37E332A1C1B0C00C6A689 /* iPhone14SelfieCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C37E312A1C1B0C00C6A689 /* iPhone14SelfieCalibration.cpp */; };
 		E5C5BFF929BD36B600AAB593 /* gls_color_science.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C5BFF229BD36B600AAB593 /* gls_color_science.cpp */; };
 		E5C5BFFA29BD36B600AAB593 /* gls_image_png.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C5BFF329BD36B600AAB593 /* gls_image_png.cpp */; };
 		E5C5BFFB29BD36B600AAB593 /* gls_image_tiff.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C5BFF429BD36B600AAB593 /* gls_image_tiff.cpp */; };
@@ -106,9 +112,9 @@
 /* Begin PBXCopyFilesBuildPhase section */
 		E5FAE7DF29C5420200213AE6 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = /usr/share/man/man1/;
-			dstSubfolderSpec = 0;
+			buildActionMask = 8;
+			dstPath = "";
+			dstSubfolderSpec = 16;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 1;
@@ -142,7 +148,8 @@
 		E518E69C29F748480056E6BF /* CoreML.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreML.framework; path = System/Library/Frameworks/CoreML.framework; sourceTree = SDKROOT; };
 		E518E6D429F9D1D10056E6BF /* iPhone14WideCalibration.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = iPhone14WideCalibration.cpp; sourceTree = "<group>"; };
 		E518E6DA29FC50D60056E6BF /* iPhone14TeleFMENCalibration.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = iPhone14TeleFMENCalibration.cpp; sourceTree = "<group>"; };
-		E518E6E62A00A4AB0056E6BF /* CanonR6IICalibration.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = CanonR6IICalibration.cpp; sourceTree = "<group>"; };
+		E518E6E62A00A4AB0056E6BF /* CanonEOSR6IICalibration.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = CanonEOSR6IICalibration.cpp; sourceTree = "<group>"; };
+		E518E6F42A0712B50056E6BF /* SimplexNoise.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = SimplexNoise.hpp; sourceTree = "<group>"; };
 		E522296629CD646600D13A4F /* pyramid_processor.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = pyramid_processor.cpp; sourceTree = "<group>"; };
 		E522296729CD646600D13A4F /* pyramid_processor.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = pyramid_processor.hpp; sourceTree = "<group>"; };
 		E522296B29CE421000D13A4F /* tinyicc.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = tinyicc.hpp; sourceTree = "<group>"; };
@@ -151,6 +158,9 @@
 		E57CA85929D04DFD006F5D3F /* float16.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = float16.hpp; sourceTree = "<group>"; };
 		E57CA85A29D3D472006F5D3F /* sciplot */ = {isa = PBXFileReference; lastKnownFileType = folder; path = sciplot; sourceTree = "<group>"; };
 		E59FB6A129D5FB1C008FD7AA /* demosaic_kernels.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = demosaic_kernels.hpp; sourceTree = "<group>"; };
+		E5C37E282A16D11800C6A689 /* CanonEOSRPCalibration.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = CanonEOSRPCalibration.cpp; sourceTree = "<group>"; };
+		E5C37E2B2A19C8D300C6A689 /* iPhone14UltraWideCalibration.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = iPhone14UltraWideCalibration.cpp; sourceTree = "<group>"; };
+		E5C37E312A1C1B0C00C6A689 /* iPhone14SelfieCalibration.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = iPhone14SelfieCalibration.cpp; sourceTree = "<group>"; };
 		E5C5BF4229BA833F00AAB593 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		E5C5BFA629BC5E4B00AAB593 /* GlassCamera-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "GlassCamera-Bridging-Header.h"; sourceTree = "<group>"; };
 		E5C5BFF229BD36B600AAB593 /* gls_color_science.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = gls_color_science.cpp; path = GlassImage/src/gls_color_science.cpp; sourceTree = "<group>"; };
@@ -384,15 +394,19 @@
 				E5C6986129C925A600F7062C /* CameraCalibration.hpp */,
 				E5C6986229C925A600F7062C /* CameraCalibration.cpp */,
 				E5C6986C29C926F100F7062C /* Sonya6400Calibration.cpp */,
-				E518E6E62A00A4AB0056E6BF /* CanonR6IICalibration.cpp */,
+				E518E6E62A00A4AB0056E6BF /* CanonEOSR6IICalibration.cpp */,
+				E5C37E282A16D11800C6A689 /* CanonEOSRPCalibration.cpp */,
 				E522296C29D026DA00D13A4F /* iPhoneCalibration.cpp */,
+				E518E6D429F9D1D10056E6BF /* iPhone14WideCalibration.cpp */,
+				E5C37E312A1C1B0C00C6A689 /* iPhone14SelfieCalibration.cpp */,
+				E5C37E2B2A19C8D300C6A689 /* iPhone14UltraWideCalibration.cpp */,
 				E5E7CBAB29F4CA8300067C0B /* iPhone14TeleCalibration.cpp */,
 				E518E6DA29FC50D60056E6BF /* iPhone14TeleFMENCalibration.cpp */,
-				E518E6D429F9D1D10056E6BF /* iPhone14WideCalibration.cpp */,
 				E5C6986929C926CD00F7062C /* ThreadPool.cpp */,
 				E5C6986829C926CD00F7062C /* ThreadPool.hpp */,
 				E522296B29CE421000D13A4F /* tinyicc.hpp */,
 				E57CA85929D04DFD006F5D3F /* float16.hpp */,
+				E518E6F42A0712B50056E6BF /* SimplexNoise.hpp */,
 			);
 			path = MetalPipeline;
 			sourceTree = "<group>";
@@ -566,13 +580,15 @@
 				86276B3429EF4DA900EFF0C3 /* PhotoCollection.swift in Sources */,
 				E5D4D8A327D183D900F1D944 /* CameraService.swift in Sources */,
 				E5C5BFFF29BD36B600AAB593 /* gls_dng_lossless_jpeg.cpp in Sources */,
-				E518E6E72A00A4AB0056E6BF /* CanonR6IICalibration.cpp in Sources */,
+				E518E6E72A00A4AB0056E6BF /* CanonEOSR6IICalibration.cpp in Sources */,
+				E5C37E322A1C1B0C00C6A689 /* iPhone14SelfieCalibration.cpp in Sources */,
 				E5C5BFF929BD36B600AAB593 /* gls_color_science.cpp in Sources */,
 				869FA7A12A0B14B20097C2D2 /* CameraState.swift in Sources */,
 				8648F6612A05B99A00E76BA9 /* FMEN.mlmodel in Sources */,
 				E5D4D88F27D1798D00F1D944 /* CameraView.swift in Sources */,
 				86276B3029EF4DA900EFF0C3 /* PhotoItemView.swift in Sources */,
 				86FD00DF2A13062000111B5F /* ExposureParamsView.swift in Sources */,
+				E5C37E2C2A19C8D300C6A689 /* iPhone14UltraWideCalibration.cpp in Sources */,
 				86276B3229EF4DA900EFF0C3 /* PhotoCollectionView.swift in Sources */,
 				E5C5BFFA29BD36B600AAB593 /* gls_image_png.cpp in Sources */,
 				E5E7CBA929DF593200067C0B /* PCA.cpp in Sources */,
@@ -597,6 +613,7 @@
 				86FD00E22A14204000111B5F /* DebugOverlay.swift in Sources */,
 				E5C5BFFB29BD36B600AAB593 /* gls_image_tiff.cpp in Sources */,
 				86276B3729EF4DA900EFF0C3 /* PhotoLibrary.swift in Sources */,
+				E5C37E292A16D11800C6A689 /* CanonEOSRPCalibration.cpp in Sources */,
 				E5C5BFFE29BD36B600AAB593 /* gls_tiff_metadata.cpp in Sources */,
 				E518E6D529F9D1D10056E6BF /* iPhone14WideCalibration.cpp in Sources */,
 				E5C6987F29CBAD8300F7062C /* RawProcessor.mm in Sources */,
@@ -612,6 +629,7 @@
 				E5C6986B29C926CD00F7062C /* ThreadPool.cpp in Sources */,
 				E5E7CBAE29F4CA8300067C0B /* iPhone14TeleCalibration.cpp in Sources */,
 				E5C6986F29C92E9600F7062C /* demosaic.metal in Sources */,
+				E5C37E2D2A19C8D300C6A689 /* iPhone14UltraWideCalibration.cpp in Sources */,
 				E518E6DC29FC50D60056E6BF /* iPhone14TeleFMENCalibration.cpp in Sources */,
 				E5FAE7EB29C5425300213AE6 /* gls_mtl_image.hpp in Sources */,
 				E5FAE7EC29C5425300213AE6 /* gls_mtl.cpp in Sources */,
@@ -630,9 +648,11 @@
 				E5FAE7F329C5425300213AE6 /* gls_logging.cpp in Sources */,
 				E5FAE7F429C5425300213AE6 /* gls_tiff_metadata.cpp in Sources */,
 				E5FAE7E429C5420200213AE6 /* pipelineTest.cpp in Sources */,
+				E5C37E332A1C1B0C00C6A689 /* iPhone14SelfieCalibration.cpp in Sources */,
 				E518E6D629F9D1D10056E6BF /* iPhone14WideCalibration.cpp in Sources */,
 				8648F6622A05B99A00E76BA9 /* FMEN.mlmodel in Sources */,
-				E518E6E82A00A4AB0056E6BF /* CanonR6IICalibration.cpp in Sources */,
+				E5C37E2A2A16D11800C6A689 /* CanonEOSRPCalibration.cpp in Sources */,
+				E518E6E82A00A4AB0056E6BF /* CanonEOSR6IICalibration.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

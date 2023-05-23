@@ -59,6 +59,7 @@ class LocalToneMapping {
     }
 
     void createMask(MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& image,
+                    const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& gradientImage,
                     const std::array<const gls::mtl_image_2d<gls::rgba_pixel_float>*, 3>& guideImage,
                     const NoiseModel<5>& noiseModel, const LTMParameters& ltmParameters,
                     MTL::Buffer* histogramBuffer) {
@@ -69,7 +70,7 @@ class LocalToneMapping {
 
         gls::Vector<2> nlf = {noiseModel.pyramidNlf[0].first[0], noiseModel.pyramidNlf[0].second[0]};
 
-        _localToneMappingMask(context, image, guideImage, abImage, abMeanImage, ltmParameters,
+        _localToneMappingMask(context, image, gradientImage, guideImage, abImage, abMeanImage, ltmParameters,
                               nlf, histogramBuffer, ltmMaskImage.get());
     }
 
@@ -96,11 +97,8 @@ class RawConverter {
     // RawConverter HighNoise textures
     gls::mtl_image_2d<gls::rgba_pixel_float>::unique_ptr _rgbaRawImage;
     gls::mtl_image_2d<gls::rgba_pixel_float>::unique_ptr _denoisedRgbaRawImage;
-    gls::mtl_image_2d<gls::luma_pixel_16>::unique_ptr _blueNoise;
 
     std::array<gls::mtl_image_2d<gls::rgba_pixel_float>::unique_ptr, 4> _ltmImagePyramid;
-
-    NS::SharedPtr<MTL::Buffer> _histogramBuffer;
 
     std::unique_ptr<PyramidProcessor<5>> _pyramidProcessor;
 
@@ -123,20 +121,9 @@ class RawConverter {
     convertTosRGBKernel _convertTosRGB;
     despeckleImageKernel _despeckleImage;
     histogramImageKernel _histogramImage;
-    histogramStatisticsKernel _histogramStatistics;
     basicRawNoiseStatisticsKernel _rawNoiseStatistics;
 
 public:
-    struct histogram_data {
-        std::array<uint32_t, 0x100> histogram;
-        std::array<uint32_t, 8> bands;
-        float black_level;
-        float white_level;
-        float shadows;
-        float highlights;
-        float mean;
-        float median;
-    };
 
     RawConverter(NS::SharedPtr<MTL::Device> mtlDevice, const std::vector<uint8_t>* icc_profile_data = nullptr, bool calibrateFromImage = false) :
         _calibrateFromImage(calibrateFromImage),
@@ -155,20 +142,16 @@ public:
         _convertTosRGB(&_mtlContext),
         _despeckleImage(&_mtlContext),
         _histogramImage(&_mtlContext),
-        _histogramStatistics(&_mtlContext),
         _rawNoiseStatistics(&_mtlContext)
     {
         _localToneMapping = std::make_unique<LocalToneMapping>(&_mtlContext);
-
-        _histogramBuffer = NS::TransferPtr(mtlDevice->newBuffer(sizeof(histogram_data),
-                                                                MTL::ResourceStorageModeShared));
-
-        assert(_histogramBuffer->length() == sizeof(histogram_data));
 
         if (icc_profile_data) {
             _icc_profile_data = std::make_unique<std::vector<uint8_t>>(*icc_profile_data);
 
             _xyz_rgb = icc_profile_xyz_matrix(*_icc_profile_data);
+        } else {
+            _xyz_rgb = xyz_sRGB;
         }
     }
 
@@ -180,14 +163,8 @@ public:
         return _xyz_rgb;
     }
 
-    MTL::Buffer* histogramBuffer() {
-        return _histogramBuffer.get();
-    }
-
-    histogram_data* histogramData() {
-        auto buffer = histogramBuffer();
-        assert(buffer->length() == sizeof(histogram_data));
-        return (histogram_data*) buffer->contents();
+    histogramImageKernel::histogram_data* histogramData() {
+        return _histogramImage.histogramData();
     }
 
     void allocateTextures(const gls::size& imageSize);
