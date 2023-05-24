@@ -164,30 +164,6 @@ public class CameraService: NSObject, Identifiable {
                 self.videoDeviceInput.device.unlockForConfiguration()
             }.store(in: &self.subscriptions)
 
-        /*
-        cameraState.$finalExposureDuration.combineLatest(cameraState.$finalISO)
-            .filter { newExposureDuration, newISO in
-                return self.videoDeviceInput != nil
-                && (newExposureDuration.seconds <= self.videoDeviceInput.device.activeFormat.maxExposureDuration.seconds)
-                && (newExposureDuration.seconds > self.videoDeviceInput.device.activeFormat.minExposureDuration.seconds)
-                && (newISO <= self.videoDeviceInput.device.activeFormat.maxISO)
-                && (newISO >= self.videoDeviceInput.device.activeFormat.minISO)
-            }
-            // This works at 1000 milliseconds, but seems to crash at 500
-            .throttle(for: .milliseconds(1000), scheduler: DispatchQueue.main, latest: true)
-            .sink { newExposureDuration, newISO in
-                // NOTE: This is a little expensive, but it reduces latency when triggering an exposure
-                self.preparePhotoSettings(exposureDuration: newExposureDuration, iso: newISO)
-            }.store(in: &self.subscriptions)
-
-        cameraState.$isBurstCaptureOn
-            .filter { _ in self.videoDeviceInput != nil }
-            .sink { _ in
-            self.preparePhotoSettings(exposureDuration: self.cameraState.finalExposureDuration, iso: self.cameraState.finalISO)
-        }.store(in: &self.subscriptions)
-         */
-
-
         cameraState.$isCustomExposure
             .removeDuplicates()
             .filter { isCustomExposure in return !isCustomExposure }
@@ -548,7 +524,6 @@ public class CameraService: NSObject, Identifiable {
                     // Only setup observers and start the session if setup succeeded.
                     self.addObservers()
                     self.session.startRunning()
-                    print("CAMERA RUNNING")
                     self.isSessionRunning = self.session.isRunning
 
                     if self.session.isRunning {

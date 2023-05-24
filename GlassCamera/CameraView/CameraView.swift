@@ -81,12 +81,9 @@ final class CameraModel: ObservableObject {
                 self.service.capturePhoto(saveCollection: self.photoCollection)
             }
         } else {
-            self.service.capturePhoto(saveCollection: self.photoCollection)
-            /*
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                 self.service.capturePhoto(saveCollection: self.photoCollection)
             }
-             */
         }
     }
 
