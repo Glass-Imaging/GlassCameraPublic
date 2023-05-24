@@ -10,7 +10,7 @@ import Combine
 import AVFoundation
 
 final class CameraState: ObservableObject {
-    let isInternalRelease = true
+    let isInternalRelease = false
 
     @Published var debugOverlay = false
     @Published var zoomLevel: BackCameraConfiguration = .Tele

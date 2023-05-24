@@ -183,6 +183,7 @@ struct CameraView: View {
                 Spacer()
             }
 
+            /*
             Button(action: {
                 self.cameraState.isFlashOn.toggle()
             }, label: {
@@ -192,6 +193,7 @@ struct CameraView: View {
             .accentColor(self.cameraState.isFlashOn ? .yellow : .white)
 
             Spacer()
+             */
 
             Button(action: {
                 self.cameraState.isShutterDelayOn.toggle()
