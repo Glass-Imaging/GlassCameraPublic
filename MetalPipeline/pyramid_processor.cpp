@@ -96,7 +96,7 @@ template <size_t levels>
 typename PyramidProcessor<levels>::imageType* PyramidProcessor<levels>::denoise(
     MetalContext* context, std::array<DenoiseParameters, levels>* denoiseParameters, const imageType& image,
     const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& gradientImage, std::array<YCbCrNLF, levels>* nlfParameters,
-    float exposure_multiplier, bool calibrateFromImage) {
+    float exposure_multiplier, float lensShadingCorrection, bool calibrateFromImage) {
     std::array<gls::Vector<3>, levels> thresholdMultipliers;
 
     // Create gaussian image pyramid an setup noise model
@@ -154,7 +154,7 @@ typename PyramidProcessor<levels>::imageType* PyramidProcessor<levels>::denoise(
             _blockMatchingDenoiseImage(context, *layerImage, *gradientInput, *pcaImagePyramid[i],
                                        (*nlfParameters)[i].first, (*nlfParameters)[i].second, thresholdMultipliers[i],
                                        (*denoiseParameters)[i].chromaBoost, (*denoiseParameters)[i].gradientBoost,
-                                       (*denoiseParameters)[i].gradientThreshold,
+                                       (*denoiseParameters)[i].gradientThreshold, lensShadingCorrection,
                                        denoisedImagePyramid[i].get());
 
 //            context->waitForCompletion();

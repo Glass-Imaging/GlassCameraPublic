@@ -81,7 +81,7 @@ public:
                 .luma = lmult[0] * lerp,
                 .chroma = cmult[0] * lerp_c,
                 .chromaBoost = 8,
-                .gradientBoost = 8, // 4 * (2 - smoothstep(0.25, 0.5, nlf_alpha)),
+                .gradientBoost = 4 * (2 - smoothstep(0.3, 0.6, nlf_alpha)),
                 .gradientThreshold = 1,
                 .sharpening = std::lerp(1.5f, 1.0f, nlf_alpha)
             },
@@ -89,7 +89,7 @@ public:
                 .luma = lmult[1] * lerp,
                 .chroma = cmult[1] * lerp_c,
                 .chromaBoost = 4,
-                .gradientBoost = 2, // (2 - smoothstep(0.25, 0.5, nlf_alpha)),
+                .gradientBoost = 2 * (2 - smoothstep(0.3, 0.6, nlf_alpha)),
                 .gradientThreshold = 1,
                 .sharpening = 1
             },

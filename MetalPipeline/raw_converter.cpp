@@ -81,6 +81,7 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::denoise(const gls::mtl_i
                                                                                          *_linearRGBImageB, *_rawGradientImage,
                                                                                          &noiseModel->pyramidNlf,
                                                                                          demosaicParameters->exposure_multiplier,
+                                                                                         demosaicParameters->lensShadingCorrection,
                                                                                          _calibrateFromImage);
 
     // Use a lower level of the pyramid to compute the histogram
@@ -229,7 +230,7 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
     _convertTosRGB.initGradients();
 
     _convertTosRGB(context, *_linearRGBImageA, _localToneMapping->getMask(), *demosaicParameters,
-                   _histogramImage.buffer(), /*luma_nlf=*/ 8.0f * rawVariance[1], _linearRGBImageA.get());
+                   _histogramImage.buffer(), /*luma_nlf=*/ 2.0f * rawVariance[1], _linearRGBImageA.get());
 
     _mtlContext.waitForCompletion();
 

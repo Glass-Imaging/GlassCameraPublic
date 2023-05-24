@@ -66,11 +66,11 @@ public:
         const float raw_nlf_alpha = std::clamp((log2(iso) - log2(highNoiseISO)) / (log2(3200) - log2(highNoiseISO)), 0.0, 1.0);
 
         float lerp = std::lerp(1.0, 2.0, nlf_alpha);
-        float lerp_c = std::lerp(1.0, 2.0, nlf_alpha);
+        float lerp_c = 1; // std::lerp(1.0, 2.0, nlf_alpha);
 
         std::cout << "iPhone 14 UltraWide DenoiseParameters nlf_alpha: " << nlf_alpha << ", ISO: " << iso << ", lerp: " << lerp << std::endl;
 
-        float lmult[5] = { 3, 1.5, 1, 1, 1 };
+        float lmult[5] = { 2, 1, 1, 1, 1 };
         float cmult[5] = { 1, 1, 1, 1, 1 };
 
         std::array<DenoiseParameters, 5> denoiseParameters = {{
@@ -78,7 +78,7 @@ public:
                 .luma = lmult[0] * lerp,
                 .chroma = cmult[0] * lerp_c,
                 .chromaBoost = 8,
-                .gradientBoost = 2 * (2 - smoothstep(0.3, 0.6, nlf_alpha)),
+                .gradientBoost = 4 * (2 - smoothstep(0.3, 0.6, nlf_alpha)),
                 .gradientThreshold = 2,
                 .sharpening = std::lerp(1.5f, 1.0f, nlf_alpha)
             },
@@ -86,9 +86,9 @@ public:
                 .luma = lmult[1] * lerp,
                 .chroma = cmult[1] * lerp_c,
                 .chromaBoost = 4,
-                .gradientBoost = (2 - smoothstep(0.3, 0.6, nlf_alpha)),
+                .gradientBoost = 2 * (2 - smoothstep(0.3, 0.6, nlf_alpha)),
                 .gradientThreshold = 2,
-                .sharpening = 1.1
+                .sharpening = 1
             },
             {
                 .luma = lmult[2] * lerp,

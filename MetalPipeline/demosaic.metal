@@ -107,7 +107,6 @@ kernel void scaleRawData(texture2d<half> rawImage                       [[textur
     if (lensShadingCorrection > 0) {
         float2 imageCenter = float2(get_image_dim(rawImage) / 2);
         float distance_from_center = length(float2(imageCoordinates) - imageCenter) / length(imageCenter);
-        // FIXME: the attenuation is a fuzz factor
         lens_shading = lensShading(lensShadingCorrection, distance_from_center);
     }
 
@@ -813,34 +812,43 @@ kernel void blockMatchingDenoiseImage(texture2d<half> inputImage                
                                       constant float& chromaBoost                    [[buffer(6)]],
                                       constant float& gradientBoost                  [[buffer(7)]],
                                       constant float& gradientThreshold              [[buffer(8)]],
-                                      texture2d<half, access::write> denoisedImage   [[texture(9)]],
+                                      constant float& lensShadingCorrection          [[buffer(9)]],
+                                      texture2d<half, access::write> denoisedImage   [[texture(10)]],
                                       uint2 index                                    [[thread_position_in_grid]]) {
     const int2 imageCoordinates = (int2) index;
 
     const half3 inputYCC = read_imageh(inputImage, imageCoordinates).xyz;
     const _half8 inputPCA = _half8(read_imageui(pcaImage, imageCoordinates));
 
-    // FIXME: add lensShadingCorrection
-    half3 sigma = half3(sqrt(var_a + var_b * inputYCC.x));
-    half3 diffMultiplier = 1 / (half3(thresholdMultipliers) * sigma);
+    half blueBoost = 1; // + (gradientBoost > 0 && inputYCC.y > 0.01 && inputYCC.z < 0.01 ? cos(M_PI_4_H - atan2(inputYCC.z, inputYCC.y)) : 0);
+
+    half lens_shading = 1;
+    if (lensShadingCorrection > 0) {
+        float2 imageCenter = float2(get_image_dim(inputImage) / 2);
+        float distance_from_center = length(float2(imageCoordinates) - imageCenter) / length(imageCenter);
+        lens_shading = lensShading(lensShadingCorrection, distance_from_center);
+    }
+
+    half3 sigma = half3(sqrt(var_a + var_b * lens_shading * inputYCC.x));
+    half3 diffMultiplier = 1 / (blueBoost * half3(thresholdMultipliers) * sigma);
 
     half2 gradient = read_imageh(gradientImage, imageCoordinates).xy;
-    half angle = atan2(gradient.y, gradient.x);
-    half magnitude = length(gradient);
+    // half angle = atan2(gradient.y, gradient.x);
+    half magnitude = length(gradient); // / (1 - 0.5 * smoothstep(0.125h, 0.25h, inputYCC.x));
     half edge = smoothstep(2, 16, gradientThreshold * magnitude / sigma.x);
 
     // Dynamic PCA components
-    int pcaComponents = 1;
-    half pca02 = inputPCA.v[0] * inputPCA.v[0];
-    half pca_sum = pca02;
-    half sigma2_pca = 4 * sigma.x * sigma.x * pca02;
-    for (int i = 1; i < 8; i++) {
-        half previous = pca_sum;
-        pca_sum += inputPCA.v[i] * inputPCA.v[i];
-        if (pca_sum - previous > sigma2_pca) {
-            pcaComponents = i;
-        }
-    }
+    int pcaComponents = 8;
+//    half pca02 = inputPCA.v[0] * inputPCA.v[0];
+//    half pca_sum = pca02;
+//    half sigma2_pca = 4 * sigma.x * sigma.x * pca02;
+//    for (int i = 1; i < 8; i++) {
+//        half previous = pca_sum;
+//        pca_sum += inputPCA.v[i] * inputPCA.v[i];
+//        if (pca_sum - previous > sigma2_pca) {
+//            pcaComponents = i;
+//        }
+//    }
 
     const int size = 10;
 
@@ -857,7 +865,12 @@ kernel void blockMatchingDenoiseImage(texture2d<half> inputImage                
 
             half lumaWeight = gaussian(pcaDiff / (1 + gradientBoost * edge));
             half chromaWeight = gaussian(length(half3(lumaWeight, inputChromaDiff / chromaBoost)));
-            half directionWeight = steer(x, y, angle, mix(2 * size, 1, edge), 2 * size);
+            // half directionWeight = steer(x, y, angle, mix(2 * size, 1, edge), 2 * size);
+            half directionWeight = gaussian(0.1 * length(float2(x, y)));
+
+//            half directionWeight = edge == 1
+//                ? steer(x, y, angle, size / 2, 2 * size)
+//                : gaussian(0.1 * length(float2(x, y)));;
 
             half3 sampleWeight = directionWeight * half3(lumaWeight, chromaWeight, chromaWeight);
 

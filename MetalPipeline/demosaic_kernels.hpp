@@ -350,6 +350,7 @@ struct blockMatchingDenoiseImageKernel {
            float,          // chromaBoost
            float,          // gradientBoost
            float,          // gradientThreshold
+           float,          // lensShadingCorrection
            MTL::Texture*   // outputImage
     > kernel;
 
@@ -359,7 +360,7 @@ struct blockMatchingDenoiseImageKernel {
                      const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& gradientImage,
                      const gls::mtl_image_2d<gls::pixel<uint32_t, 4>>& patchImage, const gls::Vector<3>& var_a,
                      const gls::Vector<3>& var_b, const gls::Vector<3> thresholdMultipliers,
-                     float chromaBoost, float gradientBoost, float gradientThreshold,
+                     float chromaBoost, float gradientBoost, float gradientThreshold, float lensShadingCorrection,
                      gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage) {
 
         kernel(context, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
@@ -367,7 +368,7 @@ struct blockMatchingDenoiseImageKernel {
                simd::float3 { var_a[0], var_a[1], var_a[2] },
                simd::float3 { var_b[0], var_b[1], var_b[2] },
                simd::float3 { thresholdMultipliers[0], thresholdMultipliers[1], thresholdMultipliers[2] },
-               chromaBoost, gradientBoost, gradientThreshold, outputImage->texture());
+               chromaBoost, gradientBoost, gradientThreshold, lensShadingCorrection, outputImage->texture());
     }
 };
 
@@ -666,8 +667,8 @@ struct convertTosRGBKernel {
                                    {transform[2][0], transform[2][1], transform[2][2]}}};
 
         kernel(context, /*gridSize=*/ MTL::Size(rgbImage->width, rgbImage->height, 1), linearImage.texture(),
-               ltmMaskImage.texture(), rgbImage->texture(), mtlTransform, demosaicParameters.rgbConversionParameters, histogramBuffer,
-               simd::float2 { luma_nlf[0], luma_nlf[1] },permBuffer.buffer(), gradBuffer.buffer());
+               ltmMaskImage.texture(), rgbImage->texture(), mtlTransform, demosaicParameters.rgbConversionParameters,
+               histogramBuffer, simd::float2 { luma_nlf[0], luma_nlf[1] },permBuffer.buffer(), gradBuffer.buffer());
     }
 };
 

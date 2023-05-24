@@ -69,7 +69,7 @@ public:
         const float raw_nlf_alpha = std::clamp((log2(iso) - log2(highNoiseISO)) / (log2(12500) - log2(highNoiseISO)), 0.0, 1.0);
 
         float lerp = std::lerp(1.0, 2.0, nlf_alpha);
-        float lerp_c = std::lerp(1.0, 2.0, nlf_alpha);
+        float lerp_c = 1; // std::lerp(1.0, 2.0, nlf_alpha);
 
         std::cout << "iPhone 14 Wide DenoiseParameters nlf_alpha: " << nlf_alpha << ", ISO: " << iso << ", lerp: " << lerp << std::endl;
 
@@ -89,9 +89,9 @@ public:
                 .luma = lmult[1] * lerp,
                 .chroma = cmult[1] * lerp_c,
                 .chromaBoost = 4,
-                .gradientBoost = (2 - smoothstep(0.3, 0.6, nlf_alpha)),
+                .gradientBoost = 2 - smoothstep(0.3, 0.6, nlf_alpha),
                 .gradientThreshold = 2,
-                .sharpening = 1.1
+                .sharpening = 1
             },
             {
                 .luma = lmult[2] * lerp,

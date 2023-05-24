@@ -58,7 +58,7 @@ struct PyramidProcessor {
 
     imageType* denoise(MetalContext* context, std::array<DenoiseParameters, levels>* denoiseParameters,
                        const imageType& image, const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& gradientImage,
-                       std::array<YCbCrNLF, levels>* nlfParameters, float exposure_multiplier,
+                       std::array<YCbCrNLF, levels>* nlfParameters, float exposure_multiplier, float lensShadingCorrection,
                        bool calibrateFromImage = false);
 
 //    void fuseFrame(MetalContext* context, std::array<DenoiseParameters, levels>* denoiseParameters,
