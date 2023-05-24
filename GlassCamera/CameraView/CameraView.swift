@@ -26,7 +26,6 @@ final class CameraModel: ObservableObject {
     
     @Published var thumbnailImage: Image?
     @Published var showAlertError = false
-    @Published var zoomLevel: BackCameraConfiguration = .Wide
 
     var session: AVCaptureSession
 
@@ -56,18 +55,7 @@ final class CameraModel: ObservableObject {
         }
         .store(in: &self.subscriptions)
 
-        $zoomLevel.sink { configuration in
-            if(self.service.isConfigured) {
-                print("SET ZOOM LEVEL :: \(configuration)")
-                let newConfiguration = self.service.backDeviceConfigurations[configuration] ??
-                DeviceConfiguration(position: .back, deviceType: .builtInWideAngleCamera)
-                self.switchCamera(newConfiguration)
-            }
-
-        }
-        .store(in: &self.subscriptions)
-
-        configure(DeviceConfiguration(position: .back, deviceType: .builtInWideAngleCamera))
+        configure(DeviceConfiguration(position: .back, deviceType: service.backDeviceConfigurations[cameraState.zoomLevel]?.deviceType ?? .builtInWideAngleCamera))
     }
 
     func configure(_ configuration: DeviceConfiguration) {
@@ -90,12 +78,8 @@ final class CameraModel: ObservableObject {
     func flipCamera() {
         let configuration = service.currentDevice?.position == .back ?
                 DeviceConfiguration(position: .front, deviceType: .builtInWideAngleCamera) :
-                service.backDeviceConfigurations[self.zoomLevel]!
+                service.backDeviceConfigurations[self.cameraState.zoomLevel]!
 
-        service.changeCamera(configuration)
-    }
-
-    func switchCamera(_ configuration: DeviceConfiguration) {
         service.changeCamera(configuration)
     }
 
@@ -171,7 +155,7 @@ struct CameraView: View {
 
     var zoomLevelPicker: some View {
         VStack {
-            Picker("Camera Configuration", selection: $model.zoomLevel) {
+            Picker("Camera Configuration", selection: $cameraState.zoomLevel) {
                 // Preserve the order in the BackCameraConfiguration definition
                 ForEach(BackCameraConfiguration.allCases) { configuration in
                     if model.service.availableBackDevices.contains(configuration) {
@@ -187,15 +171,17 @@ struct CameraView: View {
         HStack {
             Spacer()
 
-            Button(action: {
-                self.cameraState.isBurstCaptureOn.toggle()
-            }, label: {
-                Image(systemName: "square.3.layers.3d.down.right"/*"photo.stack"*/)
-                    .font(.system(size: 20, weight: .medium, design: .default))
-            })
-            .accentColor(self.cameraState.isBurstCaptureOn ? .yellow : .white)
+            if cameraState.isInternalRelease {
+                Button(action: {
+                    self.cameraState.isBurstCaptureOn.toggle()
+                }, label: {
+                    Image(systemName: "square.3.layers.3d.down.right"/*"photo.stack"*/)
+                        .font(.system(size: 20, weight: .medium, design: .default))
+                })
+                .accentColor(self.cameraState.isBurstCaptureOn ? .yellow : .white)
 
-            Spacer()
+                Spacer()
+            }
 
             Button(action: {
                 self.cameraState.isFlashOn.toggle()
@@ -216,14 +202,16 @@ struct CameraView: View {
 
             Spacer()
 
-            Button(action: {
-                self.cameraState.isNNProcessingOn.toggle()
-            }, label: {
-                Image(systemName: "brain").font(.system(size: 20, weight: .medium, design: .default))
-            })
-            .accentColor(self.cameraState.isNNProcessingOn ? .yellow : .white)
+            if cameraState.isInternalRelease {
+                Button(action: {
+                    self.cameraState.isNNProcessingOn.toggle()
+                }, label: {
+                    Image(systemName: "brain").font(.system(size: 20, weight: .medium, design: .default))
+                })
+                .accentColor(self.cameraState.isNNProcessingOn ? .yellow : .white)
 
-            Spacer()
+                Spacer()
+            }
         }
     }
 
@@ -270,7 +258,7 @@ struct CameraView: View {
 
                         Spacer()
 
-                        if (model.service.currentDevice?.position == .back) {
+                        if cameraState.isInternalRelease && (model.service.currentDevice?.position == .back) {
                             zoomLevelPicker
                                 .padding(.top, 5)
                                 .padding(.bottom, 10)
@@ -290,11 +278,14 @@ struct CameraView: View {
                             Spacer()
                             
                             captureButton
-                            
+
                             Spacer()
-                            
-                            flipCameraButton
-                            
+
+                            if cameraState.isInternalRelease {
+                                flipCameraButton
+                            } else {
+                                Spacer()
+                            }
                         }
                         .padding(.horizontal, 20)
                         

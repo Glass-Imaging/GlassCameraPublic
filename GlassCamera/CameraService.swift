@@ -180,6 +180,15 @@ public class CameraService: NSObject, Identifiable {
             captureDevice.activeMaxExposureDuration = newTargetMaxExposureDuration
             captureDevice.unlockForConfiguration()
         }.store(in: &self.subscriptions)
+
+        cameraState.$zoomLevel.sink { configuration in
+            if(self.isConfigured) {
+                print("SET ZOOM LEVEL :: \(configuration)")
+                let newConfiguration = self.backDeviceConfigurations[configuration] ?? DeviceConfiguration(position: .back, deviceType: .builtInWideAngleCamera)
+                self.changeCamera(newConfiguration)
+            }
+        }
+        .store(in: &self.subscriptions)
     }
 
     public func configure(_ configuration: DeviceConfiguration) {
@@ -272,7 +281,7 @@ public class CameraService: NSObject, Identifiable {
             if let desiredDevice = AVCaptureDevice.default(configuration.deviceType, for: .video, position: configuration.position) {
                 // If a rear dual camera is not available, default to the rear wide angle camera.
                 videoDevice = desiredDevice
-            } else if let backupDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .unspecified) {
+            } else if let backupDevice = AVCaptureDevice.default(backDeviceConfigurations[cameraState.zoomLevel]?.deviceType ?? .builtInWideAngleCamera, for: .video, position: .unspecified) {
                 // If the rear wide angle camera isn't available, default to the front wide angle camera.
                 videoDevice = backupDevice
             }
