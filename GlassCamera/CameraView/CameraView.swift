@@ -19,26 +19,14 @@ import AVFoundation
 
 final class CameraModel: ObservableObject {
     let photoCollection = PhotoCollection(albumNamed: "Glass Photos", createIfNotFound: true)
-    let service = CameraService()
+    let cameraState: CameraState
+    let service: CameraService
+
     var isPhotosLoaded = false
     
     @Published var thumbnailImage: Image?
-
     @Published var showAlertError = false
-
-    @Published var isFlashOn = false
-    
-    @Published var isDelayOn = false
-    
-    @Published var willCapturePhoto = false
-
-    @Published var showSpinner = false
-
-    @Published var currentDevice: DeviceConfiguration? = nil
-
-    @Published var availableBackDevices: [BackCameraConfiguration] = []
-
-    var alertError: AlertError!
+    @Published var zoomLevel: BackCameraConfiguration = .Wide
 
     var session: AVCaptureSession
 
@@ -46,7 +34,9 @@ final class CameraModel: ObservableObject {
 
     private var subscriptions = Set<AnyCancellable>()
 
-    init() {
+    init(cameraState: CameraState) {
+        self.cameraState = cameraState
+        self.service = CameraService(cameraState: cameraState)
         self.session = service.session
 
         volumeButtonListener.onClickCallback {
@@ -61,40 +51,23 @@ final class CameraModel: ObservableObject {
         .store(in: &self.subscriptions)
 
         service.$shouldShowAlertView.sink { [weak self] (val) in
-            self?.alertError = self?.service.alertError
+            // self?.alertError = self?.service.alertError
             self?.showAlertError = val
         }
         .store(in: &self.subscriptions)
 
-        service.$flashMode.sink { [weak self] (mode) in
-            self?.isFlashOn = mode == .on
-        }
-        .store(in: &self.subscriptions)
-
-        service.$willCapturePhoto.sink { [weak self] (val) in
-            self?.willCapturePhoto = val
-        }
-        .store(in: &self.subscriptions)
-
-        service.$shouldShowSpinner.sink { [weak self] (val) in
-            self?.showSpinner = val
-        }
-        .store(in: &self.subscriptions)
-
-        service.$currentDevice.sink { [weak self] (val) in
-            self?.currentDevice = val
-        }
-        .store(in: &self.subscriptions)
-
-        service.$availableBackDevices.sink { [weak self] (val) in
-            self?.availableBackDevices = val
-        }
-        .store(in: &self.subscriptions)
-    }
-
-    func deviceConfiguration(_ configuration : BackCameraConfiguration) -> DeviceConfiguration {
-        return service.backDeviceConfigurations[configuration] ??
+        $zoomLevel.sink { configuration in
+            if(self.service.isConfigured) {
+                print("SET ZOOM LEVEL :: \(configuration)")
+                let newConfiguration = self.service.backDeviceConfigurations[configuration] ??
                 DeviceConfiguration(position: .back, deviceType: .builtInWideAngleCamera)
+                self.switchCamera(newConfiguration)
+            }
+
+        }
+        .store(in: &self.subscriptions)
+
+        configure(DeviceConfiguration(position: .back, deviceType: .builtInWideAngleCamera))
     }
 
     func configure(_ configuration: DeviceConfiguration) {
@@ -103,19 +76,22 @@ final class CameraModel: ObservableObject {
     }
 
     func capturePhoto() {
-        if isDelayOn {
+        if self.cameraState.isShutterDelayOn {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                 self.service.capturePhoto(saveCollection: self.photoCollection)
             }
         } else {
-            service.capturePhoto(saveCollection: self.photoCollection)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                self.service.capturePhoto(saveCollection: self.photoCollection)
+            }
         }
     }
 
     func flipCamera() {
         let configuration = service.currentDevice?.position == .back ?
                 DeviceConfiguration(position: .front, deviceType: .builtInWideAngleCamera) :
-                DeviceConfiguration(position: .back,  deviceType: .builtInWideAngleCamera)
+                service.backDeviceConfigurations[self.zoomLevel]!
+
         service.changeCamera(configuration)
     }
 
@@ -123,14 +99,6 @@ final class CameraModel: ObservableObject {
         service.changeCamera(configuration)
     }
 
-    func switchFlash() {
-        service.flashMode = service.flashMode == .on ? .off : .on
-    }
-    
-    func switchDelay() {
-        isDelayOn = !isDelayOn
-    }
-    
     func loadPhotos() async {
         guard !isPhotosLoaded else { return }
         
@@ -166,23 +134,26 @@ final class CameraModel: ObservableObject {
 }
 
 struct CameraView: View {
-    @StateObject var model = CameraModel()
+    @EnvironmentObject var cameraState: CameraState
+    @ObservedObject var model: CameraModel
 
-    @State private var zoomLevel:BackCameraConfiguration = .Wide
+    init(model: CameraModel) {
+        self.model = model
+    }
 
     var captureButton: some View {
         Button(action: {
             model.capturePhoto()
         }, label: {
             Circle()
-                .foregroundColor(.white)
+                .foregroundColor(model.service.isCameraButtonDisabled ? .gray : .white)
                 .frame(width: 80, height: 80, alignment: .center)
                 .overlay(
                     Circle()
                         .stroke(Color.black.opacity(0.8), lineWidth: 2)
                         .frame(width: 65, height: 65, alignment: .center)
                 )
-        })
+        }).disabled(model.service.isCameraButtonDisabled)
     }
 
     var flipCameraButton: some View {
@@ -200,41 +171,58 @@ struct CameraView: View {
 
     var zoomLevelPicker: some View {
         VStack {
-            Picker("Camera Configuration", selection: $zoomLevel) {
+            Picker("Camera Configuration", selection: $model.zoomLevel) {
                 // Preserve the order in the BackCameraConfiguration definition
                 ForEach(BackCameraConfiguration.allCases) { configuration in
-                    if model.availableBackDevices.contains(configuration) {
+                    if model.service.availableBackDevices.contains(configuration) {
                         Text(configuration.rawValue.capitalized)
                     }
                 }
             }
             .pickerStyle(.segmented)
-        }.onChange(of: zoomLevel) { newValue in
-            model.switchCamera(model.deviceConfiguration(newValue))
         }
     }
-    
-    var controlBar: some View {
+
+    var topControlBar: some View {
         HStack {
             Spacer()
-            
+
             Button(action: {
-                model.switchFlash()
+                self.cameraState.isBurstCaptureOn.toggle()
             }, label: {
-                Image(systemName: model.isFlashOn ? "bolt.fill" : "bolt.slash.fill")
+                Image(systemName: "square.3.layers.3d.down.right"/*"photo.stack"*/)
                     .font(.system(size: 20, weight: .medium, design: .default))
             })
-            .accentColor(model.isFlashOn ? .yellow : .white)
-            
+            .accentColor(self.cameraState.isBurstCaptureOn ? .yellow : .white)
+
             Spacer()
-            
+
             Button(action: {
-                model.switchDelay()
+                self.cameraState.isFlashOn.toggle()
+            }, label: {
+                Image(systemName: self.cameraState.isFlashOn ? "bolt.fill" : "bolt.slash.fill")
+                    .font(.system(size: 20, weight: .medium, design: .default))
+            })
+            .accentColor(self.cameraState.isFlashOn ? .yellow : .white)
+
+            Spacer()
+
+            Button(action: {
+                self.cameraState.isShutterDelayOn.toggle()
             }, label: {
                 Image(systemName: "timer").font(.system(size: 20, weight: .medium, design: .default))
             })
-            .accentColor(model.isDelayOn ? .yellow : .white)
-            
+            .accentColor(model.cameraState.isShutterDelayOn ? .yellow : .white)
+
+            Spacer()
+
+            Button(action: {
+                self.cameraState.isNNProcessingOn.toggle()
+            }, label: {
+                Image(systemName: "brain").font(.system(size: 20, weight: .medium, design: .default))
+            })
+            .accentColor(self.cameraState.isNNProcessingOn ? .yellow : .white)
+
             Spacer()
         }
     }
@@ -242,57 +230,54 @@ struct CameraView: View {
     var body: some View {
         HideVolumeIndicator // Required to hide volume indicator when triggering capture with volume rocker
         NavigationStack {
-            
             GeometryReader { reader in
                 ZStack {
                     Color.black.edgesIgnoringSafeArea(.all)
                     
                     VStack {
-                        controlBar
-                        
+                        topControlBar
+
+                        Spacer()
+
                         ZStack {
                             CameraPreview(session: model.session)
+                            /*
                                 .onAppear {
                                     // TODO: Fetch this from stored preferences
                                     model.configure(DeviceConfiguration(position: .back, deviceType: .builtInWideAngleCamera))
                                 }
+                             */
                                 .alert(isPresented: $model.showAlertError, content: {
-                                    Alert(title: Text(model.alertError.title),
-                                          message: Text(model.alertError.message),
-                                          dismissButton: .default(Text(model.alertError.primaryButtonTitle), action: {
-                                        model.alertError.primaryAction?()
+                                    Alert(title: Text(model.service.alertError.title),
+                                          message: Text(model.service.alertError.message),
+                                          dismissButton: .default(Text(model.service.alertError.primaryButtonTitle), action: {
+                                        model.service.alertError.primaryAction?()
                                     }))
                                 })
                                 .overlay(Group {
-                                    if model.showSpinner {
-                                        Color.black.opacity(0.2)
-                                        
-                                        ProgressView()
-                                            .scaleEffect(2, anchor: .center)
-                                            .progressViewStyle(CircularProgressViewStyle(tint: Color.white))
-                                    }
-                                    
-                                    if model.willCapturePhoto {
+                                    if model.service.isPhotoCapturing {
                                         Group {
                                             Color.black
-                                        }.onAppear {
-                                            withAnimation {
-                                                model.willCapturePhoto = false
-                                            }
                                         }
                                     }
                                 })
-                            
-                            if (model.currentDevice?.position == .back) {
-                                VStack {
-                                    Spacer()
-                                    
-                                    zoomLevelPicker
-                                        .padding(.all, 20)
-                                }
-                            }
+                            if(cameraState.debugOverlay) { DebugOverlay() }
                         }
-                        
+
+                        Spacer()
+
+                        ExposureParams()
+
+                        Spacer()
+
+                        if (model.service.currentDevice?.position == .back) {
+                            zoomLevelPicker
+                                .padding(.top, 5)
+                                .padding(.bottom, 10)
+                        }
+
+                        Spacer()
+
                         HStack {
                             NavigationLink {
                                 PhotoCollectionView(photoCollection: model.photoCollection)

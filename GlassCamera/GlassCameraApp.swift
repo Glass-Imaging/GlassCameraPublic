@@ -17,9 +17,17 @@ import SwiftUI
 
 @main
 struct GlassCameraApp: App {
+    let cameraState: CameraState = CameraState()
+    let cameraModel: CameraModel
+
+    init() {
+        cameraModel = CameraModel(cameraState: cameraState)
+    }
+
     var body: some Scene {
         WindowGroup {
-            CameraView()
+            CameraView(model: cameraModel)
+                .environmentObject(cameraState)
         }
     }
 }
