@@ -48,6 +48,7 @@ class AtomicCounter {
         return x.value
     }
 
+    /*
     static prefix func --(x:AtomicCounter) -> Int {
         x.lock.lock()
         defer { x.lock.unlock() }
@@ -55,6 +56,7 @@ class AtomicCounter {
         x.value -= 1
         return x.value
     }
+     */
 }
 
 extension [String : Any] {
@@ -85,79 +87,114 @@ extension RawMetadata {
 }
 
 class PhotoCaptureProcessor: NSObject {
-    private(set) var requestedPhotoSettings: AVCapturePhotoSettings
+    // private(set) var requestedPhotoSettings: AVCapturePhotoSettings
+    let id: Int
 
     private(set) var dngFile: URL?
-    private(set) var procesedImage: Data?
+    // private(set) var procesedImage: Data?
     private(set) var capturedImage: Data?
     private(set) var imageMetadata: NSDictionary?
 
-    private let willCapturePhotoAnimation: () -> Void
     private let completionHandler: (PhotoCaptureProcessor) -> Void
+    private let photoCapturingHandler: (Bool) -> Void
     private let photoProcessingHandler: (Bool) -> Void
     private var maxPhotoProcessingTime: CMTime?
 
     private let rawProcessor = RawProcessor()
-    private let rawProcessingQueue = OperationQueue()
-    
+    private var saveRawDataTasks = [Task<Bool, Never>]()
+    private var processRawDataTask: Task<Data?, Never>? = nil
+
     private let saveCollection: PhotoCollection
 
     // Select the image processing pipeline
-    private let useTraditionalPipeline = true;
+    private let isNNProcessingOn: Bool
+    private var rawCount = AtomicCounter(0)
 
     // Save the location of captured photos
     var location: CLLocation?
+    let timestamp: String
 
     init(saveCollection: PhotoCollection,
-         with requestedPhotoSettings: AVCapturePhotoSettings,
-         willCapturePhotoAnimation: @escaping () -> Void,
+         // with requestedPhotoSettings: AVCapturePhotoSettings,
+         id: Int,
+         isNNProcessingOn: Bool,
          completionHandler: @escaping (PhotoCaptureProcessor) -> Void,
+         photoCapturingHandler: @escaping (Bool) -> Void,
          photoProcessingHandler: @escaping (Bool) -> Void) {
+
         self.saveCollection = saveCollection
-        self.requestedPhotoSettings = requestedPhotoSettings
-        self.willCapturePhotoAnimation = willCapturePhotoAnimation
+        //self.requestedPhotoSettings = requestedPhotoSettings
+        self.id = id
+        self.isNNProcessingOn = isNNProcessingOn
         self.completionHandler = completionHandler
+        self.photoCapturingHandler = photoCapturingHandler
         self.photoProcessingHandler = photoProcessingHandler
 
-        rawProcessingQueue.qualityOfService = QualityOfService.userInitiated
+
+        let dateFMT = DateFormatter()
+        dateFMT.locale = Locale(identifier: "en_US_POSIX")
+        dateFMT.dateFormat = "yyyy-MM-dd-HH-mm-ss-SSSS"
+
+        let now = Date()
+        timestamp = String(format: "%@", dateFMT.string(from: now))
     }
 
-    func processPhoto(photo: AVCapturePhoto) {
-        // Process DNG file creation and RAW conversion in parallel with an OperationQueue
+    func startRawProcessingTasks(photo: AVCapturePhoto) {
+        let rawIndex = ++rawCount
 
-        let dngCreationOperation = BlockOperation {
-            // Write raw image to a DNG file
+        if rawIndex == 1 {
+            processRawDataTask = Task(priority: .userInitiated) {
+                if let displayP3 = CGColorSpace(name: CGColorSpace.displayP3), let rawPixelBuffer = photo.pixelBuffer {
+                    let rawMetadata = RawMetadata(from: photo.metadata)
 
-            self.dngFile = makeUniqueDNGFileURL()
-            do {
-                if let captureData = photo.fileDataRepresentation() {
-                    try captureData.write(to: self.dngFile!)
+                    let pixelBuffer = self.isNNProcessingOn
+                    ? self.rawProcessor.nnProcessRawPixelBuffer(rawPixelBuffer, with: rawMetadata).takeRetainedValue()
+                    : self.rawProcessor.convertRawPixelBuffer(rawPixelBuffer, with: rawMetadata).takeRetainedValue()
+
+
+                    let cgImage = pixelBuffer.createCGImage(colorSpace: displayP3)
+
+                    return encodeImageToHeif(CIImage(cgImage: cgImage!),
+                                             compressionQuality: 0.8, colorSpace: displayP3,
+                                             use10BitRepresentation: false /*cgImage!.bitsPerComponent > 8*/)
                 }
-            } catch {
-                fatalError("Couldn't write DNG file to the URL.")
+                return nil
             }
+
+
+            // saveRawDataTask = Task(priority: .userInitiated) {
+            saveRawDataTasks.append(Task(priority: .userInitiated) {
+                self.dngFile = makeUniqueDNGFileURL()
+                do {
+                    if let captureData = photo.fileDataRepresentation() {
+                        try captureData.write(to: self.dngFile!)
+                    } else {
+                        return false
+                    }
+                } catch {
+                    fatalError("Couldn't write DNG file to the URL.")
+                }
+
+                return true
+            })
+        } else {
+            saveRawDataTasks.append(Task(priority: .userInitiated) {
+                // TODO: Move this out of here!
+                let file = makeUniqueDNGFileURL()
+                do {
+                    if let captureData = photo.fileDataRepresentation() {
+                        try captureData.write(to: file)
+                        try! await self.saveCollection.addImage(captureData, timestamp: self.timestamp, photoCategory: PhotoCategories.GlassRawBurst, alternateResource: nil, location: self.location, index: rawIndex)
+                    } else {
+                        return false
+                    }
+                } catch {
+                    fatalError("Couldn't write DNG file to the URL.")
+                }
+
+                return true
+            })
         }
-        rawProcessingQueue.addOperation(dngCreationOperation)
-
-        let rawConversionOperation = BlockOperation { [self] in
-            // Process RAW pixelBuffer
-
-            if let displayP3 = CGColorSpace(name: CGColorSpace.displayP3),
-               let rawPixelBuffer = photo.pixelBuffer {
-                let rawMetadata = RawMetadata(from: photo.metadata)
-
-                let pixelBuffer = useTraditionalPipeline
-                    ? rawProcessor.convertRawPixelBuffer(rawPixelBuffer, with: rawMetadata).takeRetainedValue()
-                    : rawProcessor.nnProcessRawPixelBuffer(rawPixelBuffer, with: rawMetadata).takeRetainedValue()
-
-                let cgImage = pixelBuffer.createCGImage(colorSpace: displayP3)
-
-                procesedImage = encodeImageToHeif(CIImage(cgImage: cgImage!),
-                                                  compressionQuality: 0.8, colorSpace: displayP3,
-                                                  use10BitRepresentation: false /*cgImage!.bitsPerComponent > 8*/)
-            }
-        }
-        rawProcessingQueue.addOperation(rawConversionOperation)
     }
 }
 
@@ -280,20 +317,9 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
 
     func photoOutput(_ output: AVCapturePhotoOutput, willCapturePhotoFor resolvedSettings: AVCaptureResolvedPhotoSettings) {
         DispatchQueue.main.async {
-            self.willCapturePhotoAnimation()
-        }
-
-        guard let maxPhotoProcessingTime = maxPhotoProcessingTime else {
-            return
-        }
-
-        // Show a spinner if processing time exceeds one second.
-        let oneSecond = CMTime(seconds: 2, preferredTimescale: 1)
-        if maxPhotoProcessingTime > oneSecond {
-             DispatchQueue.main.async {
-                self.photoProcessingHandler(true)
-             }
-        }
+            self.photoCapturingHandler(true)
+            self.photoProcessingHandler(true)
+         }
     }
 
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
@@ -302,7 +328,7 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
         }
 
         if photo.isRawPhoto {
-            processPhoto(photo: photo)
+            self.startRawProcessingTasks(photo: photo)
         } else {
             // Store compressed bitmap data.
             capturedImage = photo.fileDataRepresentation()
@@ -314,55 +340,33 @@ extension PhotoCaptureProcessor: AVCapturePhotoCaptureDelegate {
 
     // MARK: Saves capture to photo library
     func saveToPhotoLibrary() {
-        let imageCounter = AtomicCounter(procesedImage != nil ? 2 : 1)
-
-        let completeTransaction = {
-            if --imageCounter == 0 {
-                DispatchQueue.main.async {
-                    self.completionHandler(self)
-                }
-            }
-        }
-        
         // Wait for RAW data to be processed
-        rawProcessingQueue.waitUntilAllOperationsAreFinished();
-        
-        let dateFMT = DateFormatter()
-        dateFMT.locale = Locale(identifier: "en_US_POSIX")
-        dateFMT.dateFormat = "yyyy-MM-dd-HH-mm-ss-SSSS"
-
-        let now = Date()
-        let timestamp = String(format: "%@", dateFMT.string(from: now))
-
-        if let capturedImage = self.capturedImage {
-            Task {
-                try! await saveCollection.addImage(capturedImage, timestamp: timestamp, photoCategory: PhotoCategories.ISP, alternateResource: self.dngFile, location: self.location)
-                completeTransaction()
-                self.dngFile = nil
+        Task {
+            if let capturedImage = self.capturedImage {
+                try! await saveCollection.addImage(capturedImage, timestamp: self.timestamp, photoCategory: PhotoCategories.ISP, alternateResource: self.dngFile, location: self.location)
             }
-        }
 
-        // Save the processed RAW image as a separate file
-        if let procesedImage = self.procesedImage {
-            if let cgImageSource = CGImageSourceCreateWithData(procesedImage as CFData, nil),
-               let cgImage = CGImageSourceCreateImageAtIndex(cgImageSource, 0, nil),
-               let heicData = cgImage.heic(withMetadata: self.imageMetadata) {
-                
-                Task {
-                    try! await saveCollection.addImage(heicData, timestamp: timestamp,
-                                                       photoCategory: useTraditionalPipeline ? PhotoCategories.GlassTraditional : PhotoCategories.GlassNN,
+            if let procesedImage = await self.processRawDataTask?.value {
+                if let cgImageSource = CGImageSourceCreateWithData(procesedImage as CFData, nil),
+                   let cgImage = CGImageSourceCreateImageAtIndex(cgImageSource, 0, nil),
+                   let heicData = cgImage.heic(withMetadata: self.imageMetadata) {
+
+                    try! await saveCollection.addImage(heicData, timestamp: self.timestamp,
+                                                       photoCategory: isNNProcessingOn ? PhotoCategories.GlassNN : PhotoCategories.GlassTraditional,
                                                        alternateResource: nil, location: self.location)
-                    completeTransaction()
-                    self.procesedImage = nil
                     self.imageMetadata = nil
                 }
             }
+
+            for t in saveRawDataTasks { await t.value }
+            self.completionHandler(self)
         }
     }
 
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishCaptureFor resolvedSettings: AVCaptureResolvedPhotoSettings, error: Error?) {
         DispatchQueue.main.async {
             self.photoProcessingHandler(false)
+            self.photoCapturingHandler(false)
         }
 
         if let error = error {
