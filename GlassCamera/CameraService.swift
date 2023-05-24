@@ -601,7 +601,10 @@ public class CameraService: NSObject, Identifiable {
             // Capture a RAW format photo, along with a processed format photo.
             let processedFormat = [AVVideoCodecKey: AVVideoCodecType.hevc]
             photoSettings = AVCapturePhotoBracketSettings(rawPixelFormatType: rawFormat, processedFormat: processedFormat, bracketedSettings: bracketSettings)
-            photoSettings.isLensStabilizationEnabled = true
+
+            if self.photoOutput.isLensStabilizationDuringBracketedCaptureSupported {
+                photoSettings.isLensStabilizationEnabled = true
+            }
 
             // Select the first available codec type, which is JPEG.
             guard let thumbnailPhotoCodecType =
