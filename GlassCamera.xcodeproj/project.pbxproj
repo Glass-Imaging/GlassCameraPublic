@@ -20,8 +20,6 @@
 		86276B3929F1CD6700EFF0C3 /* PhotoCategories.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86276B3829F1CD6700EFF0C3 /* PhotoCategories.swift */; };
 		86276B3D29F3037200EFF0C3 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 86276B3C29F3019300EFF0C3 /* Assets.xcassets */; };
 		8648F65E2A05B68300E76BA9 /* VolumeButtonUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8648F65D2A05B68300E76BA9 /* VolumeButtonUtils.swift */; };
-		8648F6612A05B99A00E76BA9 /* FMEN.mlmodel in Sources */ = {isa = PBXBuildFile; fileRef = 8648F6602A05B99A00E76BA9 /* FMEN.mlmodel */; };
-		8648F6622A05B99A00E76BA9 /* FMEN.mlmodel in Sources */ = {isa = PBXBuildFile; fileRef = 8648F6602A05B99A00E76BA9 /* FMEN.mlmodel */; };
 		869FA7A12A0B14B20097C2D2 /* CameraState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 869FA7A02A0B14B20097C2D2 /* CameraState.swift */; };
 		86FD00DF2A13062000111B5F /* ExposureParamsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86FD00DE2A13062000111B5F /* ExposureParamsView.swift */; };
 		86FD00E22A14204000111B5F /* DebugOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86FD00E12A14204000111B5F /* DebugOverlay.swift */; };
@@ -135,7 +133,6 @@
 		86276B3829F1CD6700EFF0C3 /* PhotoCategories.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoCategories.swift; sourceTree = "<group>"; };
 		86276B3C29F3019300EFF0C3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		8648F65D2A05B68300E76BA9 /* VolumeButtonUtils.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VolumeButtonUtils.swift; sourceTree = "<group>"; };
-		8648F6602A05B99A00E76BA9 /* FMEN.mlmodel */ = {isa = PBXFileReference; lastKnownFileType = file.mlmodel; name = FMEN.mlmodel; path = "../../../../Downloads/2023-05-05_iPhoneNetwork/FMEN.mlmodel"; sourceTree = "<group>"; };
 		869FA7A02A0B14B20097C2D2 /* CameraState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraState.swift; sourceTree = "<group>"; };
 		86FD00DE2A13062000111B5F /* ExposureParamsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExposureParamsView.swift; sourceTree = "<group>"; };
 		86FD00E12A14204000111B5F /* DebugOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugOverlay.swift; sourceTree = "<group>"; };
@@ -302,7 +299,6 @@
 		E518E6A629F74CA60056E6BF /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				8648F6602A05B99A00E76BA9 /* FMEN.mlmodel */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -584,7 +580,6 @@
 				E5C37E322A1C1B0C00C6A689 /* iPhone14SelfieCalibration.cpp in Sources */,
 				E5C5BFF929BD36B600AAB593 /* gls_color_science.cpp in Sources */,
 				869FA7A12A0B14B20097C2D2 /* CameraState.swift in Sources */,
-				8648F6612A05B99A00E76BA9 /* FMEN.mlmodel in Sources */,
 				E5D4D88F27D1798D00F1D944 /* CameraView.swift in Sources */,
 				86276B3029EF4DA900EFF0C3 /* PhotoItemView.swift in Sources */,
 				86FD00DF2A13062000111B5F /* ExposureParamsView.swift in Sources */,
@@ -650,7 +645,6 @@
 				E5FAE7E429C5420200213AE6 /* pipelineTest.cpp in Sources */,
 				E5C37E332A1C1B0C00C6A689 /* iPhone14SelfieCalibration.cpp in Sources */,
 				E518E6D629F9D1D10056E6BF /* iPhone14WideCalibration.cpp in Sources */,
-				8648F6622A05B99A00E76BA9 /* FMEN.mlmodel in Sources */,
 				E5C37E2A2A16D11800C6A689 /* CanonEOSRPCalibration.cpp in Sources */,
 				E518E6E82A00A4AB0056E6BF /* CanonEOSR6IICalibration.cpp in Sources */,
 			);
