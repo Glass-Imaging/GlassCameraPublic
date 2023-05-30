@@ -35,6 +35,26 @@
 		E518E6DC29FC50D60056E6BF /* iPhone14TeleFMENCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E518E6DA29FC50D60056E6BF /* iPhone14TeleFMENCalibration.cpp */; };
 		E518E6E72A00A4AB0056E6BF /* CanonEOSR6IICalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E518E6E62A00A4AB0056E6BF /* CanonEOSR6IICalibration.cpp */; };
 		E518E6E82A00A4AB0056E6BF /* CanonEOSR6IICalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E518E6E62A00A4AB0056E6BF /* CanonEOSR6IICalibration.cpp */; };
+		E51B8FEE2A206EB70019108A /* algo.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E51B8FE62A206EB70019108A /* algo.cpp */; };
+		E51B8FEF2A206EB70019108A /* algo.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E51B8FE62A206EB70019108A /* algo.cpp */; };
+		E51B8FF02A206EB70019108A /* EigenvalueComputation.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E51B8FE72A206EB70019108A /* EigenvalueComputation.cpp */; };
+		E51B8FF12A206EB70019108A /* EigenvalueComputation.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E51B8FE72A206EB70019108A /* EigenvalueComputation.cpp */; };
+		E51B8FF22A206EB70019108A /* curve_filter.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E51B8FEB2A206EB70019108A /* curve_filter.cpp */; };
+		E51B8FF32A206EB70019108A /* curve_filter.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E51B8FEB2A206EB70019108A /* curve_filter.cpp */; };
+		E51B8FF42A206EB70019108A /* PCANoiseLevelEstimator.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E51B8FED2A206EB70019108A /* PCANoiseLevelEstimator.cpp */; };
+		E51B8FF52A206EB70019108A /* PCANoiseLevelEstimator.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E51B8FED2A206EB70019108A /* PCANoiseLevelEstimator.cpp */; };
+		E51B90022A206ED40019108A /* CInspector.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E51B8FF72A206ED40019108A /* CInspector.cpp */; };
+		E51B90032A206ED40019108A /* CInspector.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E51B8FF72A206ED40019108A /* CInspector.cpp */; };
+		E51B90042A206ED40019108A /* CFramework.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E51B8FF82A206ED40019108A /* CFramework.cpp */; };
+		E51B90052A206ED40019108A /* CFramework.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E51B8FF82A206ED40019108A /* CFramework.cpp */; };
+		E51B90062A206ED40019108A /* CImage.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E51B8FF92A206ED40019108A /* CImage.cpp */; };
+		E51B90072A206ED40019108A /* CImage.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E51B8FF92A206ED40019108A /* CImage.cpp */; };
+		E51B90082A206ED40019108A /* CHistogram.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E51B8FFB2A206ED40019108A /* CHistogram.cpp */; };
+		E51B90092A206ED40019108A /* CHistogram.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E51B8FFB2A206ED40019108A /* CHistogram.cpp */; };
+		E51B900C2A206ED40019108A /* libparser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E51B8FFF2A206ED40019108A /* libparser.cpp */; };
+		E51B900D2A206ED40019108A /* libparser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E51B8FFF2A206ED40019108A /* libparser.cpp */; };
+		E51B900E2A206ED40019108A /* operations.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E51B90012A206ED40019108A /* operations.cpp */; };
+		E51B900F2A206ED40019108A /* operations.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E51B90012A206ED40019108A /* operations.cpp */; };
 		E522296829CD646600D13A4F /* pyramid_processor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E522296629CD646600D13A4F /* pyramid_processor.cpp */; };
 		E522296929CD646600D13A4F /* pyramid_processor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E522296629CD646600D13A4F /* pyramid_processor.cpp */; };
 		E522296D29D026DA00D13A4F /* iPhoneCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E522296C29D026DA00D13A4F /* iPhoneCalibration.cpp */; };
@@ -147,6 +167,26 @@
 		E518E6DA29FC50D60056E6BF /* iPhone14TeleFMENCalibration.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = iPhone14TeleFMENCalibration.cpp; sourceTree = "<group>"; };
 		E518E6E62A00A4AB0056E6BF /* CanonEOSR6IICalibration.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = CanonEOSR6IICalibration.cpp; sourceTree = "<group>"; };
 		E518E6F42A0712B50056E6BF /* SimplexNoise.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = SimplexNoise.hpp; sourceTree = "<group>"; };
+		E51B8FE42A206EB70019108A /* algo.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = algo.h; sourceTree = "<group>"; };
+		E51B8FE52A206EB70019108A /* EigenvalueComputation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EigenvalueComputation.h; sourceTree = "<group>"; };
+		E51B8FE62A206EB70019108A /* algo.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = algo.cpp; sourceTree = "<group>"; };
+		E51B8FE72A206EB70019108A /* EigenvalueComputation.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = EigenvalueComputation.cpp; sourceTree = "<group>"; };
+		E51B8FE82A206EB70019108A /* Param.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Param.h; sourceTree = "<group>"; };
+		E51B8FE92A206EB70019108A /* curve_filter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = curve_filter.h; sourceTree = "<group>"; };
+		E51B8FEA2A206EB70019108A /* PCANoiseLevelEstimator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PCANoiseLevelEstimator.h; sourceTree = "<group>"; };
+		E51B8FEB2A206EB70019108A /* curve_filter.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = curve_filter.cpp; sourceTree = "<group>"; };
+		E51B8FEC2A206EB70019108A /* Vector.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Vector.h; sourceTree = "<group>"; };
+		E51B8FED2A206EB70019108A /* PCANoiseLevelEstimator.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = PCANoiseLevelEstimator.cpp; sourceTree = "<group>"; };
+		E51B8FF72A206ED40019108A /* CInspector.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CInspector.cpp; sourceTree = "<group>"; };
+		E51B8FF82A206ED40019108A /* CFramework.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CFramework.cpp; sourceTree = "<group>"; };
+		E51B8FF92A206ED40019108A /* CImage.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CImage.cpp; sourceTree = "<group>"; };
+		E51B8FFA2A206ED40019108A /* CInspector.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CInspector.h; sourceTree = "<group>"; };
+		E51B8FFB2A206ED40019108A /* CHistogram.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CHistogram.cpp; sourceTree = "<group>"; };
+		E51B8FFC2A206ED40019108A /* CImage.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CImage.h; sourceTree = "<group>"; };
+		E51B8FFD2A206ED40019108A /* CFramework.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CFramework.h; sourceTree = "<group>"; };
+		E51B8FFF2A206ED40019108A /* libparser.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = libparser.cpp; sourceTree = "<group>"; };
+		E51B90002A206ED40019108A /* libparser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = libparser.h; sourceTree = "<group>"; };
+		E51B90012A206ED40019108A /* operations.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = operations.cpp; sourceTree = "<group>"; };
 		E522296629CD646600D13A4F /* pyramid_processor.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = pyramid_processor.cpp; sourceTree = "<group>"; };
 		E522296729CD646600D13A4F /* pyramid_processor.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = pyramid_processor.hpp; sourceTree = "<group>"; };
 		E522296B29CE421000D13A4F /* tinyicc.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = tinyicc.hpp; sourceTree = "<group>"; };
@@ -303,6 +343,41 @@
 			path = Resources;
 			sourceTree = "<group>";
 		};
+		E51B8FE32A206E6D0019108A /* pca_noise_est */ = {
+			isa = PBXGroup;
+			children = (
+				E51B8FF62A206EC40019108A /* framework */,
+				E51B8FE62A206EB70019108A /* algo.cpp */,
+				E51B8FE42A206EB70019108A /* algo.h */,
+				E51B8FEB2A206EB70019108A /* curve_filter.cpp */,
+				E51B8FE92A206EB70019108A /* curve_filter.h */,
+				E51B8FE72A206EB70019108A /* EigenvalueComputation.cpp */,
+				E51B8FE52A206EB70019108A /* EigenvalueComputation.h */,
+				E51B8FE82A206EB70019108A /* Param.h */,
+				E51B8FED2A206EB70019108A /* PCANoiseLevelEstimator.cpp */,
+				E51B8FEA2A206EB70019108A /* PCANoiseLevelEstimator.h */,
+				E51B8FEC2A206EB70019108A /* Vector.h */,
+			);
+			path = pca_noise_est;
+			sourceTree = "<group>";
+		};
+		E51B8FF62A206EC40019108A /* framework */ = {
+			isa = PBXGroup;
+			children = (
+				E51B8FF82A206ED40019108A /* CFramework.cpp */,
+				E51B8FFD2A206ED40019108A /* CFramework.h */,
+				E51B8FFB2A206ED40019108A /* CHistogram.cpp */,
+				E51B8FF92A206ED40019108A /* CImage.cpp */,
+				E51B8FFC2A206ED40019108A /* CImage.h */,
+				E51B8FF72A206ED40019108A /* CInspector.cpp */,
+				E51B8FFA2A206ED40019108A /* CInspector.h */,
+				E51B8FFF2A206ED40019108A /* libparser.cpp */,
+				E51B90002A206ED40019108A /* libparser.h */,
+				E51B90012A206ED40019108A /* operations.cpp */,
+			);
+			path = framework;
+			sourceTree = "<group>";
+		};
 		E5C5BFA529BC5DF900AAB593 /* Objective-C */ = {
 			isa = PBXGroup;
 			children = (
@@ -374,6 +449,7 @@
 		E5C5C01229BD3DAE00AAB593 /* MetalPipeline */ = {
 			isa = PBXGroup;
 			children = (
+				E51B8FE32A206E6D0019108A /* pca_noise_est */,
 				E5FAE7A629C1368900213AE6 /* gls_mtl_image.hpp */,
 				E5FAE7AB29C50D2C00213AE6 /* gls_mtl.cpp */,
 				E5FAE7AC29C50D2C00213AE6 /* gls_mtl.hpp */,
@@ -568,8 +644,10 @@
 				8648F65E2A05B68300E76BA9 /* VolumeButtonUtils.swift in Sources */,
 				E522296D29D026DA00D13A4F /* iPhoneCalibration.cpp in Sources */,
 				E5C6986A29C926CD00F7062C /* ThreadPool.cpp in Sources */,
+				E51B8FF02A206EB70019108A /* EigenvalueComputation.cpp in Sources */,
 				E5C6986329C925A600F7062C /* CameraCalibration.cpp in Sources */,
 				86276B3929F1CD6700EFF0C3 /* PhotoCategories.swift in Sources */,
+				E51B8FF22A206EB70019108A /* curve_filter.cpp in Sources */,
 				E522296829CD646600D13A4F /* pyramid_processor.cpp in Sources */,
 				86276B3629EF4DA900EFF0C3 /* PhotoAssetCollection.swift in Sources */,
 				E5D4D8A027D183D800F1D944 /* CameraPreview.swift in Sources */,
@@ -582,7 +660,10 @@
 				869FA7A12A0B14B20097C2D2 /* CameraState.swift in Sources */,
 				E5D4D88F27D1798D00F1D944 /* CameraView.swift in Sources */,
 				86276B3029EF4DA900EFF0C3 /* PhotoItemView.swift in Sources */,
+				E51B8FEE2A206EB70019108A /* algo.cpp in Sources */,
 				86FD00DF2A13062000111B5F /* ExposureParamsView.swift in Sources */,
+				E51B90042A206ED40019108A /* CFramework.cpp in Sources */,
+				E51B900E2A206ED40019108A /* operations.cpp in Sources */,
 				E5C37E2C2A19C8D300C6A689 /* iPhone14UltraWideCalibration.cpp in Sources */,
 				86276B3229EF4DA900EFF0C3 /* PhotoCollectionView.swift in Sources */,
 				E5C5BFFA29BD36B600AAB593 /* gls_image_png.cpp in Sources */,
@@ -592,6 +673,7 @@
 				86276B3329EF4DA900EFF0C3 /* PhotoAsset.swift in Sources */,
 				86276B2529EF4D9700EFF0C3 /* CachedImageManager.swift in Sources */,
 				E5D4D8A627D183F700F1D944 /* PhotoCaptureProcessor.swift in Sources */,
+				E51B90062A206ED40019108A /* CImage.cpp in Sources */,
 				E5C6986D29C926F100F7062C /* Sonya6400Calibration.cpp in Sources */,
 				E5C6984D29C906FC00F7062C /* raw_converter.cpp in Sources */,
 				86276B3129EF4DA900EFF0C3 /* ZoomableScrollView.swift in Sources */,
@@ -599,6 +681,7 @@
 				E5D4D8A427D183D900F1D944 /* CameraService+Enums.swift in Sources */,
 				E5E7CBAD29F4CA8300067C0B /* iPhone14TeleCalibration.cpp in Sources */,
 				E5D4D88D27D1798D00F1D944 /* GlassCameraApp.swift in Sources */,
+				E51B90022A206ED40019108A /* CInspector.cpp in Sources */,
 				E5C5BFFD29BD36B600AAB593 /* gls_logging.cpp in Sources */,
 				86276B3529EF4DA900EFF0C3 /* PhotoView.swift in Sources */,
 				E5FAE7AD29C50D2C00213AE6 /* gls_mtl.cpp in Sources */,
@@ -609,8 +692,11 @@
 				E5C5BFFB29BD36B600AAB593 /* gls_image_tiff.cpp in Sources */,
 				86276B3729EF4DA900EFF0C3 /* PhotoLibrary.swift in Sources */,
 				E5C37E292A16D11800C6A689 /* CanonEOSRPCalibration.cpp in Sources */,
+				E51B900C2A206ED40019108A /* libparser.cpp in Sources */,
+				E51B90082A206ED40019108A /* CHistogram.cpp in Sources */,
 				E5C5BFFE29BD36B600AAB593 /* gls_tiff_metadata.cpp in Sources */,
 				E518E6D529F9D1D10056E6BF /* iPhone14WideCalibration.cpp in Sources */,
+				E51B8FF42A206EB70019108A /* PCANoiseLevelEstimator.cpp in Sources */,
 				E5C6987F29CBAD8300F7062C /* RawProcessor.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -621,23 +707,33 @@
 			files = (
 				E5C6986E29C926F100F7062C /* Sonya6400Calibration.cpp in Sources */,
 				E522296E29D026DA00D13A4F /* iPhoneCalibration.cpp in Sources */,
+				E51B900F2A206ED40019108A /* operations.cpp in Sources */,
 				E5C6986B29C926CD00F7062C /* ThreadPool.cpp in Sources */,
 				E5E7CBAE29F4CA8300067C0B /* iPhone14TeleCalibration.cpp in Sources */,
 				E5C6986F29C92E9600F7062C /* demosaic.metal in Sources */,
+				E51B900D2A206ED40019108A /* libparser.cpp in Sources */,
 				E5C37E2D2A19C8D300C6A689 /* iPhone14UltraWideCalibration.cpp in Sources */,
 				E518E6DC29FC50D60056E6BF /* iPhone14TeleFMENCalibration.cpp in Sources */,
+				E51B8FF52A206EB70019108A /* PCANoiseLevelEstimator.cpp in Sources */,
 				E5FAE7EB29C5425300213AE6 /* gls_mtl_image.hpp in Sources */,
+				E51B8FF12A206EB70019108A /* EigenvalueComputation.cpp in Sources */,
+				E51B8FEF2A206EB70019108A /* algo.cpp in Sources */,
 				E5FAE7EC29C5425300213AE6 /* gls_mtl.cpp in Sources */,
+				E51B8FF32A206EB70019108A /* curve_filter.cpp in Sources */,
 				E5FAE7ED29C5425300213AE6 /* gls_mtl.hpp in Sources */,
 				E5C6986729C9269400F7062C /* demosaic_utils.cpp in Sources */,
+				E51B90092A206ED40019108A /* CHistogram.cpp in Sources */,
 				E5FAE7EE29C5425300213AE6 /* gls_color_science.cpp in Sources */,
 				E5C6986429C925A600F7062C /* CameraCalibration.cpp in Sources */,
 				E5FAE7EF29C5425300213AE6 /* gls_dng_lossless_jpeg.cpp in Sources */,
 				E522296929CD646600D13A4F /* pyramid_processor.cpp in Sources */,
+				E51B90032A206ED40019108A /* CInspector.cpp in Sources */,
 				E5FAE7F029C5425300213AE6 /* gls_image_jpeg.cpp in Sources */,
 				E5FAE7F129C5425300213AE6 /* gls_image_png.cpp in Sources */,
+				E51B90052A206ED40019108A /* CFramework.cpp in Sources */,
 				E518E69229F7367A0056E6BF /* CoreMLSupport.mm in Sources */,
 				E5C6984E29C906FC00F7062C /* raw_converter.cpp in Sources */,
+				E51B90072A206ED40019108A /* CImage.cpp in Sources */,
 				E5FAE7F229C5425300213AE6 /* gls_image_tiff.cpp in Sources */,
 				E5E7CBAA29DF593200067C0B /* PCA.cpp in Sources */,
 				E5FAE7F329C5425300213AE6 /* gls_logging.cpp in Sources */,

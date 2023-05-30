@@ -127,34 +127,34 @@ void demosaicFile(RawConverter* rawConverter, std::filesystem::path input_path) 
 
     std::cout << "Make: " << make << ", model: " << model << ", Focal length: " << lens_model << std::endl;
 
-    std::unique_ptr<DemosaicParameters> demosaicParameters;
-    if (make == "Apple" && (model == "iPhone 14 Pro" || model == "iPhone 14 Pro Max")) {
-        const std::string tele = "iPhone 14 Pro back camera 9mm f/2.8";
-        const std::string wide = "iPhone 14 Pro back camera 6.86mm f/1.78";
-        const std::string ultraWide = "iPhone 14 Pro back camera 2.22mm f/2.2";
-        const std::string tele_max = "iPhone 14 Pro Max back camera 9mm f/2.8";
-        const std::string wide_max = "iPhone 14 Pro Max back camera 6.86mm f/1.78";
-        const std::string ultraWide_max = "iPhone 14 Pro Max back camera 2.22mm f/2.2";
-        const std::string selfie = "iPhone 14 Pro front camera 2.69mm f/1.9";
-        const std::string selfie_max = "iPhone 14 Pro front camera 2.69mm f/1.9";
-
-        if (lens_model == tele || lens_model == tele_max) {
-            demosaicParameters = unpackiPhone14TeleRawImage(*rawImage, rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
-        } else if (lens_model == wide || lens_model == wide_max) {
-            demosaicParameters = unpackiPhone14WideRawImage(*rawImage, rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
-        } else if (lens_model == ultraWide || lens_model == ultraWide_max) {
-            demosaicParameters = unpackiPhone14UltraWideRawImage(*rawImage, rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
-        } else if (lens_model == selfie || lens_model == selfie_max) {
-            demosaicParameters = unpackiPhone14SelfieRawImage(*rawImage, rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
-        } else {
-            std::cout << "Unknown Camera - " << "Make: " << make << ", model: " << model << ", Lens Model: " << lens_model << " - Using Wide" << std::endl;
-            demosaicParameters = unpackiPhone14WideRawImage(*rawImage, rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
-            // exit(-1);
-        }
-    } else {
-        std::cout << "Unknown Device - " << "Make: " << make << ", model: " << model << std::endl;
-        exit(-1);
-    }
+    std::unique_ptr<DemosaicParameters> demosaicParameters = unpackCanonEOSRPRawImage(*rawImage, rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
+//    if (make == "Apple" && (model == "iPhone 14 Pro" || model == "iPhone 14 Pro Max")) {
+//        const std::string tele = "iPhone 14 Pro back camera 9mm f/2.8";
+//        const std::string wide = "iPhone 14 Pro back camera 6.86mm f/1.78";
+//        const std::string ultraWide = "iPhone 14 Pro back camera 2.22mm f/2.2";
+//        const std::string tele_max = "iPhone 14 Pro Max back camera 9mm f/2.8";
+//        const std::string wide_max = "iPhone 14 Pro Max back camera 6.86mm f/1.78";
+//        const std::string ultraWide_max = "iPhone 14 Pro Max back camera 2.22mm f/2.2";
+//        const std::string selfie = "iPhone 14 Pro front camera 2.69mm f/1.9";
+//        const std::string selfie_max = "iPhone 14 Pro front camera 2.69mm f/1.9";
+//
+//        if (lens_model == tele || lens_model == tele_max) {
+//            demosaicParameters = unpackiPhone14TeleRawImage(*rawImage, rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
+//        } else if (lens_model == wide || lens_model == wide_max) {
+//            demosaicParameters = unpackiPhone14WideRawImage(*rawImage, rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
+//        } else if (lens_model == ultraWide || lens_model == ultraWide_max) {
+//            demosaicParameters = unpackiPhone14UltraWideRawImage(*rawImage, rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
+//        } else if (lens_model == selfie || lens_model == selfie_max) {
+//            demosaicParameters = unpackiPhone14SelfieRawImage(*rawImage, rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
+//        } else {
+//            std::cout << "Unknown Camera - " << "Make: " << make << ", model: " << model << ", Lens Model: " << lens_model << " - Using Wide" << std::endl;
+//            demosaicParameters = unpackiPhone14WideRawImage(*rawImage, rawConverter->xyz_rgb(), &dng_metadata, &exif_metadata);
+//            // exit(-1);
+//        }
+//    } else {
+//        std::cout << "Unknown Device - " << "Make: " << make << ", model: " << model << std::endl;
+//        exit(-1);
+//    }
 
     rawConverter->allocateTextures(rawImage->size());
 
@@ -315,9 +315,9 @@ int main(int argc, const char * argv[]) {
     if (argc > 1) {
         auto input_path = std::filesystem::path(argv[1]);
 
-        // demosaicFile(&rawConverter, input_path);
+        demosaicFile(&rawConverter, input_path);
 
-        demosaicDirectory(&rawConverter, input_path);
+        // demosaicDirectory(&rawConverter, input_path);
 
         // fmenApplyToFile(&rawConverter, input_path, &icc_profile_data);
 

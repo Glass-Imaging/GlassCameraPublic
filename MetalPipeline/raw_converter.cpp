@@ -17,6 +17,8 @@
 
 #include "SimplexNoise.hpp"
 
+#include "algo.h"
+
 void RawConverter::allocateTextures(const gls::size& imageSize) {
     assert(imageSize.width > 0 && imageSize.height > 0);
 
@@ -182,6 +184,10 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
                   demosaicParameters->lensShadingCorrection);
 
     _rawImageSobel(context, *_scaledRawImage, _rawSobelImage.get());
+
+    context->waitForCompletion();
+    const auto scalerRawImage = _scaledRawImage->mapImage();
+    algorithm(*scalerRawImage);
 
     NoiseModel<5>* noiseModel = &demosaicParameters->noiseModel;
     if (_calibrateFromImage) {
