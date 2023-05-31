@@ -26,16 +26,16 @@ void RawConverter::allocateTextures(const gls::size& imageSize) {
         auto mtlDevice = _mtlContext.device();
 
         _rawImage = std::make_unique<gls::mtl_image_2d<gls::luma_pixel_16>>(mtlDevice, imageSize);
-        _scaledRawImage = std::make_unique<gls::mtl_image_2d<gls::luma_pixel_float>>(mtlDevice, imageSize);
-        _rawSobelImage = std::make_unique<gls::mtl_image_2d<gls::rgba_pixel_float>>(mtlDevice, imageSize);
-        _rawGradientImage = std::make_unique<gls::mtl_image_2d<gls::rgba_pixel_float>>(mtlDevice, imageSize);
-        _greenImage = std::make_unique<gls::mtl_image_2d<gls::luma_pixel_float>>(mtlDevice, imageSize);
-        _linearRGBImageA = std::make_unique<gls::mtl_image_2d<gls::rgba_pixel_float>>(mtlDevice, imageSize);
-        _linearRGBImageB = std::make_unique<gls::mtl_image_2d<gls::rgba_pixel_float>>(mtlDevice, imageSize);
+        _scaledRawImage = std::make_unique<gls::mtl_image_2d<gls::pixel_float>>(mtlDevice, imageSize);
+        _rawSobelImage = std::make_unique<gls::mtl_image_2d<gls::pixel_float2>>(mtlDevice, imageSize);
+        _rawGradientImage = std::make_unique<gls::mtl_image_2d<gls::pixel_float4>>(mtlDevice, imageSize);
+        _greenImage = std::make_unique<gls::mtl_image_2d<gls::pixel_float>>(mtlDevice, imageSize);
+        _linearRGBImageA = std::make_unique<gls::mtl_image_2d<gls::pixel_float4>>(mtlDevice, imageSize);
+        _linearRGBImageB = std::make_unique<gls::mtl_image_2d<gls::pixel_float4>>(mtlDevice, imageSize);
 
         if (_calibrateFromImage) {
-            _meanImage = std::make_unique<gls::mtl_image_2d<gls::rgba_pixel_float>>(mtlDevice, imageSize.width / 2, imageSize.height / 2);
-            _varImage = std::make_unique<gls::mtl_image_2d<gls::rgba_pixel_float>>(mtlDevice, imageSize.width / 2, imageSize.height / 2);
+            _meanImage = std::make_unique<gls::mtl_image_2d<gls::pixel_float4>>(mtlDevice, imageSize.width / 2, imageSize.height / 2);
+            _varImage = std::make_unique<gls::mtl_image_2d<gls::pixel_float4>>(mtlDevice, imageSize.width / 2, imageSize.height / 2);
         }
 
         _rawImageSize = imageSize;
@@ -51,9 +51,9 @@ void RawConverter::allocateHighNoiseTextures(const gls::size& imageSize) {
     if (!_rgbaRawImage || _rgbaRawImage->width != width / 2 || _rgbaRawImage->height != height / 2) {
         auto mtlDevice = _mtlContext.device();
 
-        _rgbaRawImage = std::make_unique<gls::mtl_image_2d<gls::rgba_pixel_float>>(mtlDevice, width / 2, height / 2);
+        _rgbaRawImage = std::make_unique<gls::mtl_image_2d<gls::pixel_float4>>(mtlDevice, width / 2, height / 2);
         _denoisedRgbaRawImage =
-            std::make_unique<gls::mtl_image_2d<gls::rgba_pixel_float>>(mtlDevice, width / 2, height / 2);
+            std::make_unique<gls::mtl_image_2d<gls::pixel_float4>>(mtlDevice, width / 2, height / 2);
     }
 }
 
@@ -62,12 +62,12 @@ void RawConverter::allocateLtmImagePyramid(const gls::size& imageSize) {
         auto mtlDevice = _mtlContext.device();
         int levels = (int) _ltmImagePyramid.size() + 1;
         for (int i = 0, scale = 2; i < levels - 1; i++, scale *= 2) {
-            _ltmImagePyramid[i] = std::make_unique<gls::mtl_image_2d<gls::rgba_pixel_float>>(mtlDevice, imageSize.width / scale, imageSize.height / scale);
+            _ltmImagePyramid[i] = std::make_unique<gls::mtl_image_2d<gls::pixel_float4>>(mtlDevice, imageSize.width / scale, imageSize.height / scale);
         }
     }
 }
 
-gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::denoise(const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
+gls::mtl_image_2d<gls::pixel_float4>* RawConverter::denoise(const gls::mtl_image_2d<gls::pixel_float4>& inputImage,
                                                                 DemosaicParameters* demosaicParameters) {
     NoiseModel<5>* noiseModel = &demosaicParameters->noiseModel;
 
@@ -77,7 +77,7 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::denoise(const gls::mtl_i
                     /*var_a=*/np.first,
                     /*var_b=*/np.second, _linearRGBImageB.get());
 
-    gls::mtl_image_2d<gls::rgba_pixel_float>* denoisedImage = _pyramidProcessor->denoise(&_mtlContext, &(demosaicParameters->denoiseParameters),
+    gls::mtl_image_2d<gls::pixel_float4>* denoisedImage = _pyramidProcessor->denoise(&_mtlContext, &(demosaicParameters->denoiseParameters),
                                                                                          *_linearRGBImageB, *_rawGradientImage,
                                                                                          &noiseModel->pyramidNlf,
                                                                                          demosaicParameters->exposure_multiplier,
@@ -103,7 +103,7 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::denoise(const gls::mtl_i
 
 
     if (demosaicParameters->rgbConversionParameters.localToneMapping) {
-        const std::array<const gls::mtl_image_2d<gls::rgba_pixel_float>*, 3>& guideImage = {
+        const std::array<const gls::mtl_image_2d<gls::pixel_float4>*, 3>& guideImage = {
             _pyramidProcessor->denoisedImagePyramid[4].get(),
             _pyramidProcessor->denoisedImagePyramid[2].get(),
             _pyramidProcessor->denoisedImagePyramid[0].get()
@@ -115,7 +115,7 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::denoise(const gls::mtl_i
     return denoisedImage;
 }
 
-void saveLumaImage(const gls::mtl_image_2d<gls::luma_pixel_float>& denoisedImage) {
+void saveLumaImage(const gls::mtl_image_2d<gls::pixel_float>& denoisedImage) {
     gls::image<gls::luma_pixel_16> out(denoisedImage.width, denoisedImage.height);
     const auto denoisedImageCPU = denoisedImage.mapImage();
     out.apply([&denoisedImageCPU](gls::luma_pixel_16* p, int x, int y) {
@@ -129,12 +129,12 @@ void saveLumaImage(const gls::mtl_image_2d<gls::luma_pixel_float>& denoisedImage
     out.write_png_file("/Users/fabio/green" + std::to_string(count++) + ".png");
 }
 
-void saveRawChannels(gls::image<gls::rgba_pixel_float>& rgbaRawImage, const std::string& postfix) {
+void saveRawChannels(gls::image<gls::pixel_float4>& rgbaRawImage, const std::string& postfix) {
     std::array<gls::image<gls::luma_pixel_16>::unique_ptr, 4> saveImages;
     for (auto& img : saveImages) {
         img = std::make_unique<gls::image<gls::luma_pixel_16>>(rgbaRawImage.size());
     }
-    rgbaRawImage.apply([&] (const gls::rgba_pixel_float& p, int x, int y){
+    rgbaRawImage.apply([&] (const gls::pixel_float4& p, int x, int y){
         for (int c = 0; c < 4; c++) {
             (*saveImages[c])[y][x] = std::clamp(0xffff * p[c], 0.0f, (float) 0xffff);
         }
@@ -198,7 +198,7 @@ void writeGradientImage(const gls::mtl_image_2d<T>& image, const std::string& pa
     out.write_png_file(path);
 }
 
-gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::image<gls::luma_pixel_16>& rawImage,
+gls::mtl_image_2d<gls::pixel_float4>* RawConverter::demosaic(const gls::image<gls::luma_pixel_16>& rawImage,
                                                                  DemosaicParameters* demosaicParameters) {
     allocateTextures(rawImage.size());
 
@@ -222,7 +222,7 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
 
     _rawImage->copyPixelsFrom(rawImage);
 
-    gls::mtl_image_2d<gls::rgba_pixel_float>* denoisedImage = nullptr;
+    gls::mtl_image_2d<gls::pixel_float4>* denoisedImage = nullptr;
 
     auto context = &_mtlContext;
 
@@ -296,7 +296,7 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
     return _linearRGBImageA.get();
 }
 
-gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::postprocess(gls::image<gls::rgba_pixel_float>& rgbImage, DemosaicParameters* demosaicParameters) {
+gls::mtl_image_2d<gls::pixel_float4>* RawConverter::postprocess(gls::image<gls::pixel_float4>& rgbImage, DemosaicParameters* demosaicParameters) {
     allocateTextures(rgbImage.size());
 
     // Zero histogram data
@@ -315,7 +315,7 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::postprocess(gls::image<g
 
     const auto scaled_black_level = demosaicParameters->black_level / demosaicParameters->white_level;
 
-    rgbImage.apply([&] (gls::rgba_pixel_float* p, int x, int y) {
+    rgbImage.apply([&] (gls::pixel_float4* p, int x, int y) {
         gls::Vector<3> v = { (*p)[0], (*p)[1], (*p)[2] };
 
         v = clamp((2 * exposure_multiplier * max(v - scaled_black_level, 0.0f) * normalized_scale_mul) * 0.9f + 0.1f, 0.0f, 1.0f);
@@ -356,7 +356,7 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::postprocess(gls::image<g
     _histogramImage.statistics(&_mtlContext, histogramImage->size());
 
     if (demosaicParameters->rgbConversionParameters.localToneMapping) {
-        const std::array<const gls::mtl_image_2d<gls::rgba_pixel_float>*, 3>& guideImage = {
+        const std::array<const gls::mtl_image_2d<gls::pixel_float4>*, 3>& guideImage = {
             _ltmImagePyramid[3].get(),
             _ltmImagePyramid[1].get(),
             _linearRGBImageB.get()
@@ -376,7 +376,7 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::postprocess(gls::image<g
     return _linearRGBImageA.get();
 }
 
-void dumpNoiseImage(const gls::image<gls::rgba_pixel_float>& image, float a, float b, const std::string& name) {
+void dumpNoiseImage(const gls::image<gls::pixel_float4>& image, float a, float b, const std::string& name) {
     gls::image<gls::luma_pixel_16> luma(image.size());
 
     luma.apply([&image, a, b](gls::luma_pixel_16* p, int x, int y) {
@@ -400,7 +400,7 @@ RawNLF RawConverter::MeasureRawNLF(float exposure_multiplier, BayerPattern bayer
     using double4 = gls::DVector<4>;
 
     gls::DVector<6> varianceHistogram = {0, 0, 0, 0, 0, 0};   // 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1
-    varImageCpu->apply([&](const gls::rgba_pixel_float& vv, int x, int y) {
+    varImageCpu->apply([&](const gls::pixel_float4& vv, int x, int y) {
         double4 v = vv.v;
 
         bool validStats = !any(isnan(v));
@@ -433,7 +433,7 @@ RawNLF RawConverter::MeasureRawNLF(float exposure_multiplier, BayerPattern bayer
     double4 s_xy = 0;
 
     double N1 = 0;
-    meanImageCpu->apply([&](const gls::rgba_pixel_float& mm, int x, int y) {
+    meanImageCpu->apply([&](const gls::pixel_float4& mm, int x, int y) {
         double4 m = mm.v;
         double4 v = (*varImageCpu)[y][x].v;
 
@@ -458,7 +458,7 @@ RawNLF RawConverter::MeasureRawNLF(float exposure_multiplier, BayerPattern bayer
 
     // Estimate regression mean square error
     double4 err2 = 0;
-    meanImageCpu->apply([&](const gls::rgba_pixel_float& mm, int x, int y) {
+    meanImageCpu->apply([&](const gls::pixel_float4& mm, int x, int y) {
         double4 m = mm.v;
         double4 v = (*varImageCpu)[y][x].v;
 
@@ -486,7 +486,7 @@ RawNLF RawConverter::MeasureRawNLF(float exposure_multiplier, BayerPattern bayer
     s_xy = 0;
     double N2 = 0;
     double4 newErr2 = 0;
-    meanImageCpu->apply([&](const gls::rgba_pixel_float& mm, int x, int y) {
+    meanImageCpu->apply([&](const gls::pixel_float4& mm, int x, int y) {
         double4 m = mm.v;
         double4 v = (*varImageCpu)[y][x].v;
 

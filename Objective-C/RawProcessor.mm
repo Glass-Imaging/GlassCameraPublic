@@ -87,7 +87,7 @@ CVPixelBufferRef CVPixelBufferFromFP16ImageBytes(const gls::image<gls::rgba_pixe
 
 // Not used, in case we want to make a copy of the pixelBuffer data
 template <typename pixel_type>
-CVPixelBufferRef buildCVPixelBuffer(const gls::image<gls::rgba_pixel_float>& rgbImage) {
+CVPixelBufferRef buildCVPixelBuffer(const gls::image<gls::pixel_float4>& rgbImage) {
     typename pixel_type::value_type max_value =
         std::is_same<pixel_type, gls::rgba_pixel_fp16>::value ? 1.0 :
             std::numeric_limits<typename pixel_type::value_type>::max();

@@ -72,7 +72,7 @@ void dumpGradientImage(const gls::mtl_image_2d<T>& image, const std::string& pat
 }
 
 template <typename pixel_type>
-void saveImage(const gls::image<gls::rgba_pixel_float>& image, const std::string& path,
+void saveImage(const gls::image<gls::pixel_float4>& image, const std::string& path,
                gls::tiff_metadata* metadata,
                const std::vector<uint8_t>* icc_profile_data, float exposure_multiplier = 1.0) {
     gls::image<pixel_type> saveImage(image.width, image.height);
@@ -246,7 +246,7 @@ void fmenApplyToFile(RawConverter* rawConverter, std::filesystem::path input_pat
                   << std::endl;
 
     // Result Image
-    gls::image<gls::rgba_pixel_fp16> processedImage(rawImage->width, rawImage->height);
+    gls::image<gls::pixel_fp16_4> processedImage(rawImage->width, rawImage->height);
 
     // Apply model to image
     fmenApplyToImage(*rawImage, /*whiteLevel*/ demosaicParameters->white_level, &processedImage);

@@ -39,7 +39,7 @@ struct scaleRawDataKernel {
     scaleRawDataKernel(MetalContext* context) : kernel(context, "scaleRawData") { }
 
     void operator() (MetalContext* context, const gls::mtl_image_2d<gls::luma_pixel_16>& rawImage,
-                     gls::mtl_image_2d<gls::luma_pixel_float>* scaledRawImage, BayerPattern bayerPattern,
+                     gls::mtl_image_2d<gls::pixel_float>* scaledRawImage, BayerPattern bayerPattern,
                      gls::Vector<4> scaleMul, float blackLevel, float lensShadingCorrection) {
         kernel(context, /*gridSize=*/ MTL::Size(scaledRawImage->width / 2, scaledRawImage->height / 2, 1),
                rawImage.texture(), scaledRawImage->texture(), bayerPattern,
@@ -55,8 +55,8 @@ struct rawImageSobelKernel {
 
     rawImageSobelKernel(MetalContext* context) : kernel(context, "rawImageSobel") { }
 
-    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::luma_pixel_float>& rawImage,
-                     gls::mtl_image_2d<gls::rgba_pixel_float>* gradientImage) {
+    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::pixel_float>& rawImage,
+                     gls::mtl_image_2d<gls::pixel_float2>* gradientImage) {
         kernel(context, /*gridSize=*/ MTL::Size(gradientImage->width, gradientImage->height, 1),
                rawImage.texture(),
                gradientImage->texture());
@@ -78,8 +78,8 @@ struct gradientOrientationKernel {
     { }
 
     void operator() (MetalContext* context,
-                     const gls::mtl_image_2d<gls::rgba_pixel_float>& sobelImage,
-                     gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage) {
+                     const gls::mtl_image_2d<gls::pixel_float2>& sobelImage,
+                     gls::mtl_image_2d<gls::pixel_float4>* outputImage) {
         kernel(context, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
                sobelImage.texture(), (int) weightsBuffer.size(), weightsBuffer.buffer(), outputImage->texture());
     }
@@ -105,10 +105,10 @@ struct gaussianBlurSobelImageKernel {
     { }
 
     void operator() (MetalContext* context,
-                     const gls::mtl_image_2d<gls::luma_pixel_float>& rawImage,
-                     const gls::mtl_image_2d<gls::rgba_pixel_float>& sobelImage,
+                     const gls::mtl_image_2d<gls::pixel_float>& rawImage,
+                     const gls::mtl_image_2d<gls::pixel_float4>& sobelImage,
                      std::array<float, 2> rawNoiseModel,
-                     gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage) {
+                     gls::mtl_image_2d<gls::pixel_float4>* outputImage) {
         kernel(context, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
                rawImage.texture(), sobelImage.texture(),
                (int) weightsBuffer1.size(), weightsBuffer1.buffer(),
@@ -134,9 +134,9 @@ struct hfNoiseTransferImageKernel {
     { }
 
     void operator() (MetalContext* context,
-                     const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
-                     const gls::mtl_image_2d<gls::rgba_pixel_float>& noisyImage,
-                     gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage) {
+                     const gls::mtl_image_2d<gls::pixel_float4>& inputImage,
+                     const gls::mtl_image_2d<gls::pixel_float4>& noisyImage,
+                     gls::mtl_image_2d<gls::pixel_float4>* outputImage) {
         kernel(context, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
                inputImage.texture(), noisyImage.texture(), outputImage->texture(),
                (int) weightsBuffer.size(), weightsBuffer.buffer());
@@ -173,11 +173,11 @@ struct demosaicImageKernel {
         interpolateRedBlueKernel(context, "interpolateRedBlue"),
         interpolateRedBlueAtGreenKernel(context, "interpolateRedBlueAtGreen") { }
 
-    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::luma_pixel_float>& rawImage,
-                     const gls::mtl_image_2d<gls::rgba_pixel_float>& gradientImage,
-                     gls::mtl_image_2d<gls::luma_pixel_float>* greenImage,
-                     gls::mtl_image_2d<gls::rgba_pixel_float>* rgbImageTmp,
-                     gls::mtl_image_2d<gls::rgba_pixel_float>* rgbImageOut,
+    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::pixel_float>& rawImage,
+                     const gls::mtl_image_2d<gls::pixel_float4>& gradientImage,
+                     gls::mtl_image_2d<gls::pixel_float>* greenImage,
+                     gls::mtl_image_2d<gls::pixel_float4>* rgbImageTmp,
+                     gls::mtl_image_2d<gls::pixel_float4>* rgbImageOut,
                      BayerPattern bayerPattern, std::array<gls::Vector<2>, 3> rawVariance) {
         assert(rawImage.size() == gradientImage.size());
         assert(rawImage.size() == greenImage->size());
@@ -210,8 +210,8 @@ struct bayerToRawRGBAKernel {
 
     bayerToRawRGBAKernel(MetalContext* context) : kernel(context, "bayerToRawRGBA") { }
 
-    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::luma_pixel_float>& rawImage,
-                     gls::mtl_image_2d<gls::rgba_pixel_float>* rgbaImage, BayerPattern bayerPattern) {
+    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::pixel_float>& rawImage,
+                     gls::mtl_image_2d<gls::pixel_float4>* rgbaImage, BayerPattern bayerPattern) {
         assert(rawImage.width == 2 * rgbaImage->width && rawImage.height == 2 * rgbaImage->height);
 
         kernel(context, /*gridSize=*/ MTL::Size(rgbaImage->width, rgbaImage->height, 1), rawImage.texture(),
@@ -227,8 +227,8 @@ struct rawRGBAToBayerKernel {
 
     rawRGBAToBayerKernel(MetalContext* context) : kernel(context, "rawRGBAToBayer") { }
 
-    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& rgbaImage,
-                     gls::mtl_image_2d<gls::luma_pixel_float>* rawImage, BayerPattern bayerPattern) {
+    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::pixel_float4>& rgbaImage,
+                     gls::mtl_image_2d<gls::pixel_float>* rawImage, BayerPattern bayerPattern) {
         assert(rawImage->width == 2 * rgbaImage.width && rawImage->height == 2 * rgbaImage.height);
 
         kernel(context, /*gridSize=*/ MTL::Size(rgbaImage.width, rgbaImage.height, 1), rgbaImage.texture(),
@@ -245,8 +245,8 @@ struct crossDenoiseRawRGBAImageKernel {
 
     crossDenoiseRawRGBAImageKernel(MetalContext* context) : kernel(context, "crossDenoiseRawRGBAImage") { }
 
-    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
-                     const gls::Vector<4> rawVariance, float strength, gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage) {
+    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::pixel_float4>& inputImage,
+                     const gls::Vector<4> rawVariance, float strength, gls::mtl_image_2d<gls::pixel_float4>* outputImage) {
         std::cout << "Denoising RAW image with strength: " << strength << std::endl;
         kernel(context, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
                inputImage.texture(),
@@ -264,9 +264,9 @@ struct despeckleRawRGBAImageKernel {
 
     despeckleRawRGBAImageKernel(MetalContext* context) : kernel(context, "despeckleRawRGBAImage") { }
 
-    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
-                     const gls::mtl_image_2d<gls::rgba_pixel_float>& gradientImage,
-                     const gls::Vector<4> rawVariance, gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage) {
+    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::pixel_float4>& inputImage,
+                     const gls::mtl_image_2d<gls::pixel_float4>& gradientImage,
+                     const gls::Vector<4> rawVariance, gls::mtl_image_2d<gls::pixel_float4>* outputImage) {
         kernel(context, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
                inputImage.texture(), gradientImage.texture(),
                simd::float4 { rawVariance[0], rawVariance[1], rawVariance[2], rawVariance[3] },
@@ -283,8 +283,8 @@ struct blendHighlightsImageKernel {
     blendHighlightsImageKernel(MetalContext* context) : kernel(context, "blendHighlightsImage") { }
 
     void operator() (MetalContext* context,
-                     const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
-                     float clip, gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage) {
+                     const gls::mtl_image_2d<gls::pixel_float4>& inputImage,
+                     float clip, gls::mtl_image_2d<gls::pixel_float4>* outputImage) {
         kernel(context, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
                inputImage.texture(), clip, outputImage->texture());
     }
@@ -302,8 +302,8 @@ struct transformImageKernel {
 
     transformImageKernel(MetalContext* context) : kernel(context, "transformImage") { }
 
-    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& linearImage,
-                     gls::mtl_image_2d<gls::rgba_pixel_float>* rgbImage, const gls::Matrix<3, 3>& transform) {
+    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::pixel_float4>& linearImage,
+                     gls::mtl_image_2d<gls::pixel_float4>* rgbImage, const gls::Matrix<3, 3>& transform) {
         Matrix3x3 mtlTransform = {{{transform[0][0], transform[0][1], transform[0][2]},
                                    {transform[1][0], transform[1][1], transform[1][2]},
                                    {transform[2][0], transform[2][1], transform[2][2]}}};
@@ -323,9 +323,9 @@ struct despeckleImageKernel {
 
     despeckleImageKernel(MetalContext* context) : kernel(context, "despeckleLumaMedianChromaImage") { }
 
-    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
+    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::pixel_float4>& inputImage,
                      const gls::Vector<3>& var_a, const gls::Vector<3>& var_b,
-                     gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage) {
+                     gls::mtl_image_2d<gls::pixel_float4>* outputImage) {
         simd::float3 cl_var_a = {var_a[0], var_a[1], var_a[2]};
         simd::float3 cl_var_b = {var_b[0], var_b[1], var_b[2]};
 
@@ -348,10 +348,10 @@ struct denoiseImageKernel {
 
     denoiseImageKernel(MetalContext* context) : kernel(context, "denoiseImage") { }
 
-    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
-                     const gls::mtl_image_2d<gls::rgba_pixel_float>& gradientImage, const gls::Vector<3>& var_a,
+    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::pixel_float4>& inputImage,
+                     const gls::mtl_image_2d<gls::pixel_float4>& gradientImage, const gls::Vector<3>& var_a,
                      const gls::Vector<3>& var_b, const gls::Vector<3> thresholdMultipliers, float chromaBoost,
-                     float gradientBoost, float gradientThreshold, gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage) {
+                     float gradientBoost, float gradientThreshold, gls::mtl_image_2d<gls::pixel_float4>* outputImage) {
 
         kernel(context, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
                inputImage.texture(), gradientImage.texture(),
@@ -378,12 +378,12 @@ struct blockMatchingDenoiseImageKernel {
 
     blockMatchingDenoiseImageKernel(MetalContext* context) : kernel(context, "blockMatchingDenoiseImage") { }
 
-    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
-                     const gls::mtl_image_2d<gls::rgba_pixel_float>& gradientImage,
+    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::pixel_float4>& inputImage,
+                     const gls::mtl_image_2d<gls::pixel_float4>& gradientImage,
                      const gls::mtl_image_2d<gls::pixel<uint32_t, 4>>& patchImage, const gls::Vector<3>& var_a,
                      const gls::Vector<3>& var_b, const gls::Vector<3> thresholdMultipliers,
                      float chromaBoost, float gradientBoost, float gradientThreshold, float lensShadingCorrection,
-                     gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage) {
+                     gls::mtl_image_2d<gls::pixel_float4>* outputImage) {
 
         kernel(context, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
                inputImage.texture(), gradientImage.texture(), patchImage.texture(),
@@ -402,7 +402,7 @@ struct collectPatchesKernel {
     collectPatchesKernel(MetalContext* context) : kernel(context, "collectPatches") { }
 
     void operator() (MetalContext* context,
-                     const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
+                     const gls::mtl_image_2d<gls::pixel_float4>& inputImage,
                      MTL::Buffer* patches) {
 
         kernel(context, /*gridSize=*/ MTL::Size(inputImage.width / 8, inputImage.height / 8, 1),
@@ -418,7 +418,7 @@ struct pcaProjectionKernel {
 
     pcaProjectionKernel(MetalContext* context) : kernel(context, "pcaProjection") { }
 
-    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
+    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::pixel_float4>& inputImage,
                      const std::array<std::array<half, 8>, 25>& pcaSpace,
                      gls::mtl_image_2d<gls::pixel<uint32_t, 4>>* projectedImage) {
 
@@ -441,12 +441,12 @@ struct subtractNoiseImageKernel {
     subtractNoiseImageKernel(MetalContext* context) : kernel(context, "subtractNoiseImage") { }
 
     void operator() (MetalContext* context,
-                     const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
-                     const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage1,
-                     const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImageDenoised1,
-                     const gls::mtl_image_2d<gls::rgba_pixel_float>& gradientImage,
+                     const gls::mtl_image_2d<gls::pixel_float4>& inputImage,
+                     const gls::mtl_image_2d<gls::pixel_float4>& inputImage1,
+                     const gls::mtl_image_2d<gls::pixel_float4>& inputImageDenoised1,
+                     const gls::mtl_image_2d<gls::pixel_float4>& gradientImage,
                      float luma_weight, float sharpening, const gls::Vector<2>& nlf,
-                     gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage) {
+                     gls::mtl_image_2d<gls::pixel_float4>* outputImage) {
         kernel(context, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
                inputImage.texture(), inputImage1.texture(), inputImageDenoised1.texture(),
                gradientImage.texture(), luma_weight, sharpening, simd::float2 { nlf[0], nlf[1] },
@@ -462,8 +462,8 @@ struct basicNoiseStatisticsKernel {
 
     basicNoiseStatisticsKernel(MetalContext* context) : kernel(context, "basicNoiseStatistics") { }
 
-    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
-                     gls::mtl_image_2d<gls::rgba_pixel_float>* statisticsImage) {
+    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::pixel_float4>& inputImage,
+                     gls::mtl_image_2d<gls::pixel_float4>* statisticsImage) {
         kernel(context, /*gridSize=*/ MTL::Size(statisticsImage->width, statisticsImage->height, 1),
                inputImage.texture(), statisticsImage->texture());
     }
@@ -478,10 +478,10 @@ struct basicRawNoiseStatisticsKernel {
 
     basicRawNoiseStatisticsKernel(MetalContext* context) : kernel(context, "basicRawNoiseStatistics") { }
 
-    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::luma_pixel_float>& rawImage,
+    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::pixel_float>& rawImage,
                      int bayerPattern,
-                     gls::mtl_image_2d<gls::rgba_pixel_float>* meanImage,
-                     gls::mtl_image_2d<gls::rgba_pixel_float>* varImage) {
+                     gls::mtl_image_2d<gls::pixel_float4>* meanImage,
+                     gls::mtl_image_2d<gls::pixel_float4>* varImage) {
         kernel(context, /*gridSize=*/ MTL::Size(meanImage->width, meanImage->height, 1),
                rawImage.texture(), bayerPattern, meanImage->texture(), varImage->texture());
     }
@@ -542,7 +542,7 @@ struct histogramImageKernel {
         histogramBuffer(context->device(), 1)
         { }
 
-    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage) {
+    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::pixel_float4>& inputImage) {
         histogramImage(context, /*gridSize=*/ MTL::Size(inputImage.width, inputImage.height, 1),
                inputImage.texture(), histogramBuffer.buffer());
     }
@@ -581,13 +581,13 @@ struct localToneMappingMaskKernel {
         localToneMappingMaskImage(context, "localToneMappingMaskImage")
         { }
 
-    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
-                     const gls::mtl_image_2d<gls::rgba_pixel_float>& gradientImage,
-                     const std::array<const gls::mtl_image_2d<gls::rgba_pixel_float>*, 3>& guideImage,
-                     const std::array<const gls::mtl_image_2d<gls::luma_alpha_pixel_float>*, 3>& abImage,
-                     const std::array<const gls::mtl_image_2d<gls::luma_alpha_pixel_float>*, 3>& abMeanImage,
+    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::pixel_float4>& inputImage,
+                     const gls::mtl_image_2d<gls::pixel_float4>& gradientImage,
+                     const std::array<const gls::mtl_image_2d<gls::pixel_float4>*, 3>& guideImage,
+                     const std::array<const gls::mtl_image_2d<gls::pixel_float2>*, 3>& abImage,
+                     const std::array<const gls::mtl_image_2d<gls::pixel_float2>*, 3>& abMeanImage,
                      const LTMParameters& ltmParameters, const gls::Vector<2>& nlf, MTL::Buffer* histogramBuffer,
-                     gls::mtl_image_2d<gls::luma_pixel_float>* outputImage) {
+                     gls::mtl_image_2d<gls::pixel_float>* outputImage) {
         for (int i = 0; i < 3; i++) {
             assert(guideImage[i]->width == abImage[i]->width && guideImage[i]->height == abImage[i]->height);
             assert(guideImage[i]->width == abMeanImage[i]->width && guideImage[i]->height == abMeanImage[i]->height);
@@ -638,8 +638,8 @@ struct simplexNoiseKernel {
         initGradients();
     }
 
-    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
-                     const gls::Vector<2>& luma_nlf, gls::mtl_image_2d<gls::rgba_pixel_float>* outputImage) {
+    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::pixel_float4>& inputImage,
+                     const gls::Vector<2>& luma_nlf, gls::mtl_image_2d<gls::pixel_float4>* outputImage) {
         kernel(context, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
                inputImage.texture(), permBuffer.buffer(), gradBuffer.buffer(), simd::float2 { luma_nlf[0], luma_nlf[1] },
                outputImage->texture());
@@ -677,11 +677,11 @@ struct convertTosRGBKernel {
         gradBuffer(context->device(), 1)
         { }
 
-    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& linearImage,
-                     const gls::mtl_image_2d<gls::luma_pixel_float>& ltmMaskImage,
+    void operator() (MetalContext* context, const gls::mtl_image_2d<gls::pixel_float4>& linearImage,
+                     const gls::mtl_image_2d<gls::pixel_float>& ltmMaskImage,
                      const DemosaicParameters& demosaicParameters, MTL::Buffer* histogramBuffer,
                      const gls::Vector<2>& luma_nlf,
-                     gls::mtl_image_2d<gls::rgba_pixel_float>* rgbImage) {
+                     gls::mtl_image_2d<gls::pixel_float4>* rgbImage) {
         const auto& transform = demosaicParameters.rgb_cam;
 
         Matrix3x3 mtlTransform = {{{transform[0][0], transform[0][1], transform[0][2]},

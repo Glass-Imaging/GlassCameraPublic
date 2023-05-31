@@ -135,7 +135,7 @@ kernel void rawImageSobel(texture2d<half> inputImage                    [[textur
     const int2 imageCoordinates = (int2) index;
     half2 gradient = sobel(inputImage, imageCoordinates.x, imageCoordinates.y);
 
-    write_imageh(outputImage, imageCoordinates, half4(gradient, abs(gradient)));
+    write_imageh(outputImage, imageCoordinates, half4(gradient, 0, 0));
 }
 
 float sampledConvolutionLuma(texture2d<float> inputImage,

@@ -38,15 +38,15 @@ struct PyramidProcessor {
     basicNoiseStatisticsKernel _basicNoiseStatistics;
     hfNoiseTransferImageKernel _hfNoiseTransferImage;
 
-    typedef gls::mtl_image_2d<gls::rgba_pixel_float> imageType;
+    typedef gls::mtl_image_2d<gls::pixel_float4> imageType;
     std::array<imageType::unique_ptr, levels - 1> imagePyramid;
-    std::array<gls::mtl_image_2d<gls::rgba_pixel_float>::unique_ptr, levels - 1> gradientPyramid;
+    std::array<gls::mtl_image_2d<gls::pixel_float4>::unique_ptr, levels - 1> gradientPyramid;
     std::array<imageType::unique_ptr, levels> subtractedImagePyramid;
     std::array<imageType::unique_ptr, levels> denoisedImagePyramid;
     std::array<gls::mtl_image_2d<gls::pixel<uint32_t, 4>>::unique_ptr, levels> pcaImagePyramid;
     std::unique_ptr<gls::Buffer<std::array<float, pcaPatchSize>>> pcaPatches;
     std::array<std::array<float16_t, pcaSpaceSize>, pcaPatchSize> pcaSpace;
-    gls::mtl_image_2d<gls::luma_pixel_float>::unique_ptr filteredLuma;
+    gls::mtl_image_2d<gls::pixel_float>::unique_ptr filteredLuma;
 
 //    std::array<imageType::unique_ptr, levels> fusionImagePyramidA;
 //    std::array<imageType::unique_ptr, levels> fusionImagePyramidB;
@@ -57,7 +57,7 @@ struct PyramidProcessor {
     PyramidProcessor(MetalContext* context, int width, int height);
 
     imageType* denoise(MetalContext* context, std::array<DenoiseParameters, levels>* denoiseParameters,
-                       const imageType& image, const gls::mtl_image_2d<gls::rgba_pixel_float>& gradientImage,
+                       const imageType& image, const gls::mtl_image_2d<gls::pixel_float4>& gradientImage,
                        std::array<YCbCrNLF, levels>* nlfParameters, float exposure_multiplier, float lensShadingCorrection,
                        bool calibrateFromImage = false);
 
@@ -70,8 +70,8 @@ struct PyramidProcessor {
 //    imageType* getFusedImage(MetalContext* context);
 
     YCbCrNLF MeasureYCbCrNLF(MetalContext* context,
-                             const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
-                             gls::mtl_image_2d<gls::rgba_pixel_float> *noiseStats,
+                             const gls::mtl_image_2d<gls::pixel_float4>& inputImage,
+                             gls::mtl_image_2d<gls::pixel_float4> *noiseStats,
                              float exposure_multiplier);
 };
 
