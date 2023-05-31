@@ -37,7 +37,7 @@ PyramidProcessor<levels>::PyramidProcessor(MetalContext* context, int _width, in
     auto mtlDevice = context->device();
     for (int i = 0, scale = 2; i < levels - 1; i++, scale *= 2) {
         imagePyramid[i] = std::make_unique<imageType>(mtlDevice, width / scale, height / scale);
-        gradientPyramid[i] = std::make_unique<gls::mtl_image_2d<gls::luma_alpha_pixel_float>>(
+        gradientPyramid[i] = std::make_unique<gls::mtl_image_2d<gls::rgba_pixel_float>>(
             mtlDevice, width / scale, height / scale);
     }
     for (int i = 0, scale = 1; i < levels; i++, scale *= 2) {
@@ -95,7 +95,7 @@ static const constexpr float lumaDenoiseWeight[4] = {1, 1, 1, 1};
 template <size_t levels>
 typename PyramidProcessor<levels>::imageType* PyramidProcessor<levels>::denoise(
     MetalContext* context, std::array<DenoiseParameters, levels>* denoiseParameters, const imageType& image,
-    const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& gradientImage, std::array<YCbCrNLF, levels>* nlfParameters,
+    const gls::mtl_image_2d<gls::rgba_pixel_float>& gradientImage, std::array<YCbCrNLF, levels>* nlfParameters,
     float exposure_multiplier, float lensShadingCorrection, bool calibrateFromImage) {
     std::array<gls::Vector<3>, levels> thresholdMultipliers;
 
@@ -107,7 +107,7 @@ typename PyramidProcessor<levels>::imageType* PyramidProcessor<levels>::denoise(
         if (i < levels - 1) {
             // Generate next layer in the pyramid
             _resampleImage(context, *currentLayer, imagePyramid[i].get());
-            _resampleGradientImage(context, *currentGradientLayer, gradientPyramid[i].get());
+            _resampleImage(context, *currentGradientLayer, gradientPyramid[i].get());
         }
 
         if (calibrateFromImage) {

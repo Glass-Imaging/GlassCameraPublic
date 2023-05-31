@@ -40,7 +40,7 @@ struct PyramidProcessor {
 
     typedef gls::mtl_image_2d<gls::rgba_pixel_float> imageType;
     std::array<imageType::unique_ptr, levels - 1> imagePyramid;
-    std::array<gls::mtl_image_2d<gls::luma_alpha_pixel_float>::unique_ptr, levels - 1> gradientPyramid;
+    std::array<gls::mtl_image_2d<gls::rgba_pixel_float>::unique_ptr, levels - 1> gradientPyramid;
     std::array<imageType::unique_ptr, levels> subtractedImagePyramid;
     std::array<imageType::unique_ptr, levels> denoisedImagePyramid;
     std::array<gls::mtl_image_2d<gls::pixel<uint32_t, 4>>::unique_ptr, levels> pcaImagePyramid;
@@ -51,19 +51,19 @@ struct PyramidProcessor {
 //    std::array<imageType::unique_ptr, levels> fusionImagePyramidA;
 //    std::array<imageType::unique_ptr, levels> fusionImagePyramidB;
 //    std::array<imageType::unique_ptr, levels> fusionReferenceImagePyramid;
-//    std::array<gls::mtl_image_2d<gls::luma_alpha_pixel_float>::unique_ptr, levels> fusionReferenceGradientPyramid;
+//    std::array<gls::mtl_image_2d<gls::rgba_pixel_float>::unique_ptr, levels> fusionReferenceGradientPyramid;
 //    std::array<imageType::unique_ptr, levels>* fusionBuffer[2];
 
     PyramidProcessor(MetalContext* context, int width, int height);
 
     imageType* denoise(MetalContext* context, std::array<DenoiseParameters, levels>* denoiseParameters,
-                       const imageType& image, const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& gradientImage,
+                       const imageType& image, const gls::mtl_image_2d<gls::rgba_pixel_float>& gradientImage,
                        std::array<YCbCrNLF, levels>* nlfParameters, float exposure_multiplier, float lensShadingCorrection,
                        bool calibrateFromImage = false);
 
 //    void fuseFrame(MetalContext* context, std::array<DenoiseParameters, levels>* denoiseParameters,
 //                   const imageType& image, const gls::Matrix<3, 3>& homography,
-//                   const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& gradientImage,
+//                   const gls::mtl_image_2d<gls::rgba_pixel_float>& gradientImage,
 //                   std::array<YCbCrNLF, levels>* nlfParameters, float exposure_multiplier,
 //                   bool calibrateFromImage = false);
 //

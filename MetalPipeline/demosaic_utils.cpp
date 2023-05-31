@@ -990,6 +990,8 @@ std::vector<std::array<float, 3>> gaussianKernelBilinearWeights(float radius) {
         kernelSize++;
     }
 
+    std::cout << "radius " << radius << ", kernelSize: " << kernelSize << std::endl;
+
     std::vector<float> weights(kernelSize * kernelSize);
     for (int y = -kernelSize / 2, i = 0; y <= kernelSize / 2; y++) {
         for (int x = -kernelSize / 2; x <= kernelSize / 2; x++, i++) {

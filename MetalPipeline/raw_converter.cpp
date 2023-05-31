@@ -28,7 +28,7 @@ void RawConverter::allocateTextures(const gls::size& imageSize) {
         _rawImage = std::make_unique<gls::mtl_image_2d<gls::luma_pixel_16>>(mtlDevice, imageSize);
         _scaledRawImage = std::make_unique<gls::mtl_image_2d<gls::luma_pixel_float>>(mtlDevice, imageSize);
         _rawSobelImage = std::make_unique<gls::mtl_image_2d<gls::rgba_pixel_float>>(mtlDevice, imageSize);
-        _rawGradientImage = std::make_unique<gls::mtl_image_2d<gls::luma_alpha_pixel_float>>(mtlDevice, imageSize);
+        _rawGradientImage = std::make_unique<gls::mtl_image_2d<gls::rgba_pixel_float>>(mtlDevice, imageSize);
         _greenImage = std::make_unique<gls::mtl_image_2d<gls::luma_pixel_float>>(mtlDevice, imageSize);
         _linearRGBImageA = std::make_unique<gls::mtl_image_2d<gls::rgba_pixel_float>>(mtlDevice, imageSize);
         _linearRGBImageB = std::make_unique<gls::mtl_image_2d<gls::rgba_pixel_float>>(mtlDevice, imageSize);
@@ -145,6 +145,59 @@ void saveRawChannels(gls::image<gls::rgba_pixel_float>& rgbaRawImage, const std:
     saveImages[3]->write_png_file("/Users/fabio/green2_" + postfix + ".png");
 }
 
+template <typename T>
+void writeOrientationImage(const gls::mtl_image_2d<T>& image, const std::string& path) {
+    gls::image<gls::rgb_pixel> out(image.width, image.height);
+    const auto image_cpu = image.mapImage();
+    out.apply([&](gls::rgb_pixel* p, int x, int y) {
+        const auto& ip = (*image_cpu)[y][x];
+
+        // float direction = (1 + atan2(ip.y, ip.x) / M_PI) / 2;
+        // float direction = atan2(abs(ip.y), ip.x) / M_PI;
+        // float direction = std::atan2(std::abs(ip.y), std::abs(ip.x)) / M_PI_2;
+        // float magnitude = std::sqrt((float)(ip.x * ip.x + ip.y * ip.y));
+
+        float direction = ip.y / M_PI_2;
+        float magnitude = 2 * ip.x;
+
+        uint8_t val = std::clamp(255 * std::sqrt(magnitude), 0.0f, 255.0f);
+
+        *p = gls::rgb_pixel{
+            (uint8_t)(val * std::lerp(1.0f, 0.0f, direction)),
+            0,
+            (uint8_t)(val * std::lerp(1.0f, 0.0f, 1 - direction)),
+        };
+    });
+    out.write_png_file(path);
+}
+
+template <typename T>
+void writeGradientImage(const gls::mtl_image_2d<T>& image, const std::string& path) {
+    gls::image<gls::rgb_pixel> out(image.width, image.height);
+    const auto image_cpu = image.mapImage();
+    out.apply([&](gls::rgb_pixel* p, int x, int y) {
+        const auto& ip = (*image_cpu)[y][x];
+
+        float direction = std::atan2(std::abs(ip.y), std::abs(ip.x)) / M_PI_2;
+        float magnitude = std::sqrt((float)(ip.x * ip.x + ip.y * ip.y));
+
+        uint8_t val = std::clamp(255 * std::sqrt(magnitude), 0.0f, 255.0f);
+
+        *p = gls::rgb_pixel{
+            (uint8_t)(val * std::lerp(1.0f, 0.0f, direction)),
+            0,
+            (uint8_t)(val * std::lerp(1.0f, 0.0f, 1 - direction)),
+        };
+
+//        *p = gls::rgb_pixel{
+//            (uint8_t)(255 * ip.z),
+//            (uint8_t)(255 * ip.z),
+//            (uint8_t)(255 * ip.z)
+//        };
+    });
+    out.write_png_file(path);
+}
+
 gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::image<gls::luma_pixel_16>& rawImage,
                                                                  DemosaicParameters* demosaicParameters) {
     allocateTextures(rawImage.size());
@@ -182,6 +235,7 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
                   demosaicParameters->lensShadingCorrection);
 
     _rawImageSobel(context, *_scaledRawImage, _rawSobelImage.get());
+    _gradientOrientationKernel(context, *_rawSobelImage, _rawGradientImage.get());
 
     NoiseModel<5>* noiseModel = &demosaicParameters->noiseModel;
     if (_calibrateFromImage) {
@@ -189,7 +243,12 @@ gls::mtl_image_2d<gls::rgba_pixel_float>* RawConverter::demosaic(const gls::imag
     }
     const auto rawVariance = getRawVariance(noiseModel->rawNlf);
 
-    _gaussianBlurSobelImage(context, *_scaledRawImage, *_rawSobelImage, rawVariance[1], _rawGradientImage.get());
+    // _gaussianBlurSobelImage(context, *_scaledRawImage, *_rawSobelImage, rawVariance[1], _rawGradientImage.get());
+
+//    context->waitForCompletion();
+//    writeGradientImage(*_rawSobelImage, "/Users/fabio/sobel.png");
+//    writeGradientImage(*_rawGradientImage, "/Users/fabio/gradient.png");
+//    // writeGradientImage(*_rawOrientationImage, "/Users/fabio/orientation.png");
 
     if (high_noise_image) {
         _bayerToRawRGBA(context, *_scaledRawImage, _rgbaRawImage.get(), demosaicParameters->bayerPattern);

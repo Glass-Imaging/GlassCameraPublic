@@ -59,7 +59,7 @@ class LocalToneMapping {
     }
 
     void createMask(MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& image,
-                    const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& gradientImage,
+                    const gls::mtl_image_2d<gls::rgba_pixel_float>& gradientImage,
                     const std::array<const gls::mtl_image_2d<gls::rgba_pixel_float>*, 3>& guideImage,
                     const NoiseModel<5>& noiseModel, const LTMParameters& ltmParameters,
                     MTL::Buffer* histogramBuffer) {
@@ -85,7 +85,7 @@ class RawConverter {
     gls::mtl_image_2d<gls::luma_pixel_16>::unique_ptr _rawImage;
     gls::mtl_image_2d<gls::luma_pixel_float>::unique_ptr _scaledRawImage;
     gls::mtl_image_2d<gls::rgba_pixel_float>::unique_ptr _rawSobelImage;
-    gls::mtl_image_2d<gls::luma_alpha_pixel_float>::unique_ptr _rawGradientImage;
+    gls::mtl_image_2d<gls::rgba_pixel_float>::unique_ptr _rawGradientImage;
     gls::mtl_image_2d<gls::luma_pixel_float>::unique_ptr _greenImage;
     gls::mtl_image_2d<gls::rgba_pixel_float>::unique_ptr _linearRGBImageA;
     gls::mtl_image_2d<gls::rgba_pixel_float>::unique_ptr _linearRGBImageB;
@@ -110,6 +110,7 @@ class RawConverter {
     // Kernels
     scaleRawDataKernel _scaleRawData;
     rawImageSobelKernel _rawImageSobel;
+    gradientOrientationKernel _gradientOrientationKernel;
     gaussianBlurSobelImageKernel _gaussianBlurSobelImage;
     demosaicImageKernel _demosaicImage;
     bayerToRawRGBAKernel _bayerToRawRGBA;
@@ -131,6 +132,7 @@ public:
         _rawImageSize(gls::size {0, 0}),
         _scaleRawData(&_mtlContext),
         _rawImageSobel(&_mtlContext),
+        _gradientOrientationKernel(&_mtlContext, 4.5f),
         _gaussianBlurSobelImage(&_mtlContext, 1.5f, 4.5f),
         _demosaicImage(&_mtlContext),
         _bayerToRawRGBA(&_mtlContext),
