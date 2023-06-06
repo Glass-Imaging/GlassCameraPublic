@@ -10,7 +10,10 @@ import Combine
 import AVFoundation
 
 final class CameraState: ObservableObject {
+    let isInternalRelease = false
+
     @Published var debugOverlay = false
+    @Published var zoomLevel: BackCameraConfiguration = .Tele
 
     // Indicates whether we are using device AE params to calculate custom AE params
     @Published var isCustomExposure: Bool = false
