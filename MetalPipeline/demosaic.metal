@@ -212,35 +212,14 @@ kernel void sampledConvolutionSobel(texture2d<float> rawImage                   
     write_imagef(outputImage, imageCoordinates, float4(copysign(result.zw, result.xy), 0, 0));
 }
 
-float3 structureTensorImage(texture2d<float> gradientImage,
-                            int2 imageCoordinates, float2 inputNorm,
-                            int samples, constant float *weights) {
+float3 orientationField(texture2d<float> gradientImage,
+                        texture2d<float> scaledOrientationImage,
+                        int2 imageCoordinates, float2 inputNorm,
+                        float scaleMix,
+                        int samples, constant float *weights) {
     const float2 inputPos = (float2(imageCoordinates)) * inputNorm;
 
     constexpr sampler linear_sampler(filter::linear);
-
-    float3 sum = 0;
-    float norm = 0;
-    for (int i = 0; i < samples; i++) {
-        float w = weights[3 * i];
-        float2 off = float2(weights[3 * i + 1], weights[3 * i + 2]);
-        float2 gradient = read_imagef(gradientImage, linear_sampler, inputPos + (off + 0.5) * inputNorm).xy;
-        // Top triangle of the covariance matrix
-        float3 covariance = float3(gradient.x * gradient.x, gradient.x * gradient.y, gradient.y * gradient.y);
-        sum += w * covariance;
-        norm += w;
-    }
-    return sum / norm;
-}
-
-kernel void orientationImage(texture2d<float> gradientImage                 [[texture(0)]],
-                             constant int& samples                          [[buffer(1)]],
-                             constant float *weights                        [[buffer(2)]],
-                             texture2d<float, access::write> outputImage    [[texture(3)]],
-                             uint2 index                                    [[thread_position_in_grid]])
-{
-    const int2 imageCoordinates = (int2) index;
-    const float2 inputNorm = 1.0 / float2(get_image_dim(outputImage));
 
     // Eigenvalues and Eigenvectors of a 2x2 matrix, see:
     // https://people.math.harvard.edu/~knill/teaching/math21b2004/exhibits/2dmatrices/index.html
@@ -252,7 +231,27 @@ kernel void orientationImage(texture2d<float> gradientImage                 [[te
     // NOTE: The Covariance matrix is symmetric -> b == c
 
     // compute the matrix elements [a, b, d]
-    float3 structureTensor = structureTensorImage(gradientImage, imageCoordinates, inputNorm, samples, weights);
+    float3 sum = 0;
+    float2 avg = 0;
+    float norm = 0;
+    for (int i = 0; i < samples; i++) {
+        float w = weights[3 * i];
+        float2 off = float2(weights[3 * i + 1], weights[3 * i + 2]);
+        float2 gradient = read_imagef(gradientImage, linear_sampler, inputPos + (off + 0.5) * inputNorm).xy;
+        avg += w * gradient;
+        norm += w;
+    }
+    avg /= norm;
+    for (int i = 0; i < samples; i++) {
+        float w = weights[3 * i];
+        float2 off = float2(weights[3 * i + 1], weights[3 * i + 2]);
+        float2 gradient = read_imagef(gradientImage, linear_sampler, inputPos + (off + 0.5) * inputNorm).xy - avg;
+        // Top triangle of the covariance matrix
+        float3 covariance = float3(gradient.x * gradient.x, gradient.x * gradient.y, gradient.y * gradient.y);
+        sum += w * covariance;
+        norm += w;
+    }
+    float3 structureTensor = sum / norm;
 
     // Trace: a + d
     float T = structureTensor.x + structureTensor.z;
@@ -262,16 +261,41 @@ kernel void orientationImage(texture2d<float> gradientImage                 [[te
 
     // Eigenvalues: [T/2 + (T^2/4-D)^1/2, T/2 - (T^2/4-D)^1/2]
     float2 L = float2(T / 2 + sqrt((T * T) / 4 - D), T / 2 - sqrt((T * T) / 4 - D));
+    // float2 L = float2((T + sqrt(T * T - 4 * D)) / 2, (T - sqrt(T * T - 4 * D)) / 2);
 
     // First Eigenvector (the second is perpendicular, discard). Since b == c choose either [L1 - d, c] or [b : L1 - a]
-    float2 E = abs(structureTensor.y) > 1e-8 ? float2(L.x - structureTensor.z, structureTensor.y) : float2(1, 0);
+    float2 E = abs(structureTensor.y) > 1e-10 ? float2(L.x - structureTensor.z, structureTensor.y) : float2(1, 0);
 
     // The eigenvector encodes the orientation of the line, the two eigenvalues encode the gradient strength (energy) and variation (isotropy).
     float angle = atan2(E.y, E.x);
-    float magnitude = sqrt(L.x + L.y);
+    float magnitude = 2 * sqrt(L.x + L.y);
     float anisotropy = (sqrt(L.x) - sqrt(L.y)) / (sqrt(L.x) + sqrt(L.y));
 
-    write_imagef(outputImage, imageCoordinates, float4(magnitude * cos(angle), magnitude * sin(angle), anisotropy, 0));
+    float3 orientation = float3(magnitude * cos(angle), magnitude * sin(angle), anisotropy);
+
+    if (scaleMix != 0) {
+        float3 scaledOrientation = read_imagef(scaledOrientationImage, linear_sampler, inputPos).xyz;
+        orientation = mix(orientation, scaledOrientation, scaleMix);
+    }
+
+    return orientation;
+}
+
+kernel void orientationImage(texture2d<float> gradientImage                 [[texture(0)]],
+                             texture2d<float> scaledOrientationImage        [[texture(1)]],
+                             constant float& scaleMix                       [[buffer(2)]],
+                             constant int& samples                          [[buffer(3)]],
+                             constant float *weights                        [[buffer(4)]],
+                             texture2d<float, access::write> outputImage    [[texture(5)]],
+                             uint2 index                                    [[thread_position_in_grid]])
+{
+    const int2 imageCoordinates = (int2) index;
+    const float2 inputNorm = 1.0 / float2(get_image_dim(outputImage));
+
+    float3 orientation = orientationField(gradientImage, scaledOrientationImage,
+                                          imageCoordinates, inputNorm, scaleMix, samples, weights);
+
+    write_imagef(outputImage, imageCoordinates, float4(orientation, 0));
 }
 
 // Modified Hamilton-Adams green channel interpolation
@@ -882,6 +906,12 @@ kernel void blockMatchingDenoiseImage(texture2d<half> inputImage                
     const half3 inputYCC = read_imageh(inputImage, imageCoordinates).xyz;
     const _half8 inputPCA = _half8(read_imageui(pcaImage, imageCoordinates));
 
+//    half detail = 0;
+//    for (int i = 1; i < 8; i++) {
+//        detail += inputPCA.v[i] * inputPCA.v[i];
+//    }
+//    detail = sqrt(detail);
+
     half lens_shading = 1;
     if (lensShadingCorrection > 0) {
         float2 imageCenter = float2(get_image_dim(inputImage) / 2);
@@ -895,9 +925,11 @@ kernel void blockMatchingDenoiseImage(texture2d<half> inputImage                
     half3 gradient = read_imageh(gradientImage, imageCoordinates).xyz;
     half angle = atan2(gradient.y, gradient.x);
     half magnitude = length(gradient.xy);
-    half coherence = gradient.z;
 
-    half edge = smoothstep(2, 16, gradientThreshold * magnitude / sigma.x);
+    half edge0 = gradientBoost > 0 ? max(1 - smoothstep(0.1h, 0.2h, inputYCC.x),
+                                         smoothstep(4 * sigma.x, 8 * sigma.x, magnitude)) : 1;
+    half edge = smoothstep(2 * sigma.x, 16 * sigma.x, (half) gradientThreshold * magnitude);
+    // half sharpening = smoothstep(0.025h, 0.25h, detail);
 
     const int size = 10;
 
@@ -906,13 +938,12 @@ kernel void blockMatchingDenoiseImage(texture2d<half> inputImage                
     float3 kernel_norm = 0;
     for (int y = -size; y <= size; y++) {
         for (int x = -size; x <= size; x++) {
-            half spaceWeight = gaussian(0.1 * length(float2(x, y)));
-            half directionWeight = edge > 0 ? steer(x, y, angle, mix(2 * size, 1, coherence), 2 * size) : spaceWeight;
+            half directionWeight = steer(x, y, angle, mix(2 * size, 1, edge), 2 * size);
 
             half3 inputSampleYCC = read_imageh(inputImage, imageCoordinates + int2(x, y)).xyz;
             _half8 samplePCA = _half8(read_imageui(pcaImage, imageCoordinates + int2(x, y)));
 
-            half pcaDiff = length(samplePCA - inputPCA) * diffMultiplier.x;
+            half pcaDiff = length(samplePCA - inputPCA, mix(1, 8, edge0)) * diffMultiplier.x;
             half2 inputChromaDiff = (inputSampleYCC.yz - inputYCC.yz) * diffMultiplier.yz;
 
             half lumaWeight = gaussian(pcaDiff / (1 + gradientBoost * edge));
@@ -926,7 +957,7 @@ kernel void blockMatchingDenoiseImage(texture2d<half> inputImage                
     }
     half3 denoisedPixel = half3(filtered_pixel / kernel_norm);
 
-    write_imageh(denoisedImage, imageCoordinates, half4(denoisedPixel, kernel_norm.x));
+    write_imageh(denoisedImage, imageCoordinates, half4(denoisedPixel, 255 * magnitude));
 }
 
 kernel void downsampleImageXYZ(texture2d<float> inputImage                  [[texture(0)]],
@@ -969,10 +1000,9 @@ kernel void subtractNoiseImage(texture2d<float> inputImage                      
                                texture2d<float> inputImage1                     [[texture(1)]],
                                texture2d<float> inputImageDenoised1             [[texture(2)]],
                                texture2d<float> gradientImage                   [[texture(3)]],
-                               constant float& luma_weight                      [[buffer(4)]],
-                               constant float& sharpening                       [[buffer(5)]],
-                               constant float2& nlf                             [[buffer(6)]],
-                               texture2d<float, access::write> outputImage      [[texture(7)]],
+                               constant float& sharpening                       [[buffer(4)]],
+                               constant float2& nlf                             [[buffer(5)]],
+                               texture2d<float, access::write> outputImage      [[texture(6)]],
                                uint2 index                                      [[thread_position_in_grid]]) {
     const int2 output_pos = (int2) index;
     const float2 inputNorm = 1.0 / float2(get_image_dim(outputImage));
@@ -985,7 +1015,7 @@ kernel void subtractNoiseImage(texture2d<float> inputImage                      
     float3 inputPixel1 = read_imagef(inputImage1, linear_sampler, input_pos).xyz;
     float3 inputPixelDenoised1 = read_imagef(inputImageDenoised1, linear_sampler, input_pos).xyz;
 
-    float3 denoisedPixel = inputPixel.xyz - float3(luma_weight, 1, 1) * (inputPixel1 - inputPixelDenoised1);
+    float3 denoisedPixel = inputPixel.xyz - (inputPixel1 - inputPixelDenoised1);
 
     float alpha = sharpening;
     if (alpha > 1.0) {

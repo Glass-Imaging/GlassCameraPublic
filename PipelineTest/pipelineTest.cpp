@@ -169,7 +169,7 @@ void demosaicFile(RawConverter* rawConverter, std::filesystem::path input_path) 
               << "ms for image of size: " << rawImage->width << " x " << rawImage->height << std::endl;
 
     const auto output_dir = input_path.parent_path(); // .parent_path() / "Classic";
-    const auto filename = input_path.filename().replace_extension("_t_g8b_structure_4.5c.tif");
+    const auto filename = input_path.filename().replace_extension("_t_g8b_structure_4.5d_edge_sharp_coherence_detail.tif");
     const auto output_path = output_dir / filename;
 
     const auto srgbImageCpu = srgbImage->mapImage();
@@ -315,9 +315,9 @@ int main(int argc, const char * argv[]) {
     if (argc > 1) {
         auto input_path = std::filesystem::path(argv[1]);
 
-        demosaicFile(&rawConverter, input_path);
+        // demosaicFile(&rawConverter, input_path);
 
-        // demosaicDirectory(&rawConverter, input_path);
+        demosaicDirectory(&rawConverter, input_path);
 
         // fmenApplyToFile(&rawConverter, input_path, &icc_profile_data);
 

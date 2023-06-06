@@ -65,6 +65,8 @@ struct rawImageSobelKernel {
 
 struct gradientOrientationKernel {
     Kernel<MTL::Texture*,  // gradientImage
+           MTL::Texture*,  // scaledOrientationImage
+           float,          // scaleMix
            int,            // samples
            MTL::Buffer*,   // weights
            MTL::Texture*   // outputImage
@@ -74,14 +76,17 @@ struct gradientOrientationKernel {
 
     gradientOrientationKernel(MetalContext* context, float radius) :
     kernel(context, "orientationImage"),
-    weightsBuffer(context->device(), gaussianKernelBilinearWeights(radius))
+    weightsBuffer(context->device(), boxKernelBilinearWeights(radius))
     { }
 
     void operator() (MetalContext* context,
                      const gls::mtl_image_2d<gls::pixel_float2>& sobelImage,
+                     const gls::mtl_image_2d<gls::pixel_float4>& scaledOrientationImage,
+                     float scaleMix,
                      gls::mtl_image_2d<gls::pixel_float4>* outputImage) {
         kernel(context, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
-               sobelImage.texture(), (int) weightsBuffer.size(), weightsBuffer.buffer(), outputImage->texture());
+               sobelImage.texture(), scaledOrientationImage.texture(), scaleMix,
+               (int) weightsBuffer.size(), weightsBuffer.buffer(), outputImage->texture());
     }
 };
 
@@ -432,7 +437,6 @@ struct subtractNoiseImageKernel {
            MTL::Texture*,  // inputImage1
            MTL::Texture*,  // inputImageDenoised1
            MTL::Texture*,  // gradientImage
-           float,          // luma_weight
            float,          // sharpening
            simd::float2,   // nlf
            MTL::Texture*   // outputImage
@@ -445,11 +449,12 @@ struct subtractNoiseImageKernel {
                      const gls::mtl_image_2d<gls::pixel_float4>& inputImage1,
                      const gls::mtl_image_2d<gls::pixel_float4>& inputImageDenoised1,
                      const gls::mtl_image_2d<gls::pixel_float4>& gradientImage,
-                     float luma_weight, float sharpening, const gls::Vector<2>& nlf,
+                     float sharpening, const gls::Vector<2>& nlf,
                      gls::mtl_image_2d<gls::pixel_float4>* outputImage) {
+        std::cout << "sharpening: " << sharpening << std::endl;
         kernel(context, /*gridSize=*/ MTL::Size(outputImage->width, outputImage->height, 1),
                inputImage.texture(), inputImage1.texture(), inputImageDenoised1.texture(),
-               gradientImage.texture(), luma_weight, sharpening, simd::float2 { nlf[0], nlf[1] },
+               gradientImage.texture(), sharpening, simd::float2 { nlf[0], nlf[1] },
                outputImage->texture());
     }
 

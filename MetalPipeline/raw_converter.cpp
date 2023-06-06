@@ -77,6 +77,7 @@ gls::mtl_image_2d<gls::pixel_float4>* RawConverter::denoise(const gls::mtl_image
                     /*var_a=*/np.first,
                     /*var_b=*/np.second, _linearRGBImageB.get());
 
+    // FIXME: _rawGradientImage is not used
     gls::mtl_image_2d<gls::pixel_float4>* denoisedImage = _pyramidProcessor->denoise(&_mtlContext, &(demosaicParameters->denoiseParameters),
                                                                                          *_linearRGBImageB, *_rawGradientImage,
                                                                                          &noiseModel->pyramidNlf,
@@ -108,7 +109,8 @@ gls::mtl_image_2d<gls::pixel_float4>* RawConverter::denoise(const gls::mtl_image
             _pyramidProcessor->denoisedImagePyramid[2].get(),
             _pyramidProcessor->denoisedImagePyramid[0].get()
         };
-        _localToneMapping->createMask(&_mtlContext, *denoisedImage, *_rawGradientImage, guideImage, *noiseModel,
+        // FIXME: we need a better way for passing the gradient around
+        _localToneMapping->createMask(&_mtlContext, *denoisedImage, *_pyramidProcessor->orientationPyramid[0] /* *_rawGradientImage */, guideImage, *noiseModel,
                                       demosaicParameters->ltmParameters, _histogramImage.buffer());
     }
 
@@ -235,7 +237,9 @@ gls::mtl_image_2d<gls::pixel_float4>* RawConverter::demosaic(const gls::image<gl
                   demosaicParameters->lensShadingCorrection);
 
     _rawImageSobel(context, *_scaledRawImage, _rawSobelImage.get());
-    _gradientOrientationKernel(context, *_rawSobelImage, _rawGradientImage.get());
+    // _gradientOrientationKernel(context, *_rawSobelImage, _rawGradientImage.get());
+
+    const auto rawGradientImage = _pyramidProcessor->buildGradientPyramid(context, *_rawSobelImage);
 
     NoiseModel<5>* noiseModel = &demosaicParameters->noiseModel;
     if (_calibrateFromImage) {
@@ -247,19 +251,19 @@ gls::mtl_image_2d<gls::pixel_float4>* RawConverter::demosaic(const gls::image<gl
 
 //    context->waitForCompletion();
 //    writeGradientImage(*_rawSobelImage, "/Users/fabio/sobel.png");
-//    writeGradientImage(*_rawGradientImage, "/Users/fabio/gradient.png");
-//    // writeGradientImage(*_rawOrientationImage, "/Users/fabio/orientation.png");
+//    writeGradientImage(*rawGradientImage, "/Users/fabio/gradient.png");
+    // writeGradientImage(*_rawOrientationImage, "/Users/fabio/orientation.png");
 
     if (high_noise_image) {
         _bayerToRawRGBA(context, *_scaledRawImage, _rgbaRawImage.get(), demosaicParameters->bayerPattern);
 
-        _despeckleRawRGBAImage(context, *_rgbaRawImage, *_rawGradientImage, noiseModel->rawNlf.second, _denoisedRgbaRawImage.get());
+        _despeckleRawRGBAImage(context, *_rgbaRawImage, *rawGradientImage, noiseModel->rawNlf.second, _denoisedRgbaRawImage.get());
         _crossDenoiseRawRGBAImage(context, *_denoisedRgbaRawImage, noiseModel->rawNlf.second, demosaicParameters->rawDenoiseParameters.strength, _rgbaRawImage.get());
 
         _rawRGBAToBayer(context, *_rgbaRawImage, _scaledRawImage.get(), demosaicParameters->bayerPattern);
     }
 
-    _demosaicImage(context, *_scaledRawImage, *_rawGradientImage,
+    _demosaicImage(context, *_scaledRawImage, *rawGradientImage,
                    _greenImage.get(), /*rgbImageTmp=*/ _linearRGBImageB.get(), _linearRGBImageA.get(),
                    demosaicParameters->bayerPattern, rawVariance);
 

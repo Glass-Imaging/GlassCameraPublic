@@ -28,6 +28,7 @@ PyramidProcessor<levels>::PyramidProcessor(MetalContext* context, int _width, in
     _collectPatches(context),
     _pcaProjection(context),
     _blockMatchingDenoiseImage(context),
+    _gradientOrientationKernel(context, 4.5),
     _subtractNoiseImage(context),
     _resampleImage(context, "downsampleImageXYZ"),
     _resampleGradientImage(context, "downsampleImageXY"),
@@ -37,13 +38,18 @@ PyramidProcessor<levels>::PyramidProcessor(MetalContext* context, int _width, in
     auto mtlDevice = context->device();
     for (int i = 0, scale = 2; i < levels - 1; i++, scale *= 2) {
         imagePyramid[i] = std::make_unique<imageType>(mtlDevice, width / scale, height / scale);
-        gradientPyramid[i] = std::make_unique<gls::mtl_image_2d<gls::pixel_float4>>(
-            mtlDevice, width / scale, height / scale);
+//        gradientPyramid[i] = std::make_unique<gls::mtl_image_2d<gls::pixel_float4>>(
+//            mtlDevice, width / scale, height / scale);
+
+        sobelPyramid[i] = std::make_unique<gls::mtl_image_2d<gls::pixel_float2>>(mtlDevice, width / scale, height / scale);
     }
     for (int i = 0, scale = 1; i < levels; i++, scale *= 2) {
         denoisedImagePyramid[i] = std::make_unique<imageType>(mtlDevice, width / scale, height / scale);
         subtractedImagePyramid[i] = std::make_unique<imageType>(mtlDevice, width / scale, height / scale);
         pcaImagePyramid[i] = std::make_unique<gls::mtl_image_2d<gls::pixel<uint32_t, 4>>>(mtlDevice, width / scale, height / scale);
+
+        subtractedSobelPyramid[i] = std::make_unique<gls::mtl_image_2d<gls::pixel_float2>>(mtlDevice, width / scale, height / scale);
+        orientationPyramid[i] = std::make_unique<gls::mtl_image_2d<gls::pixel_float4>>(mtlDevice, width / scale, height / scale);
     }
 
     pcaPatches = std::make_unique<gls::Buffer<std::array<float, pcaPatchSize>>>(context->device(), width * height / 64);
@@ -73,9 +79,34 @@ void dumpYCbCrImage(const gls::mtl_image_2d<gls::rgba_pixel_float>& image) {
     out.write_png_file("/Users/fabio/pyramid_7x7" + std::to_string(count++) + ".png");
 }
 
-void dumpGradientImage(const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& image);
-
 #endif  // DEBUG_PYRAMID
+
+template <typename T>
+static void writeGradientImageX(const gls::mtl_image_2d<T>& image, const std::string& path) {
+    gls::image<gls::rgb_pixel> out(image.width, image.height);
+    const auto image_cpu = image.mapImage();
+    out.apply([&](gls::rgb_pixel* p, int x, int y) {
+        const auto& ip = (*image_cpu)[y][x];
+
+        float direction = std::atan2(std::abs(ip.y), std::abs(ip.x)) / M_PI_2;
+        float magnitude = std::sqrt((float)(ip.x * ip.x + ip.y * ip.y));
+
+        uint8_t val = std::clamp(255 * std::sqrt(magnitude), 0.0f, 255.0f);
+
+        *p = gls::rgb_pixel{
+            (uint8_t)(val * std::lerp(1.0f, 0.0f, direction)),
+            0,
+            (uint8_t)(val * std::lerp(1.0f, 0.0f, 1 - direction)),
+        };
+
+//        *p = gls::rgb_pixel{
+//            (uint8_t)(255 * ip.z),
+//            (uint8_t)(255 * ip.z),
+//            (uint8_t)(255 * ip.z)
+//        };
+    });
+    out.write_png_file(path);
+}
 
 void savePatchMap(const gls::mtl_image_2d<gls::pixel_float4>& denoisedImage) {
     gls::image<gls::luma_pixel> out(denoisedImage.width, denoisedImage.height);
@@ -89,8 +120,34 @@ void savePatchMap(const gls::mtl_image_2d<gls::pixel_float4>& denoisedImage) {
     out.write_png_file("/Users/fabio/patch_map" + std::to_string(count++) + ".png");
 }
 
-// TODO: Make this a tunable
-static const constexpr float lumaDenoiseWeight[4] = {1, 1, 1, 1};
+template <size_t levels>
+gls::mtl_image_2d<gls::pixel_float4>* PyramidProcessor<levels>::buildGradientPyramid(MetalContext* context,
+                                                                                     const gls::mtl_image_2d<gls::pixel_float2>& sobelImage) {
+    for (int i = 0; i < levels - 1; i++) {
+        const auto currentLayer = i > 0 ? sobelPyramid[i - 1].get() : &sobelImage;
+
+        // Generate next layer in the pyramid
+        _resampleGradientImage(context, *currentLayer, sobelPyramid[i].get());
+    }
+
+    // Denoise pyramid layers from the bottom to the top, subtracting the noise of the previous layer from the next
+    for (int i = levels - 1; i >= 0; i--) {
+        const auto denoiseInput = i > 0 ? sobelPyramid[i - 1].get() : &sobelImage;
+        const bool bottom_layer = i == levels - 1;
+        const auto scaledOrientation = bottom_layer ? *orientationPyramid[i] : *orientationPyramid[i + 1];
+
+        _gradientOrientationKernel(context, *denoiseInput,
+                                   scaledOrientation,
+                                   bottom_layer ? 0 : 0, orientationPyramid[i].get());
+
+//        context->waitForCompletion();
+//        static int count = 1;
+//        writeGradientImageX(scaledOrientation, "/Users/fabio/scaledOrientation" + std::to_string(count++) + ".png");
+//        writeGradientImageX(*orientationPyramid[i], "/Users/fabio/orientationPyramid" + std::to_string(count++) + ".png");
+    }
+
+    return orientationPyramid[0].get();
+}
 
 template <size_t levels>
 typename PyramidProcessor<levels>::imageType* PyramidProcessor<levels>::denoise(
@@ -102,12 +159,10 @@ typename PyramidProcessor<levels>::imageType* PyramidProcessor<levels>::denoise(
     // Create gaussian image pyramid an setup noise model
     for (int i = 0; i < levels; i++) {
         const auto currentLayer = i > 0 ? imagePyramid[i - 1].get() : &image;
-        const auto currentGradientLayer = i > 0 ? gradientPyramid[i - 1].get() : &gradientImage;
 
         if (i < levels - 1) {
             // Generate next layer in the pyramid
             _resampleImage(context, *currentLayer, imagePyramid[i].get());
-            _resampleImage(context, *currentGradientLayer, gradientPyramid[i].get());
         }
 
         if (calibrateFromImage) {
@@ -122,13 +177,13 @@ typename PyramidProcessor<levels>::imageType* PyramidProcessor<levels>::denoise(
     // Denoise pyramid layers from the bottom to the top, subtracting the noise of the previous layer from the next
     for (int i = levels - 1; i >= 0; i--) {
         const auto denoiseInput = i > 0 ? imagePyramid[i - 1].get() : &image;
-        const auto gradientInput = i > 0 ? gradientPyramid[i - 1].get() : &gradientImage;
+        const auto gradientInput = orientationPyramid[i].get(); // i > 0 ? gradientPyramid[i - 1].get() : &gradientImage;
 
         if (i < levels - 1) {
             const auto np = YCbCrNLF{(*nlfParameters)[i].first * thresholdMultipliers[i],
                                      (*nlfParameters)[i].second * thresholdMultipliers[i]};
             _subtractNoiseImage(context, *denoiseInput, *(imagePyramid[i]), *(denoisedImagePyramid[i + 1]),
-                                *gradientInput, lumaDenoiseWeight[i], (*denoiseParameters)[i].sharpening,
+                                *gradientInput, (*denoiseParameters)[i].sharpening,
                                 {np.first[0], np.second[0]}, subtractedImagePyramid[i].get());
         }
 

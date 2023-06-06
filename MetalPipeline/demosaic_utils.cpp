@@ -1006,3 +1006,26 @@ std::vector<std::array<float, 3>> gaussianKernelBilinearWeights(float radius) {
 
     return weightsOut;
 }
+
+std::vector<std::array<float, 3>> boxKernelBilinearWeights(float radius) {
+    int kernelSize = std::max((int)(ceil(2 * radius)), 2);
+    if ((kernelSize % 2) == 0) {
+        kernelSize++;
+    }
+
+    std::cout << "radius " << radius << ", kernelSize: " << kernelSize << std::endl;
+
+    std::vector<float> weights(kernelSize * kernelSize);
+    for (int y = -kernelSize / 2, i = 0; y <= kernelSize / 2; y++) {
+        for (int x = -kernelSize / 2; x <= kernelSize / 2; x++, i++) {
+            weights[i] = 1;
+        }
+    }
+
+    const int outWidth = kernelSize / 2 + 1;
+    const int weightsCount = outWidth * outWidth;
+    std::vector<std::array<float, 3>> weightsOut(weightsCount);
+    KernelOptimizeBilinear2d(kernelSize, weights, &weightsOut);
+
+    return weightsOut;
+}
