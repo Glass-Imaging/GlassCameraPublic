@@ -23,13 +23,13 @@
 #include "demosaic_kernels.hpp"
 
 class LocalToneMapping {
-    gls::mtl_image_2d<gls::luma_pixel_float>::unique_ptr ltmMaskImage;
-    gls::mtl_image_2d<gls::luma_alpha_pixel_float>::unique_ptr lfAbGfImage;
-    gls::mtl_image_2d<gls::luma_alpha_pixel_float>::unique_ptr lfAbGfMeanImage;
-    gls::mtl_image_2d<gls::luma_alpha_pixel_float>::unique_ptr mfAbGfImage;
-    gls::mtl_image_2d<gls::luma_alpha_pixel_float>::unique_ptr mfAbGfMeanImage;
-    gls::mtl_image_2d<gls::luma_alpha_pixel_float>::unique_ptr hfAbGfImage;
-    gls::mtl_image_2d<gls::luma_alpha_pixel_float>::unique_ptr hfAbGfMeanImage;
+    gls::mtl_image_2d<gls::pixel_float>::unique_ptr ltmMaskImage;
+    gls::mtl_image_2d<gls::pixel_float2>::unique_ptr lfAbGfImage;
+    gls::mtl_image_2d<gls::pixel_float2>::unique_ptr lfAbGfMeanImage;
+    gls::mtl_image_2d<gls::pixel_float2>::unique_ptr mfAbGfImage;
+    gls::mtl_image_2d<gls::pixel_float2>::unique_ptr mfAbGfMeanImage;
+    gls::mtl_image_2d<gls::pixel_float2>::unique_ptr hfAbGfImage;
+    gls::mtl_image_2d<gls::pixel_float2>::unique_ptr hfAbGfMeanImage;
 
     localToneMappingMaskKernel _localToneMappingMask;
 
@@ -37,35 +37,35 @@ class LocalToneMapping {
     LocalToneMapping(MetalContext* context) :
         _localToneMappingMask(context) {
         // Placeholder, only allocated if LTM is used
-        ltmMaskImage = std::make_unique<gls::mtl_image_2d<gls::luma_pixel_float>>(context->device(), 1, 1);
+        ltmMaskImage = std::make_unique<gls::mtl_image_2d<gls::pixel_float>>(context->device(), 1, 1);
     }
 
     void allocateTextures(MetalContext* context, int width, int height) {
         auto mtlDevice = context->device();
 
         if (ltmMaskImage->width != width || ltmMaskImage->height != height) {
-            ltmMaskImage = std::make_unique<gls::mtl_image_2d<gls::luma_pixel_float>>(mtlDevice, width, height);
+            ltmMaskImage = std::make_unique<gls::mtl_image_2d<gls::pixel_float>>(mtlDevice, width, height);
             lfAbGfImage =
-                std::make_unique<gls::mtl_image_2d<gls::luma_alpha_pixel_float>>(mtlDevice, width / 16, height / 16);
+                std::make_unique<gls::mtl_image_2d<gls::pixel_float2>>(mtlDevice, width / 16, height / 16);
             lfAbGfMeanImage =
-                std::make_unique<gls::mtl_image_2d<gls::luma_alpha_pixel_float>>(mtlDevice, width / 16, height / 16);
+                std::make_unique<gls::mtl_image_2d<gls::pixel_float2>>(mtlDevice, width / 16, height / 16);
             mfAbGfImage =
-                std::make_unique<gls::mtl_image_2d<gls::luma_alpha_pixel_float>>(mtlDevice, width / 4, height / 4);
+                std::make_unique<gls::mtl_image_2d<gls::pixel_float2>>(mtlDevice, width / 4, height / 4);
             mfAbGfMeanImage =
-                std::make_unique<gls::mtl_image_2d<gls::luma_alpha_pixel_float>>(mtlDevice, width / 4, height / 4);
-            hfAbGfImage = std::make_unique<gls::mtl_image_2d<gls::luma_alpha_pixel_float>>(mtlDevice, width, height);
-            hfAbGfMeanImage = std::make_unique<gls::mtl_image_2d<gls::luma_alpha_pixel_float>>(mtlDevice, width, height);
+                std::make_unique<gls::mtl_image_2d<gls::pixel_float2>>(mtlDevice, width / 4, height / 4);
+            hfAbGfImage = std::make_unique<gls::mtl_image_2d<gls::pixel_float2>>(mtlDevice, width, height);
+            hfAbGfMeanImage = std::make_unique<gls::mtl_image_2d<gls::pixel_float2>>(mtlDevice, width, height);
         }
     }
 
-    void createMask(MetalContext* context, const gls::mtl_image_2d<gls::rgba_pixel_float>& image,
-                    const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& gradientImage,
-                    const std::array<const gls::mtl_image_2d<gls::rgba_pixel_float>*, 3>& guideImage,
+    void createMask(MetalContext* context, const gls::mtl_image_2d<gls::pixel_float4>& image,
+                    const gls::mtl_image_2d<gls::pixel_float2>& gradientImage,
+                    const std::array<const gls::mtl_image_2d<gls::pixel_float4>*, 3>& guideImage,
                     const NoiseModel<5>& noiseModel, const LTMParameters& ltmParameters,
                     MTL::Buffer* histogramBuffer) {
-        const std::array<const gls::mtl_image_2d<gls::luma_alpha_pixel_float>*, 3>& abImage = {
+        const std::array<const gls::mtl_image_2d<gls::pixel_float2>*, 3>& abImage = {
             lfAbGfImage.get(), mfAbGfImage.get(), hfAbGfImage.get()};
-        const std::array<const gls::mtl_image_2d<gls::luma_alpha_pixel_float>*, 3>& abMeanImage = {
+        const std::array<const gls::mtl_image_2d<gls::pixel_float2>*, 3>& abMeanImage = {
             lfAbGfMeanImage.get(), mfAbGfMeanImage.get(), hfAbGfMeanImage.get()};
 
         gls::Vector<2> nlf = {noiseModel.pyramidNlf[0].first[0], noiseModel.pyramidNlf[0].second[0]};
@@ -74,7 +74,7 @@ class LocalToneMapping {
                               nlf, histogramBuffer, ltmMaskImage.get());
     }
 
-    const gls::mtl_image_2d<gls::luma_pixel_float>& getMask() { return *ltmMaskImage; }
+    const gls::mtl_image_2d<gls::pixel_float>& getMask() { return *ltmMaskImage; }
 };
 
 class RawConverter {
@@ -83,22 +83,22 @@ class RawConverter {
     gls::size _rawImageSize;
 
     gls::mtl_image_2d<gls::luma_pixel_16>::unique_ptr _rawImage;
-    gls::mtl_image_2d<gls::luma_pixel_float>::unique_ptr _scaledRawImage;
-    gls::mtl_image_2d<gls::rgba_pixel_float>::unique_ptr _rawSobelImage;
-    gls::mtl_image_2d<gls::luma_alpha_pixel_float>::unique_ptr _rawGradientImage;
-    gls::mtl_image_2d<gls::luma_pixel_float>::unique_ptr _greenImage;
-    gls::mtl_image_2d<gls::rgba_pixel_float>::unique_ptr _linearRGBImageA;
-    gls::mtl_image_2d<gls::rgba_pixel_float>::unique_ptr _linearRGBImageB;
-    gls::mtl_image_2d<gls::luma_pixel_float>::unique_ptr _ltmMaskImage;
+    gls::mtl_image_2d<gls::pixel_float>::unique_ptr _scaledRawImage;
+    gls::mtl_image_2d<gls::pixel_float4>::unique_ptr _rawSobelImage;
+    gls::mtl_image_2d<gls::pixel_float2>::unique_ptr _rawGradientImage;
+    gls::mtl_image_2d<gls::pixel_float>::unique_ptr _greenImage;
+    gls::mtl_image_2d<gls::pixel_float4>::unique_ptr _linearRGBImageA;
+    gls::mtl_image_2d<gls::pixel_float4>::unique_ptr _linearRGBImageB;
+    gls::mtl_image_2d<gls::pixel_float>::unique_ptr _ltmMaskImage;
 
-    gls::mtl_image_2d<gls::rgba_pixel_float>::unique_ptr _meanImage;
-    gls::mtl_image_2d<gls::rgba_pixel_float>::unique_ptr _varImage;
+    gls::mtl_image_2d<gls::pixel_float4>::unique_ptr _meanImage;
+    gls::mtl_image_2d<gls::pixel_float4>::unique_ptr _varImage;
 
     // RawConverter HighNoise textures
-    gls::mtl_image_2d<gls::rgba_pixel_float>::unique_ptr _rgbaRawImage;
-    gls::mtl_image_2d<gls::rgba_pixel_float>::unique_ptr _denoisedRgbaRawImage;
+    gls::mtl_image_2d<gls::pixel_float4>::unique_ptr _rgbaRawImage;
+    gls::mtl_image_2d<gls::pixel_float4>::unique_ptr _denoisedRgbaRawImage;
 
-    std::array<gls::mtl_image_2d<gls::rgba_pixel_float>::unique_ptr, 4> _ltmImagePyramid;
+    std::array<gls::mtl_image_2d<gls::pixel_float4>::unique_ptr, 4> _ltmImagePyramid;
 
     std::unique_ptr<PyramidProcessor<5>> _pyramidProcessor;
 
@@ -173,11 +173,11 @@ public:
 
     void allocateLtmImagePyramid(const gls::size& imageSize);
 
-    gls::mtl_image_2d<gls::rgba_pixel_float>* denoise(const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage, DemosaicParameters* demosaicParameters);
+    gls::mtl_image_2d<gls::pixel_float4>* denoise(const gls::mtl_image_2d<gls::pixel_float4>& inputImage, DemosaicParameters* demosaicParameters);
 
-    gls::mtl_image_2d<gls::rgba_pixel_float>* demosaic(const gls::image<gls::luma_pixel_16>& rawImage, DemosaicParameters* demosaicParameters);
+    gls::mtl_image_2d<gls::pixel_float4>* demosaic(const gls::image<gls::luma_pixel_16>& rawImage, DemosaicParameters* demosaicParameters);
 
-    gls::mtl_image_2d<gls::rgba_pixel_float>* postprocess(gls::image<gls::rgba_pixel_float>& rgbImage, DemosaicParameters* demosaicParameters);
+    gls::mtl_image_2d<gls::pixel_float4>* postprocess(gls::image<gls::pixel_float4>& rgbImage, DemosaicParameters* demosaicParameters);
 
     RawNLF MeasureRawNLF(float exposure_multiplier, BayerPattern bayerPattern);
 };

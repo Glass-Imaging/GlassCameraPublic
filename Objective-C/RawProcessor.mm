@@ -76,8 +76,8 @@ static std::unique_ptr<RawConverter> _rawConverter = nullptr;
  Note: This really fast but it is just a wrapper around the gls::image data, which itself wraps a MTL::Buffer
        This method is not reentrant and the pipeline should not be invoked till the PixelBuffer is released
  */
-CVPixelBufferRef CVPixelBufferFromFP16ImageBytes(const gls::image<gls::rgba_pixel_fp16>& image) {
-    auto bytesPerRow = image.stride * sizeof(gls::rgba_pixel_fp16);
+CVPixelBufferRef CVPixelBufferFromFP16ImageBytes(const gls::image<gls::pixel_fp16_4>& image) {
+    auto bytesPerRow = image.stride * sizeof(gls::pixel_fp16_4);
     CVPixelBufferRef pixelBuffer = nullptr;
     CVReturn ret = CVPixelBufferCreateWithBytes(kCFAllocatorDefault, image.width, image.height, kCVPixelFormatType_64RGBAHalf,
                                                 image.pixels().data(), bytesPerRow, nullptr, nullptr, nullptr, &pixelBuffer);
@@ -87,9 +87,9 @@ CVPixelBufferRef CVPixelBufferFromFP16ImageBytes(const gls::image<gls::rgba_pixe
 
 // Not used, in case we want to make a copy of the pixelBuffer data
 template <typename pixel_type>
-CVPixelBufferRef buildCVPixelBuffer(const gls::image<gls::rgba_pixel_float>& rgbImage) {
+CVPixelBufferRef buildCVPixelBuffer(const gls::image<gls::pixel_float4>& rgbImage) {
     typename pixel_type::value_type max_value =
-        std::is_same<pixel_type, gls::rgba_pixel_fp16>::value ? 1.0 :
+        std::is_same<pixel_type, gls::pixel_fp16_4>::value ? 1.0 :
             std::numeric_limits<typename pixel_type::value_type>::max();
 
     OSType pixelFormatType;
@@ -97,7 +97,7 @@ CVPixelBufferRef buildCVPixelBuffer(const gls::image<gls::rgba_pixel_float>& rgb
         pixelFormatType = kCVPixelFormatType_24RGB;
     } else if (std::is_same<pixel_type, gls::rgba_pixel_16>::value) {
         pixelFormatType = kCVPixelFormatType_64RGBALE;
-    } else if (std::is_same<pixel_type, gls::rgba_pixel_fp16>::value) {
+    } else if (std::is_same<pixel_type, gls::pixel_fp16_4>::value) {
         pixelFormatType = kCVPixelFormatType_64RGBAHalf;
     } else {
         std::cerr << "Unexpected pixel type." << std::endl;
@@ -295,7 +295,7 @@ CVPixelBufferRef buildCVPixelBuffer(const gls::image<gls::rgba_pixel_float>& rgb
               << " scale, isoSpeedRating: " << isoSpeedRating << ", exposureTime: " << exposureTime << std::endl;
 
     // Result Image
-    gls::image<gls::rgba_pixel_fp16> processedImage((int) width, (int) height);
+    gls::image<gls::pixel_fp16_4> processedImage((int) width, (int) height);
 
     // Apply model to image
     fmenApplyToImage(rawImage, whiteLevel, &processedImage);
@@ -307,7 +307,7 @@ CVPixelBufferRef buildCVPixelBuffer(const gls::image<gls::rgba_pixel_float>& rgb
     CVPixelBufferUnlockBaseAddress(rawPixelBuffer, 0);
 
     // Copy the result data to a pixelBuffer
-    CVPixelBufferRef pixelBuffer = buildCVPixelBuffer<gls::rgba_pixel_fp16>(*srgbImageCpu);
+    CVPixelBufferRef pixelBuffer = buildCVPixelBuffer<gls::pixel_fp16_4>(*srgbImageCpu);
 
     return pixelBuffer;
 }

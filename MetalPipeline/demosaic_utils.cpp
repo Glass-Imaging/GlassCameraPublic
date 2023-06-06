@@ -511,7 +511,7 @@ void colorCheckerRawStats(const gls::image<gls::luma_pixel_16>& rawImage, float 
 }
 
 // Collect mean and variance of ColorChecker patches
-void colorCheckerStats(gls::image<gls::rgba_pixel_float>* image, const gls::rectangle& gmb_position, bool rotate_180,
+void colorCheckerStats(gls::image<gls::pixel_float4>* image, const gls::rectangle& gmb_position, bool rotate_180,
                        std::array<PatchStats, 24>* stats) {
     LOG_INFO(TAG) << "colorCheckerStats rectangle: " << gmb_position.x << ", " << gmb_position.y << ", "
                   << gmb_position.width << ", " << gmb_position.height << std::endl;
@@ -597,7 +597,7 @@ std::pair<float, float> linear_regression(const gls::Vector<N>& x, const gls::Ve
 }
 
 // Estimate the Sensor's Noise Level Function (NLF: variance vs intensity), which is linear going through zero
-gls::Vector<3> estimateNlfParameters(gls::image<gls::rgba_pixel_float>* image, const gls::rectangle& gmb_position,
+gls::Vector<3> estimateNlfParameters(gls::image<gls::pixel_float4>* image, const gls::rectangle& gmb_position,
                                      bool rotate_180) {
     std::array<PatchStats, 24> stats;
     colorCheckerStats(image, gmb_position, rotate_180, &stats);
@@ -688,7 +688,7 @@ RawNLF estimateRawParameters(const gls::image<gls::luma_pixel_16>& rawImage, gls
             {nlf_r.second, nlf_g.second, nlf_b.second, nlf_g2.second}};
 }
 
-gls::Vector<3> extractNlfFromColorChecker(gls::image<gls::rgba_pixel_float>* yCbCrImage,
+gls::Vector<3> extractNlfFromColorChecker(gls::image<gls::pixel_float4>* yCbCrImage,
                                           const gls::rectangle gmb_position, bool rotate_180, int scale) {
     const gls::rectangle position = {
         (int)round(gmb_position.x / (float)scale), (int)round(gmb_position.y / (float)scale),

@@ -25,7 +25,7 @@
 #import "FMEN.h"
 #endif
 
-void fmenApplyToImageFullRes(const gls::image<gls::luma_pixel_16>& rawImage, int whiteLevel, gls::image<gls::rgba_pixel_fp16>* processedImage) {
+void fmenApplyToImageFullRes(const gls::image<gls::luma_pixel_16>& rawImage, int whiteLevel, gls::image<gls::pixel_fp16_4>* processedImage) {
 #ifdef USE_FEMN_MODEL
     assert(rawImage.width == 4032 && rawImage.height == 3024);
 
@@ -92,7 +92,7 @@ void fmenApplyToImageFullRes(const gls::image<gls::luma_pixel_16>& rawImage, int
 #endif
 }
 
-void fmenApplyToImage(const gls::image<gls::luma_pixel_16>& rawImage, int whiteLevel, gls::image<gls::rgba_pixel_fp16>* processedImage) {
+void fmenApplyToImage(const gls::image<gls::luma_pixel_16>& rawImage, int whiteLevel, gls::image<gls::pixel_fp16_4>* processedImage) {
 #ifdef USE_FEMN_MODEL
     const int fmen_tile_size = 1072;
     const int fmen_tile_pixels = fmen_tile_size * fmen_tile_size;

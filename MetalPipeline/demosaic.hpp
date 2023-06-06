@@ -219,7 +219,7 @@ float unpackDNGMetadata(const gls::image<gls::luma_pixel_16>& rawImage, gls::tif
 
 gls::Matrix<3, 3> cam_ycbcr(const gls::Matrix<3, 3>& rgb_cam, const gls::Matrix<3, 3>& xyz_rgb);
 
-gls::Vector<3> extractNlfFromColorChecker(gls::image<gls::rgba_pixel_float>* yCbCrImage,
+gls::Vector<3> extractNlfFromColorChecker(gls::image<gls::pixel_float4>* yCbCrImage,
                                           const gls::rectangle gmb_position, bool rotate_180, int scale);
 
 gls::Matrix<3, 3> icc_profile_xyz_matrix(const std::vector<uint8_t>& icc_profile_data);

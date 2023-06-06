@@ -59,7 +59,7 @@ template
 void build_pca_space(const std::span<std::array<float, 25>>& patches,
                      std::array<std::array<float16_t, 8>, 25>* pca_space);
 
-void pca(const gls::image<gls::rgba_pixel_float>& input,
+void pca(const gls::image<gls::pixel_float4>& input,
          const std::span<std::array<float, 25>>& patches,
          const std::span<std::array<float, 25>>& patchesSmall,
          int patch_size, gls::image<std::array<gls::float16_t, 8>>* pca_image) {
@@ -243,9 +243,9 @@ void pca(const gls::image<pixel_type>& input, int channel, int patch_size, gls::
 }
 
 template
-void pca(const gls::image<gls::rgba_pixel_float>& input, int channel, int patch_size, gls::image<std::array<gls::float16_t, 8>>* pca_image);
+void pca(const gls::image<gls::pixel_float4>& input, int channel, int patch_size, gls::image<std::array<gls::float16_t, 8>>* pca_image);
 
-void pca4c(const gls::image<gls::rgba_pixel_float>& input, int patch_size, gls::image<std::array<gls::float16_t, 8>>* pca_image) {
+void pca4c(const gls::image<gls::pixel_float4>& input, int patch_size, gls::image<std::array<gls::float16_t, 8>>* pca_image) {
     std::cout << "PCA Begin" << std::endl;
 
     auto t_start = std::chrono::high_resolution_clock::now();

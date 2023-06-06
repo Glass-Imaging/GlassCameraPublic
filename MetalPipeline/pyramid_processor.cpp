@@ -37,7 +37,7 @@ PyramidProcessor<levels>::PyramidProcessor(MetalContext* context, int _width, in
     auto mtlDevice = context->device();
     for (int i = 0, scale = 2; i < levels - 1; i++, scale *= 2) {
         imagePyramid[i] = std::make_unique<imageType>(mtlDevice, width / scale, height / scale);
-        gradientPyramid[i] = std::make_unique<gls::mtl_image_2d<gls::luma_alpha_pixel_float>>(
+        gradientPyramid[i] = std::make_unique<gls::mtl_image_2d<gls::pixel_float2>>(
             mtlDevice, width / scale, height / scale);
     }
     for (int i = 0, scale = 1; i < levels; i++, scale *= 2) {
@@ -58,7 +58,7 @@ gls::Vector<3> nflMultiplier(const DenoiseParameters& denoiseParameters) {
 #if DEBUG_PYRAMID
 extern const gls::Matrix<3, 3> ycbcr_srgb;
 
-void dumpYCbCrImage(const gls::mtl_image_2d<gls::rgba_pixel_float>& image) {
+void dumpYCbCrImage(const gls::mtl_image_2d<gls::pixel_float4>& image) {
     gls::image<gls::rgb_pixel> out(image.width, image.height);
     const auto downsampledCPU = image.mapImage();
     out.apply([&downsampledCPU](gls::rgb_pixel* p, int x, int y) {
@@ -73,11 +73,11 @@ void dumpYCbCrImage(const gls::mtl_image_2d<gls::rgba_pixel_float>& image) {
     out.write_png_file("/Users/fabio/pyramid_7x7" + std::to_string(count++) + ".png");
 }
 
-void dumpGradientImage(const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& image);
+void dumpGradientImage(const gls::mtl_image_2d<gls::pixel_float2>& image);
 
 #endif  // DEBUG_PYRAMID
 
-void savePatchMap(const gls::mtl_image_2d<gls::rgba_pixel_float>& denoisedImage) {
+void savePatchMap(const gls::mtl_image_2d<gls::pixel_float4>& denoisedImage) {
     gls::image<gls::luma_pixel> out(denoisedImage.width, denoisedImage.height);
     const auto denoisedImageCPU = denoisedImage.mapImage();
     out.apply([&denoisedImageCPU](gls::luma_pixel* p, int x, int y) {
@@ -95,7 +95,7 @@ static const constexpr float lumaDenoiseWeight[4] = {1, 1, 1, 1};
 template <size_t levels>
 typename PyramidProcessor<levels>::imageType* PyramidProcessor<levels>::denoise(
     MetalContext* context, std::array<DenoiseParameters, levels>* denoiseParameters, const imageType& image,
-    const gls::mtl_image_2d<gls::luma_alpha_pixel_float>& gradientImage, std::array<YCbCrNLF, levels>* nlfParameters,
+    const gls::mtl_image_2d<gls::pixel_float2>& gradientImage, std::array<YCbCrNLF, levels>* nlfParameters,
     float exposure_multiplier, float lensShadingCorrection, bool calibrateFromImage) {
     std::array<gls::Vector<3>, levels> thresholdMultipliers;
 
@@ -173,8 +173,8 @@ typename PyramidProcessor<levels>::imageType* PyramidProcessor<levels>::denoise(
 
 template <size_t levels>
 YCbCrNLF PyramidProcessor<levels>::MeasureYCbCrNLF(MetalContext* context,
-                                                   const gls::mtl_image_2d<gls::rgba_pixel_float>& inputImage,
-                                                   gls::mtl_image_2d<gls::rgba_pixel_float> *noiseStats,
+                                                   const gls::mtl_image_2d<gls::pixel_float4>& inputImage,
+                                                   gls::mtl_image_2d<gls::pixel_float4> *noiseStats,
                                                    float exposure_multiplier) {
     assert(inputImage.size() == noiseStats->size());
 
@@ -187,7 +187,7 @@ YCbCrNLF PyramidProcessor<levels>::MeasureYCbCrNLF(MetalContext* context,
     using double3 = gls::DVector<3>;
 
     gls::DVector<6> varianceHistogram = {0, 0, 0, 0, 0, 0};   // 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1
-    noiseStatsCpu->apply([&](const gls::rgba_pixel_float& ns, int x, int y) {
+    noiseStatsCpu->apply([&](const gls::pixel_float4& ns, int x, int y) {
         double3 v = {ns[1], ns[2], ns[3]};
 
         bool validStats = !any(isnan(v)) && all(v > double3(0.0));
@@ -220,7 +220,7 @@ YCbCrNLF PyramidProcessor<levels>::MeasureYCbCrNLF(MetalContext* context,
     double3 s_xy = 0;
 
     double N = 0;
-    noiseStatsCpu->apply([&](const gls::rgba_pixel_float& ns, int x, int y) {
+    noiseStatsCpu->apply([&](const gls::pixel_float4& ns, int x, int y) {
         double m = ns[0];
         double3 v = {ns[1], ns[2], ns[3]};
 
@@ -241,7 +241,7 @@ YCbCrNLF PyramidProcessor<levels>::MeasureYCbCrNLF(MetalContext* context,
 
     // Estimate regression mean square error
     double3 err2 = 0;
-    noiseStatsCpu->apply([&](const gls::rgba_pixel_float& ns, int x, int y) {
+    noiseStatsCpu->apply([&](const gls::pixel_float4& ns, int x, int y) {
         double m = ns[0];
         double3 v = {ns[1], ns[2], ns[3]};
 
@@ -266,7 +266,7 @@ YCbCrNLF PyramidProcessor<levels>::MeasureYCbCrNLF(MetalContext* context,
     N = 0;
     double3 newErr2 = 0;
     int discarded = 0;
-    noiseStatsCpu->apply([&](const gls::rgba_pixel_float& ns, int x, int y) {
+    noiseStatsCpu->apply([&](const gls::pixel_float4& ns, int x, int y) {
         double m = ns[0];
         double3 v = {ns[1], ns[2], ns[3]};
 
