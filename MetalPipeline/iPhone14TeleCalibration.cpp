@@ -73,7 +73,7 @@ public:
 
         std::cout << "iPhone 14 Tele DenoiseParameters nlf_alpha: " << nlf_alpha << ", ISO: " << iso << ", lerp: " << lerp << std::endl;
 
-        float lmult[5] = { 3, 1.5, 1, 1, 1 };
+        float lmult[5] = { 2, 1.5, 1, 1, 1 };
         float cmult[5] = { 1, 1, 1, 1, 1 };
 
         std::array<DenoiseParameters, 5> denoiseParameters = {{

@@ -39,6 +39,49 @@
 		E522296929CD646600D13A4F /* pyramid_processor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E522296629CD646600D13A4F /* pyramid_processor.cpp */; };
 		E522296D29D026DA00D13A4F /* iPhoneCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E522296C29D026DA00D13A4F /* iPhoneCalibration.cpp */; };
 		E522296E29D026DA00D13A4F /* iPhoneCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E522296C29D026DA00D13A4F /* iPhoneCalibration.cpp */; };
+		E526AC8E2A4A1AEA0026A239 /* SURF.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E526AC7C2A4A1AEA0026A239 /* SURF.cpp */; };
+		E526AC8F2A4A1AEA0026A239 /* SURF.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E526AC7C2A4A1AEA0026A239 /* SURF.cpp */; };
+		E526AC902A4A1AEA0026A239 /* LeastSquaresHomography.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E526AC7D2A4A1AEA0026A239 /* LeastSquaresHomography.cpp */; };
+		E526AC912A4A1AEA0026A239 /* LeastSquaresHomography.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E526AC7D2A4A1AEA0026A239 /* LeastSquaresHomography.cpp */; };
+		E526AC922A4A1AEA0026A239 /* SURF.metal in Sources */ = {isa = PBXBuildFile; fileRef = E526AC7E2A4A1AEA0026A239 /* SURF.metal */; };
+		E526AC932A4A1AEA0026A239 /* SURF.metal in Sources */ = {isa = PBXBuildFile; fileRef = E526AC7E2A4A1AEA0026A239 /* SURF.metal */; };
+		E526AC942A4A1AEA0026A239 /* Homography.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E526AC802A4A1AEA0026A239 /* Homography.cpp */; };
+		E526AC952A4A1AEA0026A239 /* Homography.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E526AC802A4A1AEA0026A239 /* Homography.cpp */; };
+		E526AC9D2A4A2CE90026A239 /* pyramidFusion.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E526AC9C2A4A2CE90026A239 /* pyramidFusion.cpp */; };
+		E526ACA12A4A2D600026A239 /* Homography.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E526AC802A4A1AEA0026A239 /* Homography.cpp */; };
+		E526ACA22A4A2D600026A239 /* SURF.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E526AC7C2A4A1AEA0026A239 /* SURF.cpp */; };
+		E526ACA32A4A2D600026A239 /* SURF.metal in Sources */ = {isa = PBXBuildFile; fileRef = E526AC7E2A4A1AEA0026A239 /* SURF.metal */; };
+		E526ACA42A4A2D600026A239 /* LeastSquaresHomography.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E526AC7D2A4A1AEA0026A239 /* LeastSquaresHomography.cpp */; };
+		E526ACA52A4A2D600026A239 /* gls_mtl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5FAE7AB29C50D2C00213AE6 /* gls_mtl.cpp */; };
+		E526ACA62A4A2D600026A239 /* demosaic.metal in Sources */ = {isa = PBXBuildFile; fileRef = E5C6984529C805B500F7062C /* demosaic.metal */; };
+		E526ACA72A4A2D600026A239 /* demosaic_utils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C6986529C9269400F7062C /* demosaic_utils.cpp */; };
+		E526ACA82A4A2D600026A239 /* PCA.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5E7CBA829DF593200067C0B /* PCA.cpp */; };
+		E526ACA92A4A2D600026A239 /* pyramid_processor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E522296629CD646600D13A4F /* pyramid_processor.cpp */; };
+		E526ACAA2A4A2D600026A239 /* raw_converter.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C6984B29C906FC00F7062C /* raw_converter.cpp */; };
+		E526ACAB2A4A2D600026A239 /* CameraCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C6986229C925A600F7062C /* CameraCalibration.cpp */; };
+		E526ACAC2A4A2D600026A239 /* Sonya6400Calibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C6986C29C926F100F7062C /* Sonya6400Calibration.cpp */; };
+		E526ACAD2A4A2D600026A239 /* CanonEOSR6IICalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E518E6E62A00A4AB0056E6BF /* CanonEOSR6IICalibration.cpp */; };
+		E526ACAE2A4A2D600026A239 /* CanonEOSRPCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C37E282A16D11800C6A689 /* CanonEOSRPCalibration.cpp */; };
+		E526ACAF2A4A2D600026A239 /* iPhoneCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E522296C29D026DA00D13A4F /* iPhoneCalibration.cpp */; };
+		E526ACB02A4A2D600026A239 /* iPhone14WideCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E518E6D429F9D1D10056E6BF /* iPhone14WideCalibration.cpp */; };
+		E526ACB12A4A2D600026A239 /* iPhone14SelfieCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C37E312A1C1B0C00C6A689 /* iPhone14SelfieCalibration.cpp */; };
+		E526ACB22A4A2D610026A239 /* iPhone14UltraWideCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C37E2B2A19C8D300C6A689 /* iPhone14UltraWideCalibration.cpp */; };
+		E526ACB32A4A2D610026A239 /* iPhone14TeleCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5E7CBAB29F4CA8300067C0B /* iPhone14TeleCalibration.cpp */; };
+		E526ACB42A4A2D610026A239 /* iPhone14TeleFMENCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E518E6DA29FC50D60056E6BF /* iPhone14TeleFMENCalibration.cpp */; };
+		E526ACB52A4A2D610026A239 /* ThreadPool.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C6986929C926CD00F7062C /* ThreadPool.cpp */; };
+		E526ACB62A4A2D610026A239 /* gls_color_science.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C5BFF229BD36B600AAB593 /* gls_color_science.cpp */; };
+		E526ACB72A4A2D610026A239 /* gls_dng_lossless_jpeg.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C5BFF829BD36B600AAB593 /* gls_dng_lossless_jpeg.cpp */; };
+		E526ACB82A4A2D610026A239 /* gls_image_jpeg.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C5BFF529BD36B600AAB593 /* gls_image_jpeg.cpp */; };
+		E526ACB92A4A2D610026A239 /* gls_image_png.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C5BFF329BD36B600AAB593 /* gls_image_png.cpp */; };
+		E526ACBA2A4A2D610026A239 /* gls_image_tiff.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C5BFF429BD36B600AAB593 /* gls_image_tiff.cpp */; };
+		E526ACBB2A4A2D610026A239 /* gls_logging.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C5BFF629BD36B600AAB593 /* gls_logging.cpp */; };
+		E526ACBC2A4A2D610026A239 /* gls_tiff_metadata.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C5BFF729BD36B600AAB593 /* gls_tiff_metadata.cpp */; };
+		E526ACBD2A4A2E170026A239 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E5FAE7F629C5438A00213AE6 /* Metal.framework */; };
+		E526ACBE2A4A2E2E0026A239 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E5FAE7F829C5439500213AE6 /* Foundation.framework */; };
+		E526ACC32A4A2E910026A239 /* libjpeg.8.2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = E526ACBF2A4A2E910026A239 /* libjpeg.8.2.2.dylib */; };
+		E526ACC42A4A2E910026A239 /* libtiffxx.a in Frameworks */ = {isa = PBXBuildFile; fileRef = E526ACC02A4A2E910026A239 /* libtiffxx.a */; };
+		E526ACC52A4A2E910026A239 /* libpng16.16.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = E526ACC12A4A2E910026A239 /* libpng16.16.dylib */; };
+		E526ACC62A4A2E910026A239 /* libtiff.a in Frameworks */ = {isa = PBXBuildFile; fileRef = E526ACC22A4A2E910026A239 /* libtiff.a */; };
 		E5C37E292A16D11800C6A689 /* CanonEOSRPCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C37E282A16D11800C6A689 /* CanonEOSRPCalibration.cpp */; };
 		E5C37E2A2A16D11800C6A689 /* CanonEOSRPCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C37E282A16D11800C6A689 /* CanonEOSRPCalibration.cpp */; };
 		E5C37E2C2A19C8D300C6A689 /* iPhone14UltraWideCalibration.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E5C37E2B2A19C8D300C6A689 /* iPhone14UltraWideCalibration.cpp */; };
@@ -108,6 +151,15 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		E526AC982A4A2CE90026A239 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		E5FAE7DF29C5420200213AE6 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -152,6 +204,30 @@
 		E522296B29CE421000D13A4F /* tinyicc.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = tinyicc.hpp; sourceTree = "<group>"; };
 		E522296C29D026DA00D13A4F /* iPhoneCalibration.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = iPhoneCalibration.cpp; sourceTree = "<group>"; };
 		E522296F29D02EEA00D13A4F /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.3.sdk/System/Library/Frameworks/CoreGraphics.framework; sourceTree = DEVELOPER_DIR; };
+		E526AC7C2A4A1AEA0026A239 /* SURF.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SURF.cpp; sourceTree = "<group>"; };
+		E526AC7D2A4A1AEA0026A239 /* LeastSquaresHomography.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = LeastSquaresHomography.cpp; sourceTree = "<group>"; };
+		E526AC7E2A4A1AEA0026A239 /* SURF.metal */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.metal; path = SURF.metal; sourceTree = "<group>"; };
+		E526AC7F2A4A1AEA0026A239 /* Homography.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = Homography.hpp; sourceTree = "<group>"; };
+		E526AC802A4A1AEA0026A239 /* Homography.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Homography.cpp; sourceTree = "<group>"; };
+		E526AC822A4A1AEA0026A239 /* RANSAC.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = RANSAC.hpp; sourceTree = "<group>"; };
+		E526AC832A4A1AEA0026A239 /* MLESAC.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = MLESAC.hpp; sourceTree = "<group>"; };
+		E526AC842A4A1AEA0026A239 /* Base.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = Base.hpp; sourceTree = "<group>"; };
+		E526AC852A4A1AEA0026A239 /* RTL.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = RTL.hpp; sourceTree = "<group>"; };
+		E526AC862A4A1AEA0026A239 /* Evaluator.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = Evaluator.hpp; sourceTree = "<group>"; };
+		E526AC872A4A1AEA0026A239 /* Line.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = Line.hpp; sourceTree = "<group>"; };
+		E526AC882A4A1AEA0026A239 /* MSAC.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = MSAC.hpp; sourceTree = "<group>"; };
+		E526AC892A4A1AEA0026A239 /* LMedS.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = LMedS.hpp; sourceTree = "<group>"; };
+		E526AC8A2A4A1AEA0026A239 /* feature2d.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = feature2d.hpp; sourceTree = "<group>"; };
+		E526AC8B2A4A1AEA0026A239 /* SURF.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = SURF.hpp; sourceTree = "<group>"; };
+		E526AC8C2A4A1AEA0026A239 /* LeastSquaresHomography.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = LeastSquaresHomography.hpp; sourceTree = "<group>"; };
+		E526AC8D2A4A1AEA0026A239 /* SVD.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = SVD.hpp; sourceTree = "<group>"; };
+		E526AC9A2A4A2CE90026A239 /* PyramidFusion */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = PyramidFusion; sourceTree = BUILT_PRODUCTS_DIR; };
+		E526AC9C2A4A2CE90026A239 /* pyramidFusion.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = pyramidFusion.cpp; sourceTree = "<group>"; };
+		E526ACBF2A4A2E910026A239 /* libjpeg.8.2.2.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libjpeg.8.2.2.dylib; path = "../../../../opt/homebrew/Cellar/jpeg-turbo/2.1.5.1/lib/libjpeg.8.2.2.dylib"; sourceTree = "<group>"; };
+		E526ACC02A4A2E910026A239 /* libtiffxx.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libtiffxx.a; path = ../../../../opt/homebrew/Cellar/libtiff/4.5.0/lib/libtiffxx.a; sourceTree = "<group>"; };
+		E526ACC12A4A2E910026A239 /* libpng16.16.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libpng16.16.dylib; path = ../../../../opt/homebrew/Cellar/libpng/1.6.39/lib/libpng16.16.dylib; sourceTree = "<group>"; };
+		E526ACC22A4A2E910026A239 /* libtiff.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libtiff.a; path = ../../../../opt/homebrew/Cellar/libtiff/4.5.0/lib/libtiff.a; sourceTree = "<group>"; };
+		E526ACC72A4A2F380026A239 /* PyramidFusion.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PyramidFusion.entitlements; sourceTree = "<group>"; };
 		E57CA85929D04DFD006F5D3F /* float16.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = float16.hpp; sourceTree = "<group>"; };
 		E57CA85A29D3D472006F5D3F /* sciplot */ = {isa = PBXFileReference; lastKnownFileType = folder; path = sciplot; sourceTree = "<group>"; };
 		E59FB6A129D5FB1C008FD7AA /* demosaic_kernels.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = demosaic_kernels.hpp; sourceTree = "<group>"; };
@@ -232,6 +308,19 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		E526AC972A4A2CE90026A239 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E526ACC32A4A2E910026A239 /* libjpeg.8.2.2.dylib in Frameworks */,
+				E526ACC42A4A2E910026A239 /* libtiffxx.a in Frameworks */,
+				E526ACC52A4A2E910026A239 /* libpng16.16.dylib in Frameworks */,
+				E526ACC62A4A2E910026A239 /* libtiff.a in Frameworks */,
+				E526ACBE2A4A2E2E0026A239 /* Foundation.framework in Frameworks */,
+				E526ACBD2A4A2E170026A239 /* Metal.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E5D4D88627D1798D00F1D944 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -303,6 +392,47 @@
 			path = Resources;
 			sourceTree = "<group>";
 		};
+		E526AC7B2A4A1AEA0026A239 /* ImageRegistration */ = {
+			isa = PBXGroup;
+			children = (
+				E526AC812A4A1AEA0026A239 /* RTL */,
+				E526AC8A2A4A1AEA0026A239 /* feature2d.hpp */,
+				E526AC8D2A4A1AEA0026A239 /* SVD.hpp */,
+				E526AC7F2A4A1AEA0026A239 /* Homography.hpp */,
+				E526AC802A4A1AEA0026A239 /* Homography.cpp */,
+				E526AC8B2A4A1AEA0026A239 /* SURF.hpp */,
+				E526AC7C2A4A1AEA0026A239 /* SURF.cpp */,
+				E526AC7E2A4A1AEA0026A239 /* SURF.metal */,
+				E526AC8C2A4A1AEA0026A239 /* LeastSquaresHomography.hpp */,
+				E526AC7D2A4A1AEA0026A239 /* LeastSquaresHomography.cpp */,
+			);
+			path = ImageRegistration;
+			sourceTree = "<group>";
+		};
+		E526AC812A4A1AEA0026A239 /* RTL */ = {
+			isa = PBXGroup;
+			children = (
+				E526AC822A4A1AEA0026A239 /* RANSAC.hpp */,
+				E526AC832A4A1AEA0026A239 /* MLESAC.hpp */,
+				E526AC842A4A1AEA0026A239 /* Base.hpp */,
+				E526AC852A4A1AEA0026A239 /* RTL.hpp */,
+				E526AC862A4A1AEA0026A239 /* Evaluator.hpp */,
+				E526AC872A4A1AEA0026A239 /* Line.hpp */,
+				E526AC882A4A1AEA0026A239 /* MSAC.hpp */,
+				E526AC892A4A1AEA0026A239 /* LMedS.hpp */,
+			);
+			path = RTL;
+			sourceTree = "<group>";
+		};
+		E526AC9B2A4A2CE90026A239 /* PyramidFusion */ = {
+			isa = PBXGroup;
+			children = (
+				E526ACC72A4A2F380026A239 /* PyramidFusion.entitlements */,
+				E526AC9C2A4A2CE90026A239 /* pyramidFusion.cpp */,
+			);
+			path = PyramidFusion;
+			sourceTree = "<group>";
+		};
 		E5C5BFA529BC5DF900AAB593 /* Objective-C */ = {
 			isa = PBXGroup;
 			children = (
@@ -318,6 +448,10 @@
 		E5C5BFAA29BC630C00AAB593 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				E526ACBF2A4A2E910026A239 /* libjpeg.8.2.2.dylib */,
+				E526ACC12A4A2E910026A239 /* libpng16.16.dylib */,
+				E526ACC22A4A2E910026A239 /* libtiff.a */,
+				E526ACC02A4A2E910026A239 /* libtiffxx.a */,
 				E518E69C29F748480056E6BF /* CoreML.framework */,
 				E518E69A29F73B180056E6BF /* Vision.framework */,
 				E518E69829F73A7D0056E6BF /* CoreML.framework */,
@@ -411,6 +545,7 @@
 			isa = PBXGroup;
 			children = (
 				86276B3C29F3019300EFF0C3 /* Assets.xcassets */,
+				E526AC7B2A4A1AEA0026A239 /* ImageRegistration */,
 				E57CA85A29D3D472006F5D3F /* sciplot */,
 				E5C5C00029BD37F600AAB593 /* metal-cpp */,
 				E5C5C01229BD3DAE00AAB593 /* MetalPipeline */,
@@ -418,6 +553,7 @@
 				E5C5BFA529BC5DF900AAB593 /* Objective-C */,
 				E5D4D88B27D1798D00F1D944 /* GlassCamera */,
 				E5FAE7E229C5420200213AE6 /* PipelineTest */,
+				E526AC9B2A4A2CE90026A239 /* PyramidFusion */,
 				E5D4D88A27D1798D00F1D944 /* Products */,
 				E5C5BFAA29BC630C00AAB593 /* Frameworks */,
 			);
@@ -428,6 +564,7 @@
 			children = (
 				E5D4D88927D1798D00F1D944 /* Glass Camera.app */,
 				E5FAE7E129C5420200213AE6 /* PipelineTest */,
+				E526AC9A2A4A2CE90026A239 /* PyramidFusion */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -474,6 +611,23 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		E526AC992A4A2CE90026A239 /* PyramidFusion */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E526AC9E2A4A2CE90026A239 /* Build configuration list for PBXNativeTarget "PyramidFusion" */;
+			buildPhases = (
+				E526AC962A4A2CE90026A239 /* Sources */,
+				E526AC972A4A2CE90026A239 /* Frameworks */,
+				E526AC982A4A2CE90026A239 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = PyramidFusion;
+			productName = PyramidFusion;
+			productReference = E526AC9A2A4A2CE90026A239 /* PyramidFusion */;
+			productType = "com.apple.product-type.tool";
+		};
 		E5D4D88827D1798D00F1D944 /* GlassCamera */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = E5D4D89727D1798E00F1D944 /* Build configuration list for PBXNativeTarget "GlassCamera" */;
@@ -518,6 +672,9 @@
 				LastSwiftUpdateCheck = 1320;
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
+					E526AC992A4A2CE90026A239 = {
+						CreatedOnToolsVersion = 14.3;
+					};
 					E5D4D88827D1798D00F1D944 = {
 						CreatedOnToolsVersion = 13.2.1;
 						LastSwiftMigration = 1420;
@@ -542,6 +699,7 @@
 			targets = (
 				E5D4D88827D1798D00F1D944 /* GlassCamera */,
 				E5FAE7E029C5420200213AE6 /* PipelineTest */,
+				E526AC992A4A2CE90026A239 /* PyramidFusion */,
 			);
 		};
 /* End PBXProject section */
@@ -560,12 +718,49 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		E526AC962A4A2CE90026A239 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E526ACA12A4A2D600026A239 /* Homography.cpp in Sources */,
+				E526ACA22A4A2D600026A239 /* SURF.cpp in Sources */,
+				E526ACA32A4A2D600026A239 /* SURF.metal in Sources */,
+				E526ACA42A4A2D600026A239 /* LeastSquaresHomography.cpp in Sources */,
+				E526ACA52A4A2D600026A239 /* gls_mtl.cpp in Sources */,
+				E526ACA62A4A2D600026A239 /* demosaic.metal in Sources */,
+				E526ACA72A4A2D600026A239 /* demosaic_utils.cpp in Sources */,
+				E526ACA82A4A2D600026A239 /* PCA.cpp in Sources */,
+				E526ACA92A4A2D600026A239 /* pyramid_processor.cpp in Sources */,
+				E526ACAA2A4A2D600026A239 /* raw_converter.cpp in Sources */,
+				E526ACAB2A4A2D600026A239 /* CameraCalibration.cpp in Sources */,
+				E526ACAC2A4A2D600026A239 /* Sonya6400Calibration.cpp in Sources */,
+				E526ACAD2A4A2D600026A239 /* CanonEOSR6IICalibration.cpp in Sources */,
+				E526ACAE2A4A2D600026A239 /* CanonEOSRPCalibration.cpp in Sources */,
+				E526ACAF2A4A2D600026A239 /* iPhoneCalibration.cpp in Sources */,
+				E526ACB02A4A2D600026A239 /* iPhone14WideCalibration.cpp in Sources */,
+				E526ACB12A4A2D600026A239 /* iPhone14SelfieCalibration.cpp in Sources */,
+				E526ACB22A4A2D610026A239 /* iPhone14UltraWideCalibration.cpp in Sources */,
+				E526ACB32A4A2D610026A239 /* iPhone14TeleCalibration.cpp in Sources */,
+				E526ACB42A4A2D610026A239 /* iPhone14TeleFMENCalibration.cpp in Sources */,
+				E526ACB52A4A2D610026A239 /* ThreadPool.cpp in Sources */,
+				E526ACB62A4A2D610026A239 /* gls_color_science.cpp in Sources */,
+				E526ACB72A4A2D610026A239 /* gls_dng_lossless_jpeg.cpp in Sources */,
+				E526ACB82A4A2D610026A239 /* gls_image_jpeg.cpp in Sources */,
+				E526ACB92A4A2D610026A239 /* gls_image_png.cpp in Sources */,
+				E526ACBA2A4A2D610026A239 /* gls_image_tiff.cpp in Sources */,
+				E526ACBB2A4A2D610026A239 /* gls_logging.cpp in Sources */,
+				E526ACBC2A4A2D610026A239 /* gls_tiff_metadata.cpp in Sources */,
+				E526AC9D2A4A2CE90026A239 /* pyramidFusion.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E5D4D88527D1798D00F1D944 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				E5C5BFFC29BD36B600AAB593 /* gls_image_jpeg.cpp in Sources */,
 				8648F65E2A05B68300E76BA9 /* VolumeButtonUtils.swift in Sources */,
+				E526AC922A4A1AEA0026A239 /* SURF.metal in Sources */,
 				E522296D29D026DA00D13A4F /* iPhoneCalibration.cpp in Sources */,
 				E5C6986A29C926CD00F7062C /* ThreadPool.cpp in Sources */,
 				E5C6986329C925A600F7062C /* CameraCalibration.cpp in Sources */,
@@ -592,6 +787,8 @@
 				86276B3329EF4DA900EFF0C3 /* PhotoAsset.swift in Sources */,
 				86276B2529EF4D9700EFF0C3 /* CachedImageManager.swift in Sources */,
 				E5D4D8A627D183F700F1D944 /* PhotoCaptureProcessor.swift in Sources */,
+				E526AC942A4A1AEA0026A239 /* Homography.cpp in Sources */,
+				E526AC902A4A1AEA0026A239 /* LeastSquaresHomography.cpp in Sources */,
 				E5C6986D29C926F100F7062C /* Sonya6400Calibration.cpp in Sources */,
 				E5C6984D29C906FC00F7062C /* raw_converter.cpp in Sources */,
 				86276B3129EF4DA900EFF0C3 /* ZoomableScrollView.swift in Sources */,
@@ -611,6 +808,7 @@
 				E5C37E292A16D11800C6A689 /* CanonEOSRPCalibration.cpp in Sources */,
 				E5C5BFFE29BD36B600AAB593 /* gls_tiff_metadata.cpp in Sources */,
 				E518E6D529F9D1D10056E6BF /* iPhone14WideCalibration.cpp in Sources */,
+				E526AC8E2A4A1AEA0026A239 /* SURF.cpp in Sources */,
 				E5C6987F29CBAD8300F7062C /* RawProcessor.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -619,12 +817,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E526AC8F2A4A1AEA0026A239 /* SURF.cpp in Sources */,
 				E5C6986E29C926F100F7062C /* Sonya6400Calibration.cpp in Sources */,
 				E522296E29D026DA00D13A4F /* iPhoneCalibration.cpp in Sources */,
 				E5C6986B29C926CD00F7062C /* ThreadPool.cpp in Sources */,
 				E5E7CBAE29F4CA8300067C0B /* iPhone14TeleCalibration.cpp in Sources */,
 				E5C6986F29C92E9600F7062C /* demosaic.metal in Sources */,
 				E5C37E2D2A19C8D300C6A689 /* iPhone14UltraWideCalibration.cpp in Sources */,
+				E526AC932A4A1AEA0026A239 /* SURF.metal in Sources */,
 				E518E6DC29FC50D60056E6BF /* iPhone14TeleFMENCalibration.cpp in Sources */,
 				E5FAE7EB29C5425300213AE6 /* gls_mtl_image.hpp in Sources */,
 				E5FAE7EC29C5425300213AE6 /* gls_mtl.cpp in Sources */,
@@ -646,6 +846,8 @@
 				E5C37E332A1C1B0C00C6A689 /* iPhone14SelfieCalibration.cpp in Sources */,
 				E518E6D629F9D1D10056E6BF /* iPhone14WideCalibration.cpp in Sources */,
 				E5C37E2A2A16D11800C6A689 /* CanonEOSRPCalibration.cpp in Sources */,
+				E526AC952A4A1AEA0026A239 /* Homography.cpp in Sources */,
+				E526AC912A4A1AEA0026A239 /* LeastSquaresHomography.cpp in Sources */,
 				E518E6E82A00A4AB0056E6BF /* CanonEOSR6IICalibration.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -653,6 +855,61 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
+		E526AC9F2A4A2CE90026A239 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CODE_SIGN_ENTITLEMENTS = PyramidFusion/PyramidFusion.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 4A4DGXV9V7;
+				ENABLE_HARDENED_RUNTIME = YES;
+				HEADER_SEARCH_PATHS = (
+					"\"$(SRCROOT)/metal-cpp\"",
+					"\"$(SRCROOT)/GlassImage/include\"",
+					"\"$(SRCROOT)/sciplot\"",
+					/opt/homebrew/include/eigen3,
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"/opt/homebrew/Cellar/jpeg-turbo/2.1.5.1/lib",
+					/opt/homebrew/Cellar/libtiff/4.5.0/lib,
+					/opt/homebrew/Cellar/libpng/1.6.39/lib,
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.3;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SYSTEM_HEADER_SEARCH_PATHS = /opt/homebrew/include/;
+			};
+			name = Debug;
+		};
+		E526ACA02A4A2CE90026A239 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CODE_SIGN_ENTITLEMENTS = PyramidFusion/PyramidFusion.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 4A4DGXV9V7;
+				ENABLE_HARDENED_RUNTIME = YES;
+				HEADER_SEARCH_PATHS = (
+					"\"$(SRCROOT)/metal-cpp\"",
+					"\"$(SRCROOT)/GlassImage/include\"",
+					"\"$(SRCROOT)/sciplot\"",
+					/opt/homebrew/include/eigen3,
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"/opt/homebrew/Cellar/jpeg-turbo/2.1.5.1/lib",
+					/opt/homebrew/Cellar/libtiff/4.5.0/lib,
+					/opt/homebrew/Cellar/libpng/1.6.39/lib,
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.3;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SYSTEM_HEADER_SEARCH_PATHS = /opt/homebrew/include/;
+			};
+			name = Release;
+		};
 		E5D4D89527D1798E00F1D944 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -763,6 +1020,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
@@ -961,6 +1219,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		E526AC9E2A4A2CE90026A239 /* Build configuration list for PBXNativeTarget "PyramidFusion" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E526AC9F2A4A2CE90026A239 /* Debug */,
+				E526ACA02A4A2CE90026A239 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		E5D4D88427D1798D00F1D944 /* Build configuration list for PBXProject "GlassCamera" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
