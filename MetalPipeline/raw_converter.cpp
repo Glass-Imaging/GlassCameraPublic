@@ -146,7 +146,8 @@ void saveRawChannels(gls::image<gls::pixel_float4>& rgbaRawImage, const std::str
 }
 
 gls::mtl_image_2d<gls::pixel_float4>* RawConverter::demosaic(const gls::image<gls::luma_pixel_16>& rawImage,
-                                                                 DemosaicParameters* demosaicParameters) {
+                                                             DemosaicParameters* demosaicParameters,
+                                                             bool noiseReduction, bool postProcess) {
     allocateTextures(rawImage.size());
 
     // Zero histogram data
@@ -191,7 +192,7 @@ gls::mtl_image_2d<gls::pixel_float4>* RawConverter::demosaic(const gls::image<gl
 
     _gaussianBlurSobelImage(context, *_scaledRawImage, *_rawSobelImage, rawVariance[1], _rawGradientImage.get());
 
-    if (high_noise_image) {
+    if (noiseReduction && high_noise_image) {
         _bayerToRawRGBA(context, *_scaledRawImage, _rgbaRawImage.get(), demosaicParameters->bayerPattern);
 
         _despeckleRawRGBAImage(context, *_rgbaRawImage, *_rawGradientImage, noiseModel->rawNlf.second, _denoisedRgbaRawImage.get());
@@ -208,29 +209,38 @@ gls::mtl_image_2d<gls::pixel_float4>* RawConverter::demosaic(const gls::image<gl
 
     // --- Image Denoising ---
 
-    // Convert to YCbCr
-    _transformImage(context, *_linearRGBImageA, _linearRGBImageA.get(), cam_to_ycbcr);
+    if (noiseReduction) {
+        // Convert to YCbCr
+        _transformImage(context, *_linearRGBImageA, _linearRGBImageA.get(), cam_to_ycbcr);
 
-    denoisedImage = denoise(*_linearRGBImageA, demosaicParameters);
+        denoisedImage = denoise(*_linearRGBImageA, demosaicParameters);
 
-    // Convert to RGB
-    _transformImage(context, *denoisedImage, _linearRGBImageA.get(), ycbcr_to_cam);
+        // Convert to RGB
+        _transformImage(context, *denoisedImage, _linearRGBImageA.get(), ycbcr_to_cam);
 
-    if (_calibrateFromImage) {
-        dumpNoiseModel<5>(demosaicParameters->iso, *noiseModel);
+        if (_calibrateFromImage) {
+            dumpNoiseModel<5>(demosaicParameters->iso, *noiseModel);
+        }
+    } else {
+        auto histogramData = this->histogramData();
+        histogramData->black_level = 0.1;
+        histogramData->white_level = 1.0;
+        histogramData->mean = 0.22;
+        histogramData->median = 0.22;
     }
 
     // --- Image Post Processing ---
+    if (postProcess) {
+        // FIXME: This is horrible!
+        demosaicParameters->rgbConversionParameters.exposureBias += log2(demosaicParameters->exposure_multiplier);
 
-    // FIXME: This is horrible!
-    demosaicParameters->rgbConversionParameters.exposureBias += log2(demosaicParameters->exposure_multiplier);
+        // Use the first pixel value of the image as a seed for the noise to have a stable noise pattern for every given image
+        _convertTosRGB.randomSeed(rawImage[0][0]);
+        _convertTosRGB.initGradients();
 
-    // Use the first pixel value of the image as a seed for the noise to have a stable noise pattern for every given image
-    _convertTosRGB.randomSeed(rawImage[0][0]);
-    _convertTosRGB.initGradients();
-
-    _convertTosRGB(context, *_linearRGBImageA, _localToneMapping->getMask(), *demosaicParameters,
-                   _histogramImage.buffer(), /*luma_nlf=*/ 2.0f * rawVariance[1], _linearRGBImageA.get());
+        _convertTosRGB(context, *_linearRGBImageA, _localToneMapping->getMask(), *demosaicParameters,
+                       _histogramImage.buffer(), /*luma_nlf=*/ 2.0f * rawVariance[1], _linearRGBImageA.get());
+    }
 
     _mtlContext.waitForCompletion();
 

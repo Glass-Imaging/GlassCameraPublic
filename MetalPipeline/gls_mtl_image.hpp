@@ -83,6 +83,36 @@ public:
     }
 };
 
+#define DECLARE_TYPE_FORMATS(data_type, channel_type)                      \
+template <>                                                                \
+inline MTL::PixelFormat mtl_image<data_type>::ImageFormat() {              \
+    return channel_type;                                                   \
+}                                                                          \
+                                                                           \
+template <>                                                                \
+inline MTL::PixelFormat mtl_image<std::array<data_type, 2>>::ImageFormat() { \
+    return channel_type;                                                   \
+}                                                                          \
+                                                                           \
+template <>                                                                \
+inline MTL::PixelFormat mtl_image<std::array<data_type, 4>>::ImageFormat() { \
+    return channel_type;                                                   \
+}
+
+DECLARE_TYPE_FORMATS(float, MTL::PixelFormatR32Float)
+
+#if USE_FP16_FLOATS && !(__APPLE__ && __x86_64__)
+DECLARE_TYPE_FORMATS(gls::float16_t, MTL::PixelFormatR16Float)
+#endif
+
+DECLARE_TYPE_FORMATS(uint8_t, MTL::PixelFormatR8Unorm)
+DECLARE_TYPE_FORMATS(uint16_t, MTL::PixelFormatR16Unorm)
+DECLARE_TYPE_FORMATS(uint32_t, MTL::PixelFormatR32Uint)
+
+DECLARE_TYPE_FORMATS(int8_t, MTL::PixelFormatR8Snorm)
+DECLARE_TYPE_FORMATS(int16_t, MTL::PixelFormatR16Snorm)
+DECLARE_TYPE_FORMATS(int32_t, MTL::PixelFormatRG32Sint)
+
 template <typename T>
 class mtl_image_2d : public mtl_image<T> {
 protected:
@@ -191,6 +221,12 @@ public:
         std::copy(vec.begin(), vec.end(), this->data());
     }
 
+    Buffer(MTL::Device* device, const std::span<T> span) :
+    _buffer(NS::TransferPtr(device->newBuffer(sizeof(T) * span.size(), MTL::ResourceStorageModeShared)))
+    {
+        std::copy(span.begin(), span.end(), this->data());
+    }
+
     template< typename IteratorType >
     Buffer(MTL::Device* device, IteratorType startIterator, IteratorType endIterator) :
     _buffer(NS::TransferPtr(device->newBuffer(sizeof(T) * (endIterator - startIterator),
@@ -209,6 +245,10 @@ public:
 
     MTL::Buffer* buffer() const {
         return _buffer.get();
+    }
+
+    void copy_from(const std::span<T> span) {
+        std::copy(span.begin(), span.end(), this->data());
     }
 };
 

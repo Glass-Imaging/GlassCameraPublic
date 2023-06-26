@@ -1703,3 +1703,21 @@ kernel void convertTosRGB(texture2d<float> linearImage                  [[textur
 
     write_imagef(rgbImage, imageCoordinates, float4(clamp(rgb, 0.0, 1.0), 1.0));
 }
+
+kernel void convertToGrayscale(texture2d<float> linearImage                     [[texture(0)]],
+                               texture2d<float, access::write> grayscaleImage   [[texture(1)]],
+                               constant float3& transform                       [[buffer(2)]],
+                               uint2 index                                      [[thread_position_in_grid]])
+{
+    const int2 imageCoordinates = int2(index);
+
+    float3 pixel_value = (read_imagef(linearImage, imageCoordinates).xyz - 0.1) / 0.9;
+
+    // Conversion to grayscale, ensure definite positiveness
+    // float grayscale = sqrt(max(dot(transform, pixel_value), 0));
+
+    // float grayscale = toneCurve(max(dot(transform, pixel_value), 0.0), 3.5);
+    float grayscale = max(dot(transform, pixel_value), 0.0);
+
+    write_imagef(grayscaleImage, imageCoordinates, float4(grayscale, 0, 0, 0));
+}

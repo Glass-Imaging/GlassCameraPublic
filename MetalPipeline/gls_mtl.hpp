@@ -202,8 +202,7 @@ public:
 
     void dispatchThreads(const MTL::Size& gridSize, MTL::ComputeCommandEncoder* encoder) const {
         auto threadGroupSize = _pipelineState->maxTotalThreadsPerThreadgroup();
-        auto threadgroupSize = MTL::Size(threadGroupSize, 1, 1);
-        encoder->dispatchThreads(gridSize, threadgroupSize);
+        encoder->dispatchThreads(/*threadsPerGrid=*/ gridSize, /*threadsPerThreadgroup*/ MTL::Size(threadGroupSize, 1, 1));
     }
 
     void operator()(MTL::ComputeCommandEncoder* encoder, const MTL::Size& gridSize, Ts... ts) const {
@@ -224,6 +223,31 @@ public:
     void operator()(MetalContext* metalContext, const MTL::Size& gridSize, Ts... ts) const {
         metalContext->enqueue([&, this](MTL::CommandBuffer* commandBuffer){
             operator()(commandBuffer, gridSize, std::forward<Ts>(ts)...);
+        });
+    }
+
+    void dispatchThreads(const MTL::Size& gridSize, const MTL::Size& threadGroupSize, MTL::ComputeCommandEncoder* encoder) const {
+        encoder->dispatchThreads(/*threadsPerGrid=*/ gridSize, /*threadsPerThreadgroup*/ threadGroupSize);
+    }
+
+    void operator()(MTL::ComputeCommandEncoder* encoder, const MTL::Size& gridSize, const MTL::Size& threadGroupSize, Ts... ts) const {
+        assert(encoder);
+        encoder->setComputePipelineState(_pipelineState.get());
+        setArgs<0>(encoder, std::forward<Ts>(ts)...);
+        dispatchThreads(gridSize, threadGroupSize, encoder);
+    }
+
+    void operator()(MTL::CommandBuffer* commandBuffer, const MTL::Size& gridSize, const MTL::Size& threadGroupSize, Ts... ts) const {
+        auto encoder = commandBuffer->computeCommandEncoder();
+        if (encoder) {
+            operator()(encoder, gridSize, threadGroupSize, std::forward<Ts>(ts)...);
+            encoder->endEncoding();
+        }
+    }
+
+    void operator()(MetalContext* metalContext, const MTL::Size& gridSize, const MTL::Size& threadGroupSize, Ts... ts) const {
+        metalContext->enqueue([&, this](MTL::CommandBuffer* commandBuffer){
+            operator()(commandBuffer, gridSize, threadGroupSize, std::forward<Ts>(ts)...);
         });
     }
 };

@@ -145,6 +145,10 @@ std::unique_ptr<DemosaicParameters> unpackiPhone14TeleRawImage(const gls::image<
     return calibration.getDemosaicParameters(inputImage, xyz_rgb, dng_metadata, exif_metadata);
 }
 
+std::unique_ptr<CameraCalibration<5>> getiPhone14TeleCalibration() {
+    return std::make_unique<iPhone14TeleCalibration<5>>();
+}
+
 // --- NLFData ---
 
 template<>

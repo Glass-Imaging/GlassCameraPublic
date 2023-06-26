@@ -82,4 +82,14 @@ std::unique_ptr<DemosaicParameters> unpackCanonEOSRPRawImage(const gls::image<gl
                                                              const gls::Matrix<3, 3>& xyz_rgb,
                                                              gls::tiff_metadata* dng_metadata,
                                                              gls::tiff_metadata* exif_metadata);
+
+std::unique_ptr<DemosaicParameters> unpackLeicaQ2RawImage(const gls::image<gls::luma_pixel_16>& inputImage,
+                                                          const gls::Matrix<3, 3>& xyz_rgb,
+                                                          gls::tiff_metadata* dng_metadata,
+                                                          gls::tiff_metadata* exif_metadata);
+
+std::unique_ptr<CameraCalibration<5>> getLeicaQ2Calibration();
+
+std::unique_ptr<CameraCalibration<5>> getiPhone14TeleCalibration();
+
 #endif /* CameraCalibration_hpp */

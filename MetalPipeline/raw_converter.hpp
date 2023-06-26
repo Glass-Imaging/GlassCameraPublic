@@ -155,6 +155,10 @@ public:
         }
     }
 
+    MetalContext* context() {
+        return &_mtlContext;
+    }
+
     const std::vector<uint8_t>* icc_profile_data() const {
         return _icc_profile_data.get();
     }
@@ -175,7 +179,8 @@ public:
 
     gls::mtl_image_2d<gls::pixel_float4>* denoise(const gls::mtl_image_2d<gls::pixel_float4>& inputImage, DemosaicParameters* demosaicParameters);
 
-    gls::mtl_image_2d<gls::pixel_float4>* demosaic(const gls::image<gls::luma_pixel_16>& rawImage, DemosaicParameters* demosaicParameters);
+    gls::mtl_image_2d<gls::pixel_float4>* demosaic(const gls::image<gls::luma_pixel_16>& rawImage, DemosaicParameters* demosaicParameters,
+                                                   bool denoise = true, bool postProcess = true);
 
     gls::mtl_image_2d<gls::pixel_float4>* postprocess(gls::image<gls::pixel_float4>& rgbImage, DemosaicParameters* demosaicParameters);
 
